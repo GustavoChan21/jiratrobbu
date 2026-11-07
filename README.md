@@ -76,3 +76,17 @@ Se incluye `fix-ticket-activity.sql` en raíz como referencia del hotfix aplicad
 ## UI Jira/TROBBU v2
 
 La vista inicial ahora abre directamente en **Mis Tickets → Tabla**, con navegación y composición deliberadamente inspiradas en Jira: sidebar claro, workspace selector, productos, tabla/Kanban, filtros y CTA `Nuevo` dentro del panel principal. Los colores de TROBBU se conservan como tokens CSS.
+
+## UI Jira/TROBBU v3
+
+La versión v3 es un rediseño estructural, no únicamente de color:
+
+- Barra global superior estilo Jira con logo TROBBU, búsqueda global, Crear, notificaciones, ayuda y perfil.
+- Sidebar de proyecto independiente con workspace, Resumen, Tablero, Mis tareas, Equipo y productos con contadores.
+- Encabezado de página con breadcrumb, icono del módulo y acciones contextuales.
+- Tablero con métricas rápidas (Total, Desarrollo, QA y Cerrados), filtros y modos Tabla/Kanban.
+- Tabla Jira-like con estados semánticos, responsables, productos y fechas límite.
+- Kanban con columnas de baja densidad visual, tarjetas compactas y estados codificados por color.
+- Dashboard con KPIs, avance por producto y distribución por estado.
+- Responsive para escritorio, tablet y móvil.
+- `index.html` usa `?v=3.0.0` en `styles.css`, `config.js` y `app.js` para evitar que GitHub Pages/Safari reutilicen assets cacheados de versiones anteriores.

@@ -237,55 +237,75 @@ function WorkspaceApp({ session }) {
   }[view]
 
   return <div className="app-shell">
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <img src="./logo.svg" alt="TROBBU" className="sidebar-logo" />
-        <div><strong>TROBBU</strong><span>Jira Interno</span></div>
+    <header className="global-header">
+      <div className="global-brand">
+        <button className="app-switcher" title="Aplicaciones"><Icon name="lucide:grid-2x2" size={19} /></button>
+        <img src="./logo.svg" alt="TROBBU" className="global-logo" />
+        <span className="brand-divider"></span>
+        <strong>Jira Interno</strong>
       </div>
+      <div className="global-search">
+        <Icon name="lucide:search" size={18} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar tickets, proyectos o personas" />
+        <kbd>⌘ K</kbd>
+      </div>
+      <div className="global-actions">
+        <button className="global-create" onClick={() => setTicketModal(true)}><Icon name="lucide:plus" size={18} /> Crear</button>
+        <button className="header-icon" title="Notificaciones"><Icon name="lucide:bell" size={19} /><span className="notification-dot"></span></button>
+        <button className="header-icon" title="Ayuda"><Icon name="lucide:circle-help" size={19} /></button>
+        <button className="profile-pill"><span className="user-avatar small-avatar">{initials(currentName)}</span><span className="profile-copy"><b>{currentName}</b><small>{myRole.toUpperCase()}</small></span><Icon name="lucide:chevron-down" size={15} /></button>
+      </div>
+    </header>
 
-      <div className="sidebar-separator"></div>
-      <div className="sidebar-title-row"><span>WORKSPACES</span><button title="Nuevo workspace" onClick={canManage ? createWorkspace : undefined}><Icon name="lucide:plus-circle" size={17} /></button></div>
+    <aside className="sidebar">
+      <div className="workspace-label-row"><span>ESPACIO DE TRABAJO</span>{canManage && <button className="ghost-icon" onClick={createWorkspace} title="Nuevo workspace"><Icon name="lucide:plus" size={16} /></button>}</div>
       <button className="workspace-card">
-        <span className="workspace-avatar"><Icon name="lucide:panels-top-left" size={20} /></span>
-        <span className="workspace-copy"><b>{workspace?.name || 'Workspace'}</b><small>{myRole.toUpperCase()}</small></span>
+        <span className="workspace-avatar"><Icon name="lucide:layers-3" size={18} /></span>
+        <span className="workspace-copy"><b>{workspace?.name || 'Workspace'}</b><small>Software · {myRole.toUpperCase()}</small></span>
         <Icon name="lucide:chevrons-up-down" size={15} />
       </button>
 
       <nav className="sidebar-nav">
-        <button className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}><Icon name="lucide:house" /><span>Inicio</span></button>
+        <button className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}><Icon name="lucide:layout-dashboard" /><span>Resumen</span></button>
+        <button className={view === 'board' ? 'active' : ''} onClick={() => setView('board')}><Icon name="lucide:columns-3" /><span>Tablero</span><em>{scopedTickets.length}</em></button>
         <button className={view === 'tasks' ? 'active' : ''} onClick={() => setView('tasks')}><Icon name="lucide:circle-check-big" /><span>Mis tareas</span><em>{myTickets.length}</em></button>
-        <button className={view === 'board' ? 'active' : ''} onClick={() => setView('board')}><Icon name="lucide:columns-3" /><span>Tablero</span></button>
-        <button className={view === 'team' ? 'active' : ''} onClick={() => setView('team')}><Icon name="lucide:users" /><span>Miembros</span></button>
+        <button className={view === 'team' ? 'active' : ''} onClick={() => setView('team')}><Icon name="lucide:users" /><span>Equipo</span></button>
       </nav>
 
-      <div className="sidebar-separator"></div>
-      <div className="sidebar-title-row"><span>PRODUCTOS</span><button title="Productos"><Icon name="lucide:folder-plus" size={17} /></button></div>
-      <div className="product-list">
-        <button className={productId === 'all' ? 'product active' : 'product'} onClick={() => setProductId('all')}><span className="product-icon product-all"><Icon name="lucide:boxes" size={16} /></span><span>Todos los productos</span></button>
-        {products.map((p, index) => <button key={p.id} className={productId === p.id ? 'product active' : 'product'} onClick={() => { setProductId(p.id); setView('board') }}>
-          <span className={`product-icon product-${index % 3}`}><Icon name={index % 3 === 2 ? 'lucide:smartphone' : index % 3 === 1 ? 'lucide:users-round' : 'lucide:monitor-cog'} size={16} /></span>
-          <span>{p.name}</span>
-        </button>)}
+      <div className="sidebar-section">
+        <div className="sidebar-section-heading"><span>PRODUCTOS</span><Icon name="lucide:more-horizontal" size={16} /></div>
+        <div className="product-list">
+          <button className={productId === 'all' ? 'product active' : 'product'} onClick={() => setProductId('all')}>
+            <span className="product-icon product-all"><Icon name="lucide:boxes" size={16} /></span><span>Todos los productos</span><b>{tickets.length}</b>
+          </button>
+          {products.map((p, index) => <button key={p.id} className={productId === p.id ? 'product active' : 'product'} onClick={() => { setProductId(p.id); setView('board') }}>
+            <span className={`product-icon product-${index % 3}`}><Icon name={index % 3 === 2 ? 'lucide:smartphone' : index % 3 === 1 ? 'lucide:users-round' : 'lucide:monitor-cog'} size={16} /></span>
+            <span>{p.name}</span><b>{tickets.filter(t => t.product_id === p.id).length}</b>
+          </button>)}
+        </div>
       </div>
 
+      <div className="sidebar-section sidebar-bottom-links">
+        <button><Icon name="lucide:settings" /><span>Configuración</span></button>
+        <button><Icon name="lucide:life-buoy" /><span>Soporte</span></button>
+      </div>
       <div className="sidebar-user">
         <div className="user-avatar">{initials(currentName)}</div>
         <div className="user-copy"><b>{currentName}</b><span>{session.user.email}</span></div>
-        <button className="icon-button" title="Cerrar sesión" onClick={() => db.auth.signOut()}><Icon name="lucide:log-out" size={18} /></button>
+        <button className="ghost-icon" title="Cerrar sesión" onClick={() => db.auth.signOut()}><Icon name="lucide:log-out" size={17} /></button>
       </div>
     </aside>
 
     <main className="main-area">
-      <header className="topbar">
-        <div className="page-heading">
-          <div className="breadcrumb"><span>{workspace?.name}</span><Icon name="lucide:chevron-right" size={14} /><span>{productId === 'all' ? 'Todos los productos' : products.find(p => p.id === productId)?.name}</span></div>
-          <h1>{pageMeta[0]}</h1>
-          <p>{pageMeta[1]}</p>
+      <header className="page-header">
+        <div>
+          <div className="breadcrumb"><span>Proyectos</span><Icon name="lucide:chevron-right" size={14} /><span>{productId === 'all' ? 'TROBBU Tecnología' : products.find(p => p.id === productId)?.name}</span></div>
+          <div className="page-title-row"><div className="page-project-icon"><Icon name={view === 'dashboard' ? 'lucide:layout-dashboard' : view === 'team' ? 'lucide:users' : 'lucide:clipboard-check'} size={22} /></div><div><h1>{pageMeta[0]}</h1><p>{pageMeta[1]}</p></div></div>
         </div>
-        <div className="top-user-actions">
-          <button className="icon-button top-icon" title="Notificaciones"><Icon name="lucide:bell" /></button>
-          <button className="icon-button top-icon" title="Ayuda"><Icon name="lucide:circle-help" /></button>
-          <div className="top-profile"><div className="user-avatar">{initials(currentName)}</div><div><b>{currentName}</b><span>{myRole.toUpperCase()}</span></div><Icon name="lucide:chevron-down" size={16} /></div>
+        <div className="page-actions">
+          {view === 'dashboard' && canManage && <button className="secondary-button" onClick={() => setSprintModal(true)}><Icon name="lucide:flag" size={16} /> Nuevo sprint</button>}
+          {view === 'team' && canManage && <button className="primary" onClick={() => setInviteModal(true)}><Icon name="lucide:user-plus" size={16} /> Invitar</button>}
+          {(view === 'board' || view === 'tasks') && <button className="primary" onClick={() => setTicketModal(true)}><Icon name="lucide:plus" size={17} /> Nuevo ticket</button>}
         </div>
       </header>
 
@@ -364,6 +384,9 @@ function TasksView({ tickets, products, members, sprints, sprintId, setSprintId,
 }
 
 function BoardWorkspace({ tickets, products, members, moveTicket, boardMode, setBoardMode, sprints, sprintId, setSprintId, statusFilter, setStatusFilter, assigneeFilter, setAssigneeFilter, search, setSearch, openTicket }) {
+  const inProgress = tickets.filter(t => ['in_progress','dev_done'].includes(t.status)).length
+  const inQA = tickets.filter(t => ['qa_review','qa_rejected','qa_passed'].includes(t.status)).length
+  const closed = tickets.filter(t => t.status === 'closed').length
   return <div className="content board-content">
     <section className="workspace-panel board-panel">
       <div className="workspace-tabs">
@@ -372,6 +395,13 @@ function BoardWorkspace({ tickets, products, members, moveTicket, boardMode, set
           <button className={boardMode === 'kanban' ? 'active' : ''} onClick={() => setBoardMode('kanban')}><Icon name="lucide:columns-3" /> Kanban</button>
         </div>
         <button className="primary compact" onClick={openTicket}><Icon name="lucide:plus" /> Nuevo</button>
+      </div>
+
+      <div className="board-summary">
+        <div><span>Total</span><b>{tickets.length}</b></div>
+        <div><span>En desarrollo</span><b>{inProgress}</b></div>
+        <div><span>En QA</span><b>{inQA}</b></div>
+        <div><span>Cerrados</span><b>{closed}</b></div>
       </div>
 
       <div className="filterbar">
