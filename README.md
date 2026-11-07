@@ -1,195 +1,130 @@
-# Jira Interno TROBBU v12.1
+# Jira Interno TROBBU v13.0
 
-Plataforma interna tipo Jira para TROBBU, preparada para ejecutarse directamente desde **GitHub Pages** con todos los archivos en la carpeta raíz y Supabase como backend.
+Aplicación tipo Jira para gestión de desarrollo, QA, Backlog, Sprints, Helpdesk y planificación Timeline/Gantt. Está diseñada para funcionar desde GitHub Pages con todos los archivos en la carpeta raíz y persistencia en Supabase.
 
-## Novedades v12.1
+## Novedades v13.0
 
-- Nuevo módulo **Staff y Roles** por workspace.
-- Roles base: **Consulta, Dev, QA, PM, Admin y Superadmin**.
-- Permisos efectivos ajustables por usuario.
-- Alcance de productos por usuario: **Todos** o una selección concreta.
-- Superadmin conserva siempre todos los permisos y todos los productos, aunque existan overrides restrictivos.
-- RLS de tickets, comentarios, actividad, evidencias y notificaciones respeta workspace + producto.
-- Nuevo **Cronograma Gantt** tipo Jira/Roadmap con duración, progreso, sprints, vencimientos y proyección.
-- Footers de todos los formularios/modales unificados: `Cancelar` + acción principal, sin márgenes negativos ni diálogos JS nativos.
+### Staff y Roles administrables
 
-## Jerarquía de acceso
+Los roles dejan de ser una matriz informativa y pasan a ser entidades reales por workspace (`workspace_roles`). Cada workspace inicia con seis roles base:
 
-La autorización tiene dos niveles:
+- **Superadmin** — control total obligatorio; todos los permisos y todos los productos.
+- **Admin** — administración integral; sus permisos y alcance de productos pueden limitarse.
+- **PM** — planeación, Backlog, Sprints, Timeline/Gantt y seguimiento.
+- **Dev** — operación de desarrollo sobre productos autorizados.
+- **QA** — revisión QA, aprobaciones/rechazos y evidencias.
+- **Consulta** — lectura de dashboards, tickets, Backlog y Timeline.
 
-1. **Workspace:** el usuario debe ser miembro activo del espacio.
-2. **Producto:** dentro de ese workspace puede tener todos los productos o solo productos seleccionados.
+Desde **Equipo → Roles** un Superadmin/Admin con `Gestionar Staff` puede:
 
-Los productos, tickets, sprints, Helpdesk, configuración y Staff nunca se mezclan entre workspaces. Para administrar el acceso de un usuario en otro workspace, cambia al workspace correspondiente y edita su membresía ahí.
+- crear roles personalizados;
+- editar nombre, descripción, rol base y permisos;
+- desactivar roles;
+- eliminar roles no asignados;
+- consultar cuántos colaboradores usan cada rol.
 
-### Roles base
+El rol **Superadmin** está protegido: no se puede eliminar, desactivar ni restringir. El último Superadmin activo tampoco puede retirarse del workspace.
 
-| Rol | Base de permisos |
-| --- | --- |
-| **Consulta** | Ver dashboards, tableros, Backlog y Gantt de productos autorizados. Sin escritura. |
-| **Dev** | Consulta + crear/editar tickets y evidencias dentro de productos autorizados. |
-| **QA** | Dev + acciones de revisión QA. |
-| **PM** | Planeación, Backlog, sprints, Gantt, tickets, eliminación de tickets y Mesa Helpdesk. |
-| **Admin** | Todos los permisos funcionales del workspace y todos los productos. No puede otorgar Superadmin ni eliminar al último Superadmin. |
-| **Superadmin** | Control total forzado: Staff, productos, configuración, tickets, sprints, Helpdesk, todos los productos y eliminación del workspace. |
+### Acceso por workspace y producto
 
-Los roles son plantillas base. Desde **Staff → Accesos** se pueden activar/desactivar permisos individuales para cualquier rol excepto Superadmin. Superadmin siempre mantiene acceso total.
+Cada membresía pertenece a un workspace y puede tener:
 
-Permisos disponibles:
+- acceso a todos los productos; o
+- acceso únicamente a productos seleccionados.
 
-- Ver dashboards y estadísticas
-- Ver tickets y tableros
-- Crear tickets
-- Editar y mover tickets
-- Eliminar tickets
-- Backlog y sprints
-- Revisión QA
-- Mesa de Helpdesk
-- Staff y Roles
-- Administrar productos
-- Configuración
+El alcance se valida en RLS para catálogo de productos, tickets, actividad, comentarios, evidencias y notificaciones. **Solo Superadmin es global por obligación**; Admin, PM, Dev, QA, Consulta y roles personalizados pueden limitarse a productos concretos.
 
-## Staff y Roles
+### Alta de colaboradores robusta
 
-El módulo muestra por colaborador:
+`invite-member` v11 acepta `role_id`, alcance de productos y permisos individuales. También mantiene compatibilidad con UIs cacheadas:
 
-- workspace activo;
-- rol base;
-- estado activo/desactivado;
-- productos autorizados;
-- permisos efectivos.
+- `reporter` se normaliza a `Consulta` + permiso `Crear tickets`;
+- `viewer` se normaliza a `Consulta`.
 
-Admin y Superadmin tienen todos los productos. Para Dev, QA, PM y Consulta se puede elegir **Todos** o productos concretos.
+La función intenta enviar la invitación mediante Supabase Auth. Si el envío falla y el usuario aún no existe, crea una cuenta confirmada con una **contraseña temporal aleatoria** y la devuelve una sola vez al administrador autorizado. La UI muestra esas credenciales en un modal propio.
 
-La invitación de Staff se ejecuta mediante `invite-member` y guarda en una sola operación la membresía, rol, permisos y scope de productos.
+Los errores de la Edge Function se muestran con el mensaje real del backend; ya no se presenta únicamente `Edge Function returned a non-2xx status code`.
 
-## Tickets y productos
+### Timeline / Gantt tipo Jira
 
-Cada ticket pertenece obligatoriamente a un producto del mismo workspace. RLS valida el producto tanto para lectura como creación, edición, eliminación, comentarios, actividad, evidencia y notificaciones.
+El módulo **Timeline** muestra:
 
-También se valida que:
+- columna fija de tareas;
+- encabezado por meses y días;
+- sprints activos, planeados, vencidos y completados;
+- barras de tickets desde fecha de inicio hasta fecha de entrega;
+- progreso visual por estado;
+- navegación al mes anterior/siguiente y botón Hoy;
+- ventanas de 1, 3, 6 y 12 meses;
+- selector para saltar a cualquier sprint, incluidos históricos/cerrados;
+- tickets sin programación en una sección separada.
 
-- Responsable Dev pertenezca al workspace, tenga rol compatible y acceso al producto.
-- Responsable QA pertenezca al workspace, tenga rol compatible y acceso al producto.
-- Cambiar el producto vuelve a validar los responsables.
+Desde cada fila del Timeline, según permisos, se puede:
 
-## Cronograma Gantt
+- abrir detalle;
+- editar;
+- mover a Backlog;
+- eliminar.
 
-**Cronograma** es una vista independiente y también está disponible desde el Tablero.
+Mover a Backlog limpia `sprint_id`, fecha de inicio y fecha de entrega. Al volver a planificar un ticket sin fechas, toma por defecto el rango del sprint seleccionado.
 
-Incluye:
+### Formularios y responsive
 
-- zoom de 4, 8 o 12 semanas;
-- navegación anterior / Hoy / siguiente;
-- bandas de sprints activos y planeados;
-- barras por ticket usando fecha de inicio y fecha de entrega;
-- progreso visual derivado del estado del ticket;
-- tickets vencidos;
-- actividades sin fechas;
-- producto, clave y estado de cada ticket;
-- acceso directo al detalle del ticket.
+Todos los formularios utilizan el mismo footer:
 
-Progreso por estado utilizado para la proyección:
+- desktop/tablet: **Cancelar** a la izquierda y acción principal a la derecha;
+- móvil: botones apilados a ancho completo, primero Cancelar y después la acción principal.
 
-- Backlog: 0%
-- Por hacer: 10%
-- En curso: 45%
-- Desarrollo finalizado: 65%
-- Revisión QA: 78%
-- QA rechazado: 58%
-- QA aprobado: 92%
-- Cerrado: 100%
-
-## Backlog y Sprints
-
-Un ticket sin sprint queda en Backlog. Quien tenga `manage_sprints` puede planificarlo hacia un sprint.
-
-Al cerrar un sprint:
-
-- `QA aprobado` y `Cerrado` permanecen en el sprint histórico;
-- los pendientes pueden trasladarse al siguiente sprint;
-- si no se elige destino regresan al Backlog;
-- el sprint origen pasa a `completed`;
-- un sprint destino `planned` pasa a `active` automáticamente.
-
-## Evidencias
-
-Tickets y sprints admiten comentarios e imágenes de evidencia clasificadas como:
-
-**General · Revisión · Rechazo · Fix/Corrección · Cierre**
-
-Las imágenes se guardan en el bucket privado `jira-evidence`, con RLS y scope de producto para tickets.
+No se utilizan `alert()`, `prompt()` ni `confirm()` del navegador.
 
 ## Helpdesk
 
-### Mis solicitudes
+El Helpdesk mantiene dos experiencias:
 
-Cualquier miembro activo puede crear una solicitud y consultar su seguimiento:
+- **Mis solicitudes** para quien reporta: crear, consultar seguimiento y comentar sus propias solicitudes.
+- **Mesa de atención** para Staff autorizado: responsable, SLA, cambios de estado, actividad y dashboard.
 
-**Creado → En revisión → Atendido → Resuelto → Cerrado**
+Flujo:
 
-El requester puede comentar, pero no puede manipular estado, responsable ni SLA.
+`Creado → En revisión → Atendido → Resuelto → Cerrado`
 
-### Mesa de atención
+Departamentos por workspace:
 
-Solo quienes tengan el permiso efectivo `manage_helpdesk` pueden ver y atender solicitudes ajenas, asignarse casos y cambiar el flujo.
+Reservaciones, Recepción, Gerencia, Administración, Aperturas, Marketing, Callcenter, Plataforma, Atención a clientes y Atención a socios.
 
-Departamentos del portal:
+## Evidencias
 
-- Reservaciones
-- Recepción
-- Gerencia
-- Administración
-- Aperturas
-- Marketing
-- Callcenter
-- Plataforma
-- Atención a clientes
-- Atención a socios
+Tickets y Sprints admiten comentarios y evidencias privadas en Supabase Storage con tipos:
 
-## Modales / UX
+`Comentario · Revisión · Rechazo · Fix/Corrección · Cierre`
 
-Los formularios principales comparten un único `AsyncForm` con:
+El bucket `jira-evidence` es privado y la lectura/escritura respeta RLS y scope de producto.
 
-- cuerpo con scroll interno;
-- footer propio y fijo dentro del modal;
-- `Cancelar` separado de la acción primaria;
-- desktop/tablet: Cancelar izquierda, acción principal derecha;
-- móvil: botones apilados, a ancho completo;
-- sin `alert()`, `prompt()` o `confirm()` del navegador.
+## Archivos raíz
 
-## Base de datos
+El proyecto no requiere estructura `src/` ni subcarpetas para ejecutarse en GitHub Pages. Los principales archivos son:
 
-### Upgrade desde v11.2
+- `index.html`
+- `app.js`
+- `styles.css`
+- `config.js`
+- `logo.svg`
+- `database.sql`
+- `upgrade-v13.sql`
+- `invite-member.ts`
+- `process-notifications.ts`
+- `QA-REPORT.md`
 
-Por la restricción de PostgreSQL al añadir valores a enums, ejecutar y confirmar por separado:
+## Actualizar desde v12.1
 
-1. `upgrade-v12-enum.sql`
-2. `upgrade-v12.sql`
+Ejecutar `upgrade-v13.sql` sobre la base ya actualizada a v12.1 y desplegar la versión incluida de `invite-member.ts`.
 
-El proyecto Supabase productivo ya tiene estos cambios aplicados.
+Para una instalación nueva utilizar `database.sql`, que contiene las capas anteriores más la consolidación v13 al final.
 
-### Instalación nueva
+## GitHub Pages
 
-Utiliza `database.sql`, que ya contiene `consulta` en el enum inicial y el modelo v12 consolidado.
+Copiar el contenido del ZIP directamente a la raíz de `main`. `index.html` referencia `styles.css`, `config.js` y `app.js` con versión `13.0.0` para evitar cache de versiones anteriores.
 
-## Edge Functions
+## Seguridad
 
-- `invite-member`: invitación + rol + permisos + scope de productos.
-- `process-notifications`: cola de email mediante Resend/Mailgun cuando existe proveedor configurado.
-
-Las notificaciones in-app no dependen del proveedor de correo.
-
-## Estructura raíz / GitHub Pages
-
-No se usan `/src`, `/public` ni `/dist`. Los archivos operativos viven en la raíz.
-
-Publicación esperada:
-
-**Settings → Pages → Deploy from a branch → `main` → `/ (root)`**
-
-El frontend usa cache busting `v=12.1.0`.
-
-## QA
-
-Consulta `QA-REPORT.md` para las matrices RLS, E2E, JSX/CSS, botones/modales y responsive.
+La publishable key de Supabase incluida en `config.js` es una clave pública de cliente y todas las operaciones sensibles se protegen con RLS. No incluir `service_role`, contraseñas, API keys privadas ni secretos de correo en el repositorio.
