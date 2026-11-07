@@ -1,92 +1,99 @@
-# Jira Interno Trobbu · GitHub Pages
+# Jira Interno TROBBU · v4
 
-Esta variante está preparada para publicarse directamente desde la **raíz del repositorio**, sin `src/`, `public/`, `dist/`, `supabase/` ni ninguna otra subcarpeta.
+Versión estática preparada para GitHub Pages y Supabase, con todos los archivos en la raíz del repositorio.
+
+## Cambios principales v4
+
+- Creación y cambio entre múltiples workspaces.
+- Configuración funcional del workspace: nombre, zona horaria, duración de sprint, Helpdesk, SLA y notificaciones.
+- Productos: crear, editar y eliminar desde Configuración.
+- Sprints: crear, editar y eliminar desde Configuración.
+- Tickets: crear, ver detalle, editar, eliminar, mover en Kanban, comentar y revisar historial.
+- Menú de tres puntos funcional mediante modal de acciones.
+- Filtros en modal propio del sistema, sin `prompt`, `alert` ni `confirm` del navegador.
+- Helpdesk para solicitudes de otros departamentos con dashboard, área, categoría, prioridad, asignación, estado, fecha objetivo, comentarios e historial.
+- Centro de notificaciones in-app con leído/no leído y acceso directo al ticket/solicitud relacionada.
+- Equipo: invitaciones y edición de rol/estado de colaboradores.
+- UI estilo Jira con identidad TROBBU y logo SVG oficial.
 
 ## Estructura raíz
 
-- `index.html` — entrada pública para GitHub Pages.
-- `app.js` — aplicación React completa (JSX procesado en navegador con Babel Standalone).
-- `styles.css` — todos los estilos.
-- `config.js` — URL y publishable key pública de Supabase.
-- `database.sql` — respaldo del esquema de base de datos.
-- `invite-member.ts` — código fuente de la Edge Function para invitaciones.
-- `process-notifications.ts` — código fuente de la Edge Function para correos operativos.
-- `.nojekyll` — evita procesamiento Jekyll innecesario en GitHub Pages.
-- `package.json` — opcional; únicamente ofrece un servidor local sencillo.
+No existen carpetas `src`, `public`, `dist` o similares. GitHub Pages puede servir directamente:
 
-## Publicar en GitHub Pages
+- `index.html`
+- `app.js`
+- `styles.css`
+- `config.js`
+- `logo.svg`
+- `database.sql` — esquema base + actualización v4.
+- `upgrade-v4.sql` — solo actualización v4 para instalaciones que ya tenían v3.
+- `fix-ticket-activity.sql`
+- `invite-member.ts`
+- `process-notifications.ts`
+- `.nojekyll`
+- `.gitignore`
+- `package.json`
 
-1. Sube **todos estos archivos directamente a la raíz** de la rama `main`.
-2. En GitHub entra a **Settings → Pages**.
-3. En **Build and deployment**, selecciona **Deploy from a branch**.
-4. Selecciona `main` y carpeta `/ (root)`.
-5. Guarda los cambios.
+## Publicación GitHub Pages
 
-No ejecutes `npm run build`: esta versión está hecha específicamente para que GitHub Pages sirva los archivos directamente.
+1. Sustituye los archivos de la raíz de `main` por los de este paquete.
+2. Settings → Pages → Deploy from a branch.
+3. Selecciona `main` y `/ (root)`.
+4. La versión usa `?v=4.0.0` en los assets para evitar que Safari reutilice CSS/JS antiguos.
+
+URL canónica configurada:
+
+`https://gustavochan21.github.io/jiratrobbu/`
 
 ## Supabase
 
-La web apunta al proyecto existente `Jira Interno Trobbu` usando únicamente la publishable key, que puede vivir en frontend. No se incluye la contraseña de base de datos ni una service-role key.
+El backend productivo `prweelxfuvbsdsxfopuh` ya recibió las correcciones y tablas de v4. No hace falta ejecutar nuevamente los SQL en ese proyecto.
 
-Las Edge Functions `invite-member` y `process-notifications` ya fueron desplegadas en Supabase. Los archivos `.ts` de raíz son únicamente respaldo/versionado de su código fuente.
+Para una instalación nueva, ejecuta `database.sql`.
 
-Para correos operativos personalizados, la función `process-notifications` necesita en Supabase los secretos:
+Para una instalación existente basada en v3, ejecuta `upgrade-v4.sql`.
+
+### Tablas añadidas
+
+- `workspace_settings`
+- `helpdesk_departments`
+- `helpdesk_tickets`
+- `helpdesk_comments`
+- `helpdesk_activity`
+- `notifications`
+
+### Correcciones RLS
+
+La creación de workspaces ya permite que el creador vea inmediatamente la fila devuelta por `INSERT ... RETURNING`. También existe el RPC `create_workspace()` como `SECURITY INVOKER` para crear workspaces sin elevar privilegios.
+
+## QA realizado contra Supabase productivo
+
+Se ejecutó como rol `authenticated`, con RLS activo, dentro de transacciones con `ROLLBACK`:
+
+- Workspace: INSERT, SELECT, UPDATE, DELETE.
+- Compatibilidad `INSERT ... RETURNING` para workspaces.
+- RPC `create_workspace()` con `SECURITY INVOKER`.
+- Workspace settings: SELECT y UPDATE.
+- Producto: INSERT, UPDATE, DELETE.
+- Sprint: INSERT, UPDATE, DELETE.
+- Ticket: INSERT, UPDATE de estado/prioridad, DELETE.
+- Comentario de ticket: INSERT, UPDATE, DELETE.
+- Actividad de ticket: creación y cambio de estado.
+- Helpdesk department: INSERT, UPDATE, DELETE.
+- Helpdesk ticket: INSERT, UPDATE, DELETE.
+- Helpdesk comment: INSERT, UPDATE, DELETE.
+- Notificación in-app: SELECT, marcar como leída y DELETE.
+- Trigger de creación de ticket: genera notificación al reporter.
+- Trigger de Helpdesk: genera notificación al solicitante.
+- Eliminación de workspace: cascadas verificadas.
+
+El QA CRUD completo devolvió `PASS` y todas las transacciones de prueba fueron revertidas para no dejar registros de prueba.
+
+## Correos
+
+La Edge Function `process-notifications` sigue utilizando Resend para correos operativos. La cola de correo permanece separada de las notificaciones in-app. Para enviar correos se requieren los secretos de Supabase:
 
 - `RESEND_API_KEY`
 - `EMAIL_FROM`
 
-## Login y enlaces de correo en GitHub Pages
-
-Cuando definas la URL final del repositorio, agrega esa URL en Supabase Authentication como URL permitida de redirección. Por ejemplo:
-
-`https://USUARIO.github.io/REPOSITORIO/`
-
-La aplicación usa `window.location.pathname`, por lo que conserva correctamente el subdirectorio del repositorio al crear enlaces de confirmación e invitación.
-
-
-## URL productiva y autenticación
-
-La URL canónica usada por el frontend para confirmaciones e invitaciones es:
-
-`https://gustavochan21.github.io/jiratrobbu/`
-
-En Supabase → Authentication → URL Configuration configura esa URL como **Site URL** y agrégala también en **Redirect URLs**. El frontend ya envía `emailRedirectTo`/`redirect_to` a esa dirección y limpia `access_token`, `refresh_token` y parámetros de callback de la barra del navegador después de establecer la sesión.
-
-La cuenta administradora existente ya debe estar asociada al workspace `Trobbu Tecnología`; los colaboradores nuevos deben agregarse mediante la función de invitación para no otorgar acceso automático a registros públicos.
-
-## UI TROBBU / Jira
-
-La interfaz fue actualizada tomando como referencia visual Jira y Jira Clone, manteniendo la identidad TROBBU. Todo continúa en la raíz del repositorio.
-
-Archivos principales de UI:
-
-- `logo.svg` — logo TROBBU principal.
-- `styles.css` — paleta TROBBU de 20 colores y estilos Jira-like.
-- `app.js` — navegación, Dashboard, Mis tareas, Tabla/Kanban, filtros y modales.
-- `index.html` — carga Inter + Iconify para iconografía Lucide.
-
-La publicación en GitHub Pages sigue funcionando sin build y sin carpetas adicionales.
-
-## Corrección de auditoría de tickets
-
-El error `ticket_activity_ticket_id_fkey` quedó corregido en producción y en `database.sql`.
-La actividad `created` ahora se registra mediante un trigger `AFTER INSERT`, cuando el ticket padre ya existe.
-Se incluye `fix-ticket-activity.sql` en raíz como referencia del hotfix aplicado.
-
-## UI Jira/TROBBU v2
-
-La vista inicial ahora abre directamente en **Mis Tickets → Tabla**, con navegación y composición deliberadamente inspiradas en Jira: sidebar claro, workspace selector, productos, tabla/Kanban, filtros y CTA `Nuevo` dentro del panel principal. Los colores de TROBBU se conservan como tokens CSS.
-
-## UI Jira/TROBBU v3
-
-La versión v3 es un rediseño estructural, no únicamente de color:
-
-- Barra global superior estilo Jira con logo TROBBU, búsqueda global, Crear, notificaciones, ayuda y perfil.
-- Sidebar de proyecto independiente con workspace, Resumen, Tablero, Mis tareas, Equipo y productos con contadores.
-- Encabezado de página con breadcrumb, icono del módulo y acciones contextuales.
-- Tablero con métricas rápidas (Total, Desarrollo, QA y Cerrados), filtros y modos Tabla/Kanban.
-- Tabla Jira-like con estados semánticos, responsables, productos y fechas límite.
-- Kanban con columnas de baja densidad visual, tarjetas compactas y estados codificados por color.
-- Dashboard con KPIs, avance por producto y distribución por estado.
-- Responsive para escritorio, tablet y móvil.
-- `index.html` usa `?v=3.0.0` en `styles.css`, `config.js` y `app.js` para evitar que GitHub Pages/Safari reutilicen assets cacheados de versiones anteriores.
+Las notificaciones dentro de la plataforma no dependen de Resend.
