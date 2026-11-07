@@ -1,64 +1,140 @@
-# Jira Interno TROBBU v11.2
+# Jira Interno TROBBU v12.1
 
 Plataforma interna tipo Jira para TROBBU, preparada para ejecutarse directamente desde **GitHub Pages** con todos los archivos en la carpeta raíz y Supabase como backend.
 
-## Funcionalidades principales
+## Novedades v12.1
 
-- Workspaces completamente aislados: cada espacio tiene sus propios productos, tickets, sprints, miembros, configuraciones, Helpdesk, notificaciones y evidencias.
-- Productos iniciales por workspace: **Web Administrativa**, **Web Socios** y **App Socios**. Los Superadmins/Administradores pueden administrar el catálogo del espacio.
-- Tickets con Tabla, Kanban y **Calendario**.
-- Calendario mensual con fecha de inicio, rango de ejecución y fecha de entrega, más próximos vencimientos y tickets aún sin planificar.
-- **Backlog / Sprints** como módulo propio.
-- Planeación de tickets del Backlog hacia un sprint.
-- Cierre de sprint con traslado de tickets no resueltos al siguiente sprint o regreso automático al Backlog.
-- Detalle de sprint con objetivo, texto de detalle, avance, tickets, comentarios e imágenes de evidencia.
-- Detalle de ticket con comentarios e imágenes clasificadas como: Comentario, Revisión, Rechazo, Fix/Corrección o Cierre.
-- Imágenes privadas almacenadas en Supabase Storage (`jira-evidence`) con RLS por workspace.
-- Dashboard de sprint y estadísticas de tickets.
-- Centro de notificaciones in-app.
-- Invitación de colaboradores por workspace mediante Edge Function.
-- Diseño TROBBU inspirado en Jira, responsive y sin diálogos nativos `alert`, `prompt` o `confirm`.
+- Nuevo módulo **Staff y Roles** por workspace.
+- Roles base: **Consulta, Dev, QA, PM, Admin y Superadmin**.
+- Permisos efectivos ajustables por usuario.
+- Alcance de productos por usuario: **Todos** o una selección concreta.
+- Superadmin conserva siempre todos los permisos y todos los productos, aunque existan overrides restrictivos.
+- RLS de tickets, comentarios, actividad, evidencias y notificaciones respeta workspace + producto.
+- Nuevo **Cronograma Gantt** tipo Jira/Roadmap con duración, progreso, sprints, vencimientos y proyección.
+- Footers de todos los formularios/modales unificados: `Cancelar` + acción principal, sin márgenes negativos ni diálogos JS nativos.
 
-## Roles por workspace
+## Jerarquía de acceso
 
-Los permisos son independientes en cada workspace. Un usuario puede tener roles distintos en espacios diferentes.
+La autorización tiene dos niveles:
 
-| Rol | Permisos principales |
+1. **Workspace:** el usuario debe ser miembro activo del espacio.
+2. **Producto:** dentro de ese workspace puede tener todos los productos o solo productos seleccionados.
+
+Los productos, tickets, sprints, Helpdesk, configuración y Staff nunca se mezclan entre workspaces. Para administrar el acceso de un usuario en otro workspace, cambia al workspace correspondiente y edita su membresía ahí.
+
+### Roles base
+
+| Rol | Base de permisos |
 | --- | --- |
-| **Superadmin** | Control total del workspace, miembros, administradores, productos, configuración, tickets, sprints, Helpdesk y eliminación del workspace. Siempre debe existir al menos uno activo. |
-| **Administrador** | Administra configuración, equipo (excepto promover/modificar Superadmin), productos, tickets, sprints y Helpdesk. No puede eliminar el workspace. |
-| **Gestor / PM** | Planea Backlog y sprints, administra tickets y operación del Helpdesk. No administra productos, configuración general ni equipo. |
-| **Desarrollo** | Opera tickets, estados, comentarios/evidencias y solicitudes asignadas. No crea/administra sprints ni configuración. |
-| **QA** | Opera revisión QA, comentarios/evidencias y solicitudes de Helpdesk. No administra sprints ni configuración. |
-| **Solo carga de tickets** | Puede crear tickets propios exclusivamente en Backlog y consultar solo los tickets que reportó. No puede asignar sprint, Dev/QA, story points ni fechas. |
-| **Solo dashboards** | Solo lectura de Resumen, Tablero, Backlog/Sprints y Calendario. No puede crear ni modificar tickets. |
+| **Consulta** | Ver dashboards, tableros, Backlog y Gantt de productos autorizados. Sin escritura. |
+| **Dev** | Consulta + crear/editar tickets y evidencias dentro de productos autorizados. |
+| **QA** | Dev + acciones de revisión QA. |
+| **PM** | Planeación, Backlog, sprints, Gantt, tickets, eliminación de tickets y Mesa Helpdesk. |
+| **Admin** | Todos los permisos funcionales del workspace y todos los productos. No puede otorgar Superadmin ni eliminar al último Superadmin. |
+| **Superadmin** | Control total forzado: Staff, productos, configuración, tickets, sprints, Helpdesk, todos los productos y eliminación del workspace. |
 
-El **portal Helpdesk** permanece disponible para todos los miembros del workspace independientemente del rol Jira: cada usuario puede crear y consultar sus propias solicitudes.
+Los roles son plantillas base. Desde **Staff → Accesos** se pueden activar/desactivar permisos individuales para cualquier rol excepto Superadmin. Superadmin siempre mantiene acceso total.
+
+Permisos disponibles:
+
+- Ver dashboards y estadísticas
+- Ver tickets y tableros
+- Crear tickets
+- Editar y mover tickets
+- Eliminar tickets
+- Backlog y sprints
+- Revisión QA
+- Mesa de Helpdesk
+- Staff y Roles
+- Administrar productos
+- Configuración
+
+## Staff y Roles
+
+El módulo muestra por colaborador:
+
+- workspace activo;
+- rol base;
+- estado activo/desactivado;
+- productos autorizados;
+- permisos efectivos.
+
+Admin y Superadmin tienen todos los productos. Para Dev, QA, PM y Consulta se puede elegir **Todos** o productos concretos.
+
+La invitación de Staff se ejecuta mediante `invite-member` y guarda en una sola operación la membresía, rol, permisos y scope de productos.
+
+## Tickets y productos
+
+Cada ticket pertenece obligatoriamente a un producto del mismo workspace. RLS valida el producto tanto para lectura como creación, edición, eliminación, comentarios, actividad, evidencia y notificaciones.
+
+También se valida que:
+
+- Responsable Dev pertenezca al workspace, tenga rol compatible y acceso al producto.
+- Responsable QA pertenezca al workspace, tenga rol compatible y acceso al producto.
+- Cambiar el producto vuelve a validar los responsables.
+
+## Cronograma Gantt
+
+**Cronograma** es una vista independiente y también está disponible desde el Tablero.
+
+Incluye:
+
+- zoom de 4, 8 o 12 semanas;
+- navegación anterior / Hoy / siguiente;
+- bandas de sprints activos y planeados;
+- barras por ticket usando fecha de inicio y fecha de entrega;
+- progreso visual derivado del estado del ticket;
+- tickets vencidos;
+- actividades sin fechas;
+- producto, clave y estado de cada ticket;
+- acceso directo al detalle del ticket.
+
+Progreso por estado utilizado para la proyección:
+
+- Backlog: 0%
+- Por hacer: 10%
+- En curso: 45%
+- Desarrollo finalizado: 65%
+- Revisión QA: 78%
+- QA rechazado: 58%
+- QA aprobado: 92%
+- Cerrado: 100%
+
+## Backlog y Sprints
+
+Un ticket sin sprint queda en Backlog. Quien tenga `manage_sprints` puede planificarlo hacia un sprint.
+
+Al cerrar un sprint:
+
+- `QA aprobado` y `Cerrado` permanecen en el sprint histórico;
+- los pendientes pueden trasladarse al siguiente sprint;
+- si no se elige destino regresan al Backlog;
+- el sprint origen pasa a `completed`;
+- un sprint destino `planned` pasa a `active` automáticamente.
+
+## Evidencias
+
+Tickets y sprints admiten comentarios e imágenes de evidencia clasificadas como:
+
+**General · Revisión · Rechazo · Fix/Corrección · Cierre**
+
+Las imágenes se guardan en el bucket privado `jira-evidence`, con RLS y scope de producto para tickets.
 
 ## Helpdesk
 
-El módulo se divide en dos experiencias:
-
 ### Mis solicitudes
 
-Portal para cualquier miembro del workspace:
-
-1. Crear solicitud.
-2. Consultar únicamente sus solicitudes.
-3. Ver el avance completo.
-4. Añadir comentarios de seguimiento.
-
-El requester no puede modificar responsable, estado, SLA ni datos internos después del alta.
-
-Flujo:
+Cualquier miembro activo puede crear una solicitud y consultar su seguimiento:
 
 **Creado → En revisión → Atendido → Resuelto → Cerrado**
 
+El requester puede comentar, pero no puede manipular estado, responsable ni SLA.
+
 ### Mesa de atención
 
-Disponible para Superadmin, Administrador, PM, Desarrollo y QA. Permite consultar todas las solicitudes del workspace, asignar responsable, avanzar estado, registrar comentarios y controlar SLA.
+Solo quienes tengan el permiso efectivo `manage_helpdesk` pueden ver y atender solicitudes ajenas, asignarse casos y cambiar el flujo.
 
-Departamentos solicitantes configurados por workspace:
+Departamentos del portal:
 
 - Reservaciones
 - Recepción
@@ -71,74 +147,49 @@ Departamentos solicitantes configurados por workspace:
 - Atención a clientes
 - Atención a socios
 
-## Backlog y Sprints
+## Modales / UX
 
-Un ticket sin sprint pertenece al Backlog. Superadmin, Administrador o PM pueden planificarlo hacia un sprint.
+Los formularios principales comparten un único `AsyncForm` con:
 
-Al cerrar un sprint:
+- cuerpo con scroll interno;
+- footer propio y fijo dentro del modal;
+- `Cancelar` separado de la acción primaria;
+- desktop/tablet: Cancelar izquierda, acción principal derecha;
+- móvil: botones apilados, a ancho completo;
+- sin `alert()`, `prompt()` o `confirm()` del navegador.
 
-- tickets `QA aprobado` o `Cerrado` permanecen en el sprint concluido;
-- tickets no resueltos pueden pasar al siguiente sprint;
-- si no se selecciona sprint destino, regresan a Backlog y su estado se establece en Backlog;
-- el sprint origen queda `completed`;
-- un sprint destino `planned` pasa a `active` automáticamente.
+## Base de datos
 
-## Evidencias
+### Upgrade desde v11.2
 
-Las evidencias son privadas y se guardan en el bucket `jira-evidence`. Se aceptan JPEG, PNG, WebP y GIF de hasta 10 MB.
+Por la restricción de PostgreSQL al añadir valores a enums, ejecutar y confirmar por separado:
 
-Rutas internas:
+1. `upgrade-v12-enum.sql`
+2. `upgrade-v12.sql`
 
-- `<workspace>/tickets/<ticket>/...`
-- `<workspace>/sprints/<sprint>/...`
+El proyecto Supabase productivo ya tiene estos cambios aplicados.
 
-La visibilidad sigue los permisos del workspace. El rol Solo carga puede ver evidencias de sus propios tickets pero no subirlas; Solo dashboards puede ver evidencias pero no escribir.
+### Instalación nueva
 
-## Estructura raíz
-
-La aplicación no requiere `/src`, `/public` ni `/dist`:
-
-- `index.html`
-- `app.js`
-- `styles.css`
-- `config.js`
-- `logo.svg`
-- `database.sql`
-- `upgrade-v11-enum.sql`
-- `upgrade-v11.sql`
-- `invite-member.ts`
-- `process-notifications.ts`
-- `QA-REPORT.md`
-- archivos de upgrades anteriores como respaldo histórico
-
-GitHub Pages solo necesita los archivos frontend de raíz.
-
-## Actualizar una BD v10.1 a v11
-
-Por una restricción de PostgreSQL con valores nuevos de enums, ejecutar en este orden y confirmar cada archivo por separado:
-
-1. `upgrade-v11-enum.sql`
-2. `upgrade-v11.sql`
-
-En el proyecto Supabase productivo de este proyecto estos cambios **ya fueron aplicados**.
-
-Para una instalación nueva se puede utilizar directamente `database.sql`, que ya contiene los nuevos roles y el upgrade v11 consolidado.
+Utiliza `database.sql`, que ya contiene `consulta` en el enum inicial y el modelo v12 consolidado.
 
 ## Edge Functions
 
-- `invite-member`: invita colaboradores y asigna el rol dentro del workspace. Solo Superadmin/Administrador pueden invitar; solo Superadmin puede otorgar Superadmin.
-- `process-notifications`: procesa correo transaccional mediante Resend o Mailgun cuando existe un proveedor configurado.
+- `invite-member`: invitación + rol + permisos + scope de productos.
+- `process-notifications`: cola de email mediante Resend/Mailgun cuando existe proveedor configurado.
 
-Las notificaciones dentro de la plataforma no dependen de un proveedor externo de email.
+Las notificaciones in-app no dependen del proveedor de correo.
 
-## GitHub Pages
+## Estructura raíz / GitHub Pages
 
-Publicar desde:
+No se usan `/src`, `/public` ni `/dist`. Los archivos operativos viven en la raíz.
+
+Publicación esperada:
 
 **Settings → Pages → Deploy from a branch → `main` → `/ (root)`**
 
-La versión frontend usa cache busting `v=11.2.0` en `index.html`.
+El frontend usa cache busting `v=12.1.0`.
 
 ## QA
 
-Consulta `QA-REPORT.md`. La revisión v11 incluyó RLS por rol, aislamiento multi-workspace, Backlog/rollover, Helpdesk, evidencias, sintaxis JSX, botones/modales y pruebas visuales desktop/tablet/móvil.
+Consulta `QA-REPORT.md` para las matrices RLS, E2E, JSX/CSS, botones/modales y responsive.

@@ -38,16 +38,44 @@ const PRIORITIES = ['lowest','low','medium','high','highest','blocker']
 const PRIORITY_LABELS = {lowest:'Muy baja',low:'Baja',medium:'Media',high:'Alta',highest:'Muy alta',blocker:'Bloqueante'}
 const TYPES = ['task','bug','story','improvement']
 const TYPE_LABELS = {task:'Tarea',bug:'Bug',story:'Historia',improvement:'Mejora'}
-const ROLE_LABELS = {superadmin:'Superadmin',admin:'Administrador',pm:'Gestor / PM',dev:'Desarrollo',qa:'QA',reporter:'Solo carga de tickets',viewer:'Solo dashboards'}
+const ROLE_LABELS = {superadmin:'Superadmin',admin:'Admin',pm:'PM',dev:'Dev',qa:'QA',consulta:'Consulta'}
 const ROLE_DESCRIPTIONS = {
-  superadmin:'Control total del workspace, permisos, configuración y eliminación.',
-  admin:'Administra equipo, productos, configuración y operación del workspace.',
-  pm:'Gestiona sprints, backlog, tickets y seguimiento de entregas.',
-  dev:'Opera tickets de desarrollo, comentarios y evidencias.',
-  qa:'Opera revisión QA, rechazo, aprobación y evidencias.',
-  reporter:'Puede crear tickets y consultar únicamente los que reportó.',
-  viewer:'Puede consultar dashboards, tablero y calendario sin modificar datos.'
+  superadmin:'Control total del workspace. Siempre accede a todos los productos, módulos, configuración y pruebas.',
+  admin:'Administra Staff, productos, configuración y toda la operación del workspace.',
+  pm:'Gestiona planeación, Backlog, sprints, tickets, cronograma y seguimiento.',
+  dev:'Trabaja tickets de desarrollo dentro de los productos asignados.',
+  qa:'Trabaja revisión, rechazo, aprobación y evidencias dentro de los productos asignados.',
+  consulta:'Acceso de solo lectura a dashboards, tableros, Backlog y cronograma de los productos autorizados.'
 }
+const PERMISSION_DEFS = [
+  ['view_dashboard','Dashboards y estadísticas','lucide:chart-no-axes-combined'],
+  ['view_tickets','Ver tickets y tableros','lucide:columns-3'],
+  ['create_tickets','Crear tickets','lucide:ticket-plus'],
+  ['edit_tickets','Editar y mover tickets','lucide:pencil'],
+  ['delete_tickets','Eliminar tickets','lucide:trash-2'],
+  ['manage_sprints','Backlog y sprints','lucide:list-todo'],
+  ['qa_review','Revisión QA','lucide:scan-search'],
+  ['manage_helpdesk','Mesa de Helpdesk','lucide:life-buoy'],
+  ['manage_staff','Staff y Roles','lucide:users'],
+  ['manage_products','Administrar productos','lucide:boxes'],
+  ['manage_settings','Configuración','lucide:settings']
+]
+const ROLE_DEFAULTS = {
+  superadmin:Object.fromEntries(PERMISSION_DEFS.map(([k])=>[k,true])),
+  admin:Object.fromEntries(PERMISSION_DEFS.map(([k])=>[k,true])),
+  pm:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:true,manage_sprints:true,qa_review:true,manage_helpdesk:true,manage_staff:false,manage_products:false,manage_settings:false},
+  dev:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:false,manage_sprints:false,qa_review:false,manage_helpdesk:false,manage_staff:false,manage_products:false,manage_settings:false},
+  qa:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:false,manage_sprints:false,qa_review:true,manage_helpdesk:false,manage_staff:false,manage_products:false,manage_settings:false},
+  consulta:{view_dashboard:true,view_tickets:true,create_tickets:false,edit_tickets:false,delete_tickets:false,manage_sprints:false,qa_review:false,manage_helpdesk:false,manage_staff:false,manage_products:false,manage_settings:false}
+}
+const effectivePermissions = member => {
+  const base={...(ROLE_DEFAULTS[member?.role]||ROLE_DEFAULTS.consulta)}
+  if(member?.role==='superadmin') return {...ROLE_DEFAULTS.superadmin}
+  const overrides=member?.permissions||{}
+  Object.keys(overrides).forEach(k=>{if(typeof overrides[k]==='boolean')base[k]=overrides[k]})
+  return base
+}
+
 const EVIDENCE_TYPES = [['general','General'],['review','Revisión'],['rejection','Rechazo'],['fix','Fix / Corrección'],['closure','Cierre']]
 const evidenceLabel = value => EVIDENCE_TYPES.find(x=>x[0]===value)?.[1] || value
 const Icon = ({name,size=18}) => <iconify-icon icon={name} width={size} height={size}></iconify-icon>
@@ -64,10 +92,13 @@ const slugify = value => String(value||'').toLowerCase().normalize('NFD').replac
 const safeFileName = value => String(value||'archivo').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-90)
 const dateKey = d => {const x=new Date(d);const y=x.getFullYear(),m=String(x.getMonth()+1).padStart(2,'0'),day=String(x.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 const sameDate = (a,b) => a && b && String(a).slice(0,10)===String(b).slice(0,10)
-const roleCanDashboard = role => ['superadmin','admin','pm','dev','qa','viewer'].includes(role)
-const roleCanWork = role => ['superadmin','admin','pm','dev','qa'].includes(role)
-const roleCanPlan = role => ['superadmin','admin','pm'].includes(role)
+const roleCanDashboard = role => !!ROLE_DEFAULTS[role]?.view_dashboard
+const roleCanWork = role => !!ROLE_DEFAULTS[role]?.edit_tickets
+const roleCanPlan = role => !!ROLE_DEFAULTS[role]?.manage_sprints
 const roleCanAdmin = role => ['superadmin','admin'].includes(role)
+const ticketProgress = status => ({backlog:0,todo:10,in_progress:45,dev_done:65,qa_review:78,qa_rejected:58,qa_passed:92,closed:100}[status]??0)
+const daysBetween=(a,b)=>Math.round((new Date(`${b}T12:00:00`)-new Date(`${a}T12:00:00`))/86400000)
+
 
 async function signedEvidenceRows(rows){
   return Promise.all((rows||[]).map(async row=>{
@@ -152,6 +183,7 @@ function WorkspaceApp({session}){
   const [sprints,setSprints]=useState([])
   const [tickets,setTickets]=useState([])
   const [members,setMembers]=useState([])
+  const [memberProductAccess,setMemberProductAccess]=useState([])
   const [settings,setSettings]=useState(null)
   const [departments,setDepartments]=useState([])
   const [helpdesk,setHelpdesk]=useState([])
@@ -172,7 +204,7 @@ function WorkspaceApp({session}){
   const showToast=(type,message)=>{setToast({type,message,id:Date.now()}); setTimeout(()=>setToast(null),3500)}
 
   const loadMemberships=async(preferredId=null)=>{
-    const {data,error}=await db.from('workspace_members').select('workspace_id,role,active,workspaces(id,name,slug,created_by)').eq('user_id',session.user.id).eq('active',true)
+    const {data,error}=await db.from('workspace_members').select('workspace_id,role,active,permissions,all_products,workspaces(id,name,slug,created_by)').eq('user_id',session.user.id).eq('active',true)
     if(error){showToast('error',error.message);setBusy(false);return []}
     const rows=data||[]; setMemberships(rows)
     const id=preferredId || workspace?.id
@@ -184,37 +216,47 @@ function WorkspaceApp({session}){
   const loadWorkspaceData=async()=>{
     if(!workspace){setBusy(false);return}
     setBusy(true)
-    const [p,s,t,m,ws,d,h,n,q]=await Promise.all([
+    const [p,s,t,m,mp,ws,d,h,n,q]=await Promise.all([
       db.from('products').select('*').eq('workspace_id',workspace.id).order('board_order'),
       db.from('sprints').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
       db.from('tickets').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
-      db.from('workspace_members').select('user_id,role,active,joined_at').eq('workspace_id',workspace.id).order('joined_at'),
+      db.from('workspace_members').select('user_id,role,active,joined_at,permissions,all_products').eq('workspace_id',workspace.id).order('joined_at'),
+      db.from('workspace_member_products').select('user_id,product_id').eq('workspace_id',workspace.id),
       db.from('workspace_settings').select('*').eq('workspace_id',workspace.id).maybeSingle(),
       db.from('helpdesk_departments').select('*').eq('workspace_id',workspace.id).order('name'),
       db.from('helpdesk_tickets').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
       db.from('notifications').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}).limit(100),
       db.from('notification_outbox').select('id,event_type,status,attempts,last_error,created_at,sent_at,recipient_user_id').eq('workspace_id',workspace.id).order('created_at',{ascending:false}).limit(100)
     ])
-    const fail=[p,s,t,m,ws,d,h,n,q].find(x=>x.error)?.error
+    const fail=[p,s,t,m,mp,ws,d,h,n,q].find(x=>x.error)?.error
     if(fail){showToast('error',fail.message);setBusy(false);return}
     const ids=(m.data||[]).map(x=>x.user_id)
     const profileMap={}
     if(ids.length){const pr=await db.from('profiles').select('*').in('id',ids); (pr.data||[]).forEach(x=>profileMap[x.id]=x)}
     setProducts(p.data||[]); setSprints(s.data||[]); setTickets(t.data||[]); setSettings(ws.data||null)
-    setDepartments(d.data||[]); setHelpdesk(h.data||[]); setNotifications(n.data||[]); setEmailQueue(q.data||[])
-    setMembers((m.data||[]).map(x=>({...x,profile:profileMap[x.user_id]})))
+    setDepartments(d.data||[]); setHelpdesk(h.data||[]); setNotifications(n.data||[]); setEmailQueue(q.data||[]); setMemberProductAccess(mp.data||[])
+    setMembers((m.data||[]).map(x=>({...x,profile:profileMap[x.user_id],product_ids:(mp.data||[]).filter(a=>a.user_id===x.user_id).map(a=>a.product_id)})))
     setBusy(false)
   }
 
-  const myRole=memberships.find(m=>m.workspace_id===workspace?.id)?.role || 'viewer'
+  const myMembership=memberships.find(m=>m.workspace_id===workspace?.id)||null
+  const myRole=myMembership?.role || 'consulta'
+  const myPermissions=effectivePermissions(myMembership)
+  const hasPermission=key=>myRole==='superadmin'||!!myPermissions[key]
   const isSuperadmin=myRole==='superadmin'
-  const canAdminWorkspace=roleCanAdmin(myRole)
-  const canPlan=roleCanPlan(myRole)
-  const canWork=roleCanWork(myRole)
-  const canCreateTicket=canWork || myRole==='reporter'
-  const canViewDashboard=roleCanDashboard(myRole)
-  const dashboardOnly=myRole==='viewer'
-  const helpdeskStaff=canWork
+  const canViewDashboard=hasPermission('view_dashboard')
+  const canViewTickets=hasPermission('view_tickets')
+  const canCreateTicket=hasPermission('create_tickets')
+  const canWork=hasPermission('edit_tickets')
+  const canDeleteTicket=hasPermission('delete_tickets')
+  const canPlan=hasPermission('manage_sprints')
+  const canManageHelpdesk=hasPermission('manage_helpdesk')
+  const canManageStaff=hasPermission('manage_staff')
+  const canManageProducts=hasPermission('manage_products')
+  const canManageSettings=hasPermission('manage_settings')
+  const canAdminWorkspace=canManageStaff||canManageProducts||canManageSettings
+  const dashboardOnly=!canWork
+  const helpdeskStaff=canManageHelpdesk
   const canManage=canPlan
   const isAdmin=canAdminWorkspace
   const helpdeskEnabled=settings?.helpdesk_enabled!==false
@@ -254,9 +296,10 @@ function WorkspaceApp({session}){
   useEffect(()=>{if(search.trim() && !['board','mytasks'].includes(view))setView('board')},[search])
   useEffect(()=>{
     if(!workspace?.id)return
-    if(myRole==='reporter' && !['mytasks','helpdesk'].includes(view)) setView('mytasks')
-    if(myRole==='viewer' && !['overview','board','backlog','helpdesk'].includes(view)) setView('overview')
-    if(!canAdminWorkspace && ['team','settings'].includes(view)) setView(canViewDashboard?'overview':'mytasks')
+    if(!canViewDashboard && !['mytasks','helpdesk'].includes(view)) setView('mytasks')
+    if(canViewDashboard && !canWork && !['overview','board','backlog','timeline','helpdesk'].includes(view)) setView('overview')
+    if(!canManageStaff && view==='team') setView(canViewDashboard?'overview':'mytasks')
+    if(!(canManageSettings||canManageProducts) && view==='settings') setView(canViewDashboard?'overview':'mytasks')
   },[workspace?.id,myRole])
   useEffect(()=>{
     const onKey=e=>{
@@ -296,7 +339,7 @@ function WorkspaceApp({session}){
   const saveTicket=async(form,ticket=null)=>{
     if(ticket && !canWork) throw new Error('Tu rol no permite editar tickets.')
     let payload
-    if(myRole==='reporter' && !ticket){
+    if(!canWork && !ticket){
       payload={
         workspace_id:workspace.id,
         product_id:form.product_id,
@@ -355,10 +398,10 @@ function WorkspaceApp({session}){
       source:form.source||'internal'
     }
     const payload=item
-      ? (canWork
+      ? (canManageHelpdesk
           ? {...base,status:form.status,assigned_to:form.assigned_to||null,due_at:localDateTimeToIso(form.due_at)}
           : base)
-      : {...base,workspace_id:workspace.id,requester_user_id:session.user.id,status:canWork?(form.status||'created'):'created',assigned_to:canWork?(form.assigned_to||null):null,due_at:canWork?localDateTimeToIso(form.due_at):null}
+      : {...base,workspace_id:workspace.id,requester_user_id:session.user.id,status:canManageHelpdesk?(form.status||'created'):'created',assigned_to:canManageHelpdesk?(form.assigned_to||null):null,due_at:canManageHelpdesk?localDateTimeToIso(form.due_at):null}
     const result=item ? await db.from('helpdesk_tickets').update(payload).eq('id',item.id) : await db.from('helpdesk_tickets').insert(payload)
     if(result.error) throw result.error
     await refresh(); showToast('success',item?'Solicitud actualizada.':'Solicitud de soporte creada.')
@@ -404,25 +447,24 @@ function WorkspaceApp({session}){
 
   return <div className="app-shell">
     <Topbar session={session} unread={unread} search={search} setSearch={setSearch} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} onAppSwitcher={()=>setModal({type:'workspace-switch'})} onHelp={()=>setModal({type:'quick-help'})}/>
-    <Sidebar workspace={workspace} workspaces={workspaces} products={products} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} helpdeskEnabled={helpdeskEnabled} role={myRole} canAdmin={canAdminWorkspace} canPlan={canPlan} canViewDashboard={canViewDashboard} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
-    <MobileNav view={view} setView={setView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} canAdmin={canAdminWorkspace} canViewDashboard={canViewDashboard}/>
+    <Sidebar workspace={workspace} workspaces={workspaces} products={products} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} helpdeskEnabled={helpdeskEnabled} role={myRole} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canViewDashboard={canViewDashboard} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
+    <MobileNav view={view} setView={setView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canViewDashboard={canViewDashboard}/>
     <main className="main-area">
       {busy ? <LoadingPanel/> : <>
         {view==='overview' && canViewDashboard && <Overview workspace={workspace} tickets={tickets} helpdesk={helpdesk} products={products} sprints={sprints}/>} 
         {view==='board' && canViewDashboard && <TicketWorkspace workspace={workspace} title="Tablero" subtitle="Consulta, filtra y gestiona tickets del equipo." tickets={filteredTickets} allTickets={tickets} products={products} members={members} sprints={sprints} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})} canWork={canWork} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onMove={moveTicket}/>} 
+        {view==='timeline' && canViewDashboard && <GanttView workspace={workspace} tickets={filteredTickets} products={products} sprints={sprints} onOpen={ticket=>setModal({type:'ticket-detail',ticket})}/>}
         {view==='backlog' && canViewDashboard && <BacklogView workspace={workspace} tickets={tickets} products={products} sprints={sprints} members={members} canPlan={canPlan} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onPlan={ticket=>setModal({type:'ticket-plan',ticket})} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onCloseSprint={sprint=>setModal({type:'sprint-rollover',sprint})} onCreateSprint={()=>setModal({type:'sprint-create'})}/>} 
-        {view==='mytasks' && (myRole==='reporter'
-          ? <ReporterTicketsView tickets={myTickets} products={products} onCreate={()=>setModal({type:'ticket-create'})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})}/>
-          : <TicketWorkspace workspace={workspace} title="Mis tareas" subtitle="Tickets que reportaste o que tienes asignados." tickets={myTickets} allTickets={myTickets} products={products} members={members} sprints={sprints} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})} canWork={canWork} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onMove={moveTicket}/>)} 
+        {view==='mytasks' && <TicketWorkspace workspace={workspace} title="Mis tareas" subtitle="Tickets que reportaste o que tienes asignados." tickets={myTickets} allTickets={myTickets} products={products} members={members} sprints={sprints} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})} canWork={canWork} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onMove={moveTicket}/>} 
         {view==='helpdesk' && helpdeskEnabled && (helpdeskStaff
           ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} members={members} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})}/>
           : <HelpdeskPortal items={helpdesk} departments={departments} onCreate={()=>setModal({type:'help-create'})} onOpen={item=>setModal({type:'help-detail',item})}/>)} 
-        {view==='team' && canAdminWorkspace && <TeamView members={members} canManage={canAdminWorkspace} isSuperadmin={isSuperadmin} session={session} onInvite={()=>setModal({type:'invite'})} onMember={member=>setModal({type:'member-edit',member})}/>} 
-        {view==='settings' && canAdminWorkspace && <SettingsView workspace={workspace} settings={settings} products={products} sprints={sprints} departments={departments} emailQueue={emailQueue} emailProviderStatus={emailProviderStatus} canManage={canAdminWorkspace} canDeleteWorkspace={isSuperadmin} onWorkspaceEdit={()=>setModal({type:'workspace-edit'})} onWorkspaceConfig={()=>setModal({type:'workspace-config'})} onWorkspaceDelete={()=>setModal({type:'workspace-delete'})} onSettingsSaved={refresh} onProductCreate={()=>setModal({type:'product-create'})} onProductEdit={product=>setModal({type:'product-edit',product})} onProductDelete={product=>setModal({type:'product-delete',product})} onSprintCreate={()=>setModal({type:'sprint-create'})} onSprintEdit={sprint=>setModal({type:'sprint-edit',sprint})} onSprintDelete={sprint=>setModal({type:'sprint-delete',sprint})} onDepartmentCreate={()=>setModal({type:'department-create'})} onDepartmentEdit={department=>setModal({type:'department-edit',department})} onDepartmentDelete={department=>setModal({type:'department-delete',department})} onProcessEmails={processEmails} toast={showToast}/>} 
+        {view==='team' && canManageStaff && <StaffRolesView workspace={workspace} members={members} products={products} memberProductAccess={memberProductAccess} canManage={canManageStaff} isSuperadmin={isSuperadmin} session={session} onInvite={()=>setModal({type:'invite'})} onMember={member=>setModal({type:'member-edit',member})}/>} 
+        {view==='settings' && (canManageSettings||canManageProducts) && <SettingsView workspace={workspace} settings={settings} products={products} sprints={sprints} departments={departments} emailQueue={emailQueue} emailProviderStatus={emailProviderStatus} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canPlan={canPlan} canDeleteWorkspace={isSuperadmin} onWorkspaceEdit={()=>setModal({type:'workspace-edit'})} onWorkspaceConfig={()=>setModal({type:'workspace-config'})} onWorkspaceDelete={()=>setModal({type:'workspace-delete'})} onSettingsSaved={refresh} onProductCreate={()=>setModal({type:'product-create'})} onProductEdit={product=>setModal({type:'product-edit',product})} onProductDelete={product=>setModal({type:'product-delete',product})} onSprintCreate={()=>setModal({type:'sprint-create'})} onSprintEdit={sprint=>setModal({type:'sprint-edit',sprint})} onSprintDelete={sprint=>setModal({type:'sprint-delete',sprint})} onDepartmentCreate={()=>setModal({type:'department-create'})} onDepartmentEdit={department=>setModal({type:'department-edit',department})} onDepartmentDelete={department=>setModal({type:'department-delete',department})} onProcessEmails={processEmails} toast={showToast}/>} 
       </>}
     </main>
     {drawer==='notifications' && <NotificationsDrawer notifications={notifications} onClose={()=>setDrawer(null)} onMark={markNotification} onMarkAll={markAll} onDelete={deleteNotification} onClearRead={clearReadNotifications} onOpen={n=>{setDrawer(null); if(n.ticket_id){const t=tickets.find(x=>x.id===n.ticket_id); if(t)setModal({type:'ticket-detail',ticket:t});else showToast('error','El ticket relacionado ya no está disponible.')} else if(n.helpdesk_ticket_id){const h=helpdesk.find(x=>x.id===n.helpdesk_ticket_id); if(h)setModal({type:'help-detail',item:h});else showToast('error','La solicitud relacionada ya no está disponible.')}}}/>} 
-    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} sprints={sprints} tickets={tickets} members={members} departments={departments} settings={settings} session={session} myRole={myRole} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>} 
+    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} departments={departments} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>} 
     {toast && <Toast toast={toast}/>} 
   </div>
 }
@@ -433,36 +475,29 @@ function Topbar({session,unread,search,setSearch,canCreate,onCreate,onNotificati
   <div className="topbar-actions">{canCreate&&<button className="primary create-button" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button>}<button className="icon-button bell" onClick={onNotifications} title="Notificaciones"><Icon name="lucide:bell"/>{unread>0&&<em>{unread>9?'9+':unread}</em>}</button><button className="icon-button" onClick={onHelp} title="Ayuda"><Icon name="lucide:circle-help"/></button><div className="top-user"><span className="avatar sm">{initials(session.user.user_metadata?.full_name||session.user.email)}</span><div><b>{session.user.user_metadata?.full_name||'Usuario'}</b><small>{session.user.email}</small></div></div></div>
 </header>}
 
-function Sidebar({workspace,workspaces,products,productId,setProductId,view,setView,tickets,helpdesk,helpdeskEnabled,role,canAdmin,canPlan,canViewDashboard,onWorkspace}){
-  const staff=roleCanWork(role)
-  const items=role==='reporter'
-    ? [['mytasks','lucide:ticket-check','Mis tickets'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[])]
-    : role==='viewer'
-      ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[])]
-      : [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['mytasks','lucide:circle-check-big','Mis tareas'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...(canAdmin?[['team','lucide:users','Equipo']]:[])]
+function Sidebar({workspace,workspaces,products,productId,setProductId,view,setView,tickets,helpdesk,helpdeskEnabled,role,canManageStaff,canManageSettings,canViewDashboard,onWorkspace}){
+  const items=canViewDashboard
+    ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['timeline','lucide:gantt-chart','Cronograma'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy',role==='consulta'?'Mis solicitudes':'Helpdesk']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff y Roles']]:[])]
+    : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[])]
   return <aside className="sidebar">
     <div className="sidebar-section-title"><span>ESPACIO DE TRABAJO</span><button className="ghost-icon" onClick={onWorkspace} title="Cambiar o crear workspace"><Icon name="lucide:plus" size={16}/></button></div>
     <button className="workspace-card" onClick={onWorkspace}><span className="workspace-icon"><Icon name="lucide:layers-3"/></span><div><b>{workspace?.name}</b><small>{ROLE_LABELS[role]||role}</small></div><Icon name="lucide:chevrons-up-down" size={16}/></button>
-    <nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(key!=='board')setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{key==='board'&&<em>{tickets.length}</em>}{key==='backlog'&&<em>{tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length}</em>}{key==='helpdesk'&&<em>{helpdesk.filter(h=>!['resolved','closed'].includes(h.status)).length}</em>}</button>)}</nav>
-    {canViewDashboard&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS</span></div>
-      <button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los productos</span><em>{tickets.length}</em></button>
+    <nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{key==='board'&&<em>{tickets.length}</em>}{key==='backlog'&&<em>{tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length}</em>}{key==='helpdesk'&&<em>{helpdesk.filter(h=>!['resolved','closed'].includes(h.status)).length}</em>}</button>)}</nav>
+    {canViewDashboard&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div>
+      <button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{tickets.length}</em></button>
       {products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{tickets.filter(t=>t.product_id===p.id).length}</em></button>)}
     </>}
     <div className="sidebar-spacer"></div><div className="sidebar-divider"></div>
-    {canAdmin&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}
+    {canManageSettings&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}
     <button className="footer-nav" onClick={()=>db.auth.signOut()}><Icon name="lucide:log-out"/>Cerrar sesión</button>
   </aside>
 }
 
-function MobileNav({view,setView,setProductId,helpdeskEnabled,role,canAdmin,canViewDashboard}){
-  const items=role==='reporter'
-    ? [['mytasks','lucide:ticket-check','Tickets'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[])]
-    : role==='viewer'
-      ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[])]
-      : [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],['mytasks','lucide:circle-check-big','Mis tareas'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...(canAdmin?[['team','lucide:users','Equipo'],['settings','lucide:settings','Ajustes']]:[])]
-  return <nav className="mobile-nav" aria-label="Navegación móvil">
-    {items.map(([key,icon,label])=><button type="button" key={key} className={view===key?'active':''} onClick={()=>{setProductId('all');setView(key)}}><Icon name={icon} size={19}/><span>{label}</span></button>)}
-  </nav>
+function MobileNav({view,setView,setProductId,helpdeskEnabled,role,canManageStaff,canManageSettings,canViewDashboard}){
+  const items=canViewDashboard
+    ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],['timeline','lucide:gantt-chart','Gantt'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff']]:[]),...(canManageSettings?[['settings','lucide:settings','Ajustes']]:[])]
+    : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[])]
+  return <nav className="mobile-nav" aria-label="Navegación móvil">{items.map(([key,icon,label])=><button type="button" key={key} className={view===key?'active':''} onClick={()=>{setProductId('all');setView(key)}}><Icon name={icon} size={19}/><span>{label}</span></button>)}</nav>
 }
 
 function PageHeader({eyebrow='Proyectos',title,subtitle,icon='lucide:clipboard-check',action}){return <div className="page-header"><div><div className="breadcrumbs"><span>{eyebrow}</span><Icon name="lucide:chevron-right" size={14}/><span>TROBBU</span></div><div className="page-title-row"><span className="page-icon"><Icon name={icon}/></span><div><h1>{title}</h1><p>{subtitle}</p></div></div></div>{action}</div>}
@@ -501,16 +536,17 @@ function Overview({workspace,tickets,helpdesk,products,sprints}){
 }
 function Metric({label,value,icon,tone}){return <div className={`metric-card ${tone}`}><span className="metric-icon"><Icon name={icon}/></span><div><small>{label}</small><strong>{value}</strong></div></div>}
 
-function DashboardFilterModal({product,sprint,products,sprints,onClose,onApply}){const [f,setF]=useState({product,sprint});return <Modal title="Filtros del dashboard" subtitle="Segmenta las métricas por producto y sprint." onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Producto<select value={f.product} onChange={e=>setF({...f,product:e.target.value})}><option value="all">Todos los productos</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Sprint<select value={f.sprint} onChange={e=>setF({...f,sprint:e.target.value})}><option value="all">Todos los sprints</option>{sprints.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={()=>setF({product:'all',sprint:'all'})}>Restablecer</button></div></AsyncForm></Modal>}
+function DashboardFilterModal({product,sprint,products,sprints,onClose,onApply}){const [f,setF]=useState({product,sprint});return <Modal title="Filtros del dashboard" subtitle="Segmenta las métricas por producto y sprint." onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Producto<select value={f.product} onChange={e=>setF({...f,product:e.target.value})}><option value="all">Todos los productos</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Sprint<select value={f.sprint} onChange={e=>setF({...f,sprint:e.target.value})}><option value="all">Todos los sprints</option>{sprints.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="text-button" onClick={()=>setF({product:'all',sprint:'all'})}>Restablecer</button><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
 
 function TicketWorkspace({workspace,title,subtitle,tickets,allTickets,products,members,sprints,boardMode,setBoardMode,filters,onFilter,onClearFilters,canWork,canCreate,onCreate,onActions,onOpen,onMove}){
   const activeFilters=Object.values(filters).filter(v=>v!=='all').length
   return <div className="page"><PageHeader title={title} subtitle={subtitle} action={canCreate?<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nuevo ticket</button>:<span className="readonly-chip"><Icon name="lucide:eye"/> Solo consulta</span>}/>
-    <section className="workspace-panel"><div className="panel-toolbar"><div className="tabs"><button className={boardMode==='table'?'active':''} onClick={()=>setBoardMode('table')}><Icon name="lucide:table-2"/>Tabla</button><button className={boardMode==='kanban'?'active':''} onClick={()=>setBoardMode('kanban')}><Icon name="lucide:columns-3"/>Kanban</button><button className={boardMode==='calendar'?'active':''} onClick={()=>setBoardMode('calendar')}><Icon name="lucide:calendar-days"/>Calendario</button></div><div className="toolbar-actions"><button className={`filter-button ${activeFilters?'active':''}`} onClick={onFilter}><Icon name="lucide:list-filter"/> Filtros {activeFilters>0&&<em>{activeFilters}</em>}</button>{activeFilters>0&&<button className="text-button" onClick={onClearFilters}>Limpiar</button>}{canCreate&&<button className="primary compact" onClick={onCreate}><Icon name="lucide:plus"/> Nuevo</button>}</div></div>
+    <section className="workspace-panel"><div className="panel-toolbar"><div className="tabs"><button className={boardMode==='table'?'active':''} onClick={()=>setBoardMode('table')}><Icon name="lucide:table-2"/>Tabla</button><button className={boardMode==='kanban'?'active':''} onClick={()=>setBoardMode('kanban')}><Icon name="lucide:columns-3"/>Kanban</button><button className={boardMode==='calendar'?'active':''} onClick={()=>setBoardMode('calendar')}><Icon name="lucide:calendar-days"/>Calendario</button><button className={boardMode==='gantt'?'active':''} onClick={()=>setBoardMode('gantt')}><Icon name="lucide:gantt-chart"/>Cronograma</button></div><div className="toolbar-actions"><button className={`filter-button ${activeFilters?'active':''}`} onClick={onFilter}><Icon name="lucide:list-filter"/> Filtros {activeFilters>0&&<em>{activeFilters}</em>}</button>{activeFilters>0&&<button className="text-button" onClick={onClearFilters}>Limpiar</button>}{canCreate&&<button className="primary compact" onClick={onCreate}><Icon name="lucide:plus"/> Nuevo</button>}</div></div>
     <div className="mini-stats"><span>Total <b>{allTickets.length}</b></span><span className="gray">Backlog <b>{allTickets.filter(t=>t.status==='backlog').length}</b></span><span className="amber">En desarrollo <b>{allTickets.filter(t=>['todo','in_progress','dev_done'].includes(t.status)).length}</b></span><span className="blue">En QA <b>{allTickets.filter(t=>['qa_review','qa_rejected','qa_passed'].includes(t.status)).length}</b></span><span className="green">Cerrados <b>{allTickets.filter(t=>t.status==='closed').length}</b></span></div>
     {boardMode==='table'&&<TicketTable tickets={tickets} products={products} members={members} onActions={onActions} onOpen={onOpen}/>} 
     {boardMode==='kanban'&&<Kanban tickets={tickets} products={products} members={members} canWork={canWork} onActions={onActions} onOpen={onOpen} onMove={onMove}/>} 
-    {boardMode==='calendar'&&<CalendarView workspace={workspace} tickets={tickets} products={products} onOpen={onOpen}/>} 
+    {boardMode==='calendar'&&<CalendarView workspace={workspace} tickets={tickets} products={products} onOpen={onOpen}/>}
+    {boardMode==='gantt'&&<GanttView workspace={workspace} tickets={tickets} products={products} sprints={sprints} onOpen={onOpen} embedded/>} 
     </section>
   </div>
 }
@@ -548,6 +584,47 @@ function CalendarView({workspace,tickets,products,onOpen}){
       <div className="calendar-grid">{days.map(day=>{const key=dateKey(day),rows=tickets.filter(t=>inRange(t,key)).slice(0,4),outside=day.getMonth()!==month,today=key===dateKey(new Date());return <div className={`calendar-day ${outside?'outside':''} ${today?'today':''}`} key={key}><div className="calendar-day-number"><span>{day.getDate()}</span>{today&&<em>Hoy</em>}</div><div className="calendar-events">{rows.map(t=>{const product=products.find(p=>p.id===t.product_id);const start=String(t.start_date||'').slice(0,10)===key,end=String(t.due_date||'').slice(0,10)===key;return <button type="button" key={t.id} className={`calendar-ticket ${start?'starts':''} ${end?'ends':''}`} onClick={()=>onOpen(t)} title={`${t.ticket_key} · ${t.title}`}><span>{start?'▶':end?'◆':'•'}</span><b>{t.ticket_key}</b><small>{t.title}</small>{product&&<i>{product.key}</i>}</button>})}{tickets.filter(t=>inRange(t,key)).length>4&&<span className="calendar-more">+{tickets.filter(t=>inRange(t,key)).length-4} más</span>}</div></div>})}</div>
     </div>
     <aside className="calendar-aside"><div className="calendar-legend"><h4>Leyenda</h4><span><i className="legend-start">▶</i> Inicio</span><span><i className="legend-range">•</i> En ejecución</span><span><i className="legend-end">◆</i> Entrega</span></div><div className="calendar-side-card"><h4>Sin programar</h4><strong>{unscheduled.length}</strong><p>Tickets sin fecha de inicio ni entrega.</p></div><div className="calendar-side-card"><h4>Próximas entregas</h4>{upcoming.length===0&&<p className="muted">No hay fechas próximas.</p>}{upcoming.map(t=><button type="button" key={t.id} onClick={()=>onOpen(t)}><span><b>{t.ticket_key}</b><small>{t.title}</small></span><time>{formatDate(t.due_date)}</time></button>)}</div></aside>
+  </div>
+}
+
+function GanttView({workspace,tickets,products,sprints,onOpen,embedded=false}){
+  const [span,setSpan]=useState(56)
+  const [cursor,setCursor]=useState(()=>{const d=new Date();d.setDate(d.getDate()-7);return dateKey(d)})
+  useEffect(()=>{const d=new Date();d.setDate(d.getDate()-7);setCursor(dateKey(d))},[workspace?.id])
+  const start=new Date(`${cursor}T12:00:00`)
+  const days=Array.from({length:span},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d})
+  const end=days[days.length-1]
+  const scheduled=tickets.filter(t=>t.start_date||t.due_date).sort((a,b)=>String(a.start_date||a.due_date).localeCompare(String(b.start_date||b.due_date)))
+  const unscheduled=tickets.filter(t=>!t.start_date&&!t.due_date&&t.status!=='closed')
+  const overdue=tickets.filter(t=>t.due_date&&t.due_date<dateKey(new Date())&&!['qa_passed','closed'].includes(t.status)).length
+  const shift=dir=>{const d=new Date(start);d.setDate(d.getDate()+dir*Math.max(7,Math.round(span*.45)));setCursor(dateKey(d))}
+  const today=()=>{const d=new Date();d.setDate(d.getDate()-7);setCursor(dateKey(d))}
+  const dayWidth=span<=35?32:span<=60?25:20
+  const cellStyle={gridTemplateColumns:`repeat(${span},${dayWidth}px)`}
+  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n))
+  const position=t=>{
+    const a=t.start_date||t.due_date,b=t.due_date||t.start_date
+    if(!a||!b)return null
+    const from=daysBetween(cursor,a),to=daysBetween(cursor,b)
+    if(to<0||from>=span)return null
+    return {start:clamp(from,0,span-1)+1,end:clamp(to,0,span-1)+2,leftCut:from<0,rightCut:to>=span}
+  }
+  const sprintRows=sprints.filter(x=>x.start_date&&x.end_date&&x.status!=='completed').map(s=>({s,pos:position({start_date:s.start_date,due_date:s.end_date})})).filter(x=>x.pos)
+  const content=<>
+    <div className="gantt-toolbar"><div><h3>Cronograma de desarrollo</h3><p>{formatDate(cursor)} → {formatDate(dateKey(end))} · progreso por ticket y proyección de entrega</p></div><div className="gantt-controls"><select value={span} onChange={e=>setSpan(Number(e.target.value))}><option value="28">4 semanas</option><option value="56">8 semanas</option><option value="84">12 semanas</option></select><button type="button" className="secondary-button compact" onClick={()=>shift(-1)}><Icon name="lucide:chevron-left"/></button><button type="button" className="secondary-button compact" onClick={today}>Hoy</button><button type="button" className="secondary-button compact" onClick={()=>shift(1)}><Icon name="lucide:chevron-right"/></button></div></div>
+    <div className="gantt-kpis"><span><b>{scheduled.length}</b> planificados</span><span><b>{unscheduled.length}</b> sin fechas</span><span className={overdue?'danger-text':''}><b>{overdue}</b> vencidos</span><span><b>{tickets.filter(t=>t.status==='closed').length}</b> cerrados</span></div>
+    <div className="gantt-scroll"><div className="gantt-canvas" style={{'--gantt-days':span,'--gantt-day-width':`${dayWidth}px`}}>
+      <div className="gantt-header"><div className="gantt-label gantt-label-head">Actividad</div><div className="gantt-days gantt-days-head" style={cellStyle}>{days.map(d=><span key={dateKey(d)} className={`${[0,6].includes(d.getDay())?'weekend':''} ${dateKey(d)===dateKey(new Date())?'today':''}`}><b>{d.getDate()}</b><small>{new Intl.DateTimeFormat('es-MX',{weekday:'narrow'}).format(d)}</small></span>)}</div></div>
+      {sprintRows.length>0&&<div className="gantt-sprints"><div className="gantt-group-title"><Icon name="lucide:calendar-range"/> Sprints activos / planeados</div>{sprintRows.map(({s,pos})=>{const rows=tickets.filter(t=>t.sprint_id===s.id),pct=rows.length?Math.round(rows.reduce((a,t)=>a+ticketProgress(t.status),0)/rows.length):0;return <div className="gantt-row sprint-row" key={s.id}><div className="gantt-label"><span className={`sprint-status ${s.status}`}>{s.status==='active'?'Activo':'Planeado'}</span><b>{s.name}</b><small>{rows.length} tickets · {pct}% promedio</small></div><div className="gantt-days gantt-track" style={cellStyle}>{days.map(d=><i key={dateKey(d)} className={`${[0,6].includes(d.getDay())?'weekend':''} ${dateKey(d)===dateKey(new Date())?'today':''}`}></i>)}<span className="gantt-sprint-bar" style={{gridColumn:`${pos.start}/${pos.end}`}}><b>{s.name}</b><em style={{width:`${pct}%`}}></em></span></div></div>})}</div>}
+      <div className="gantt-group-title"><Icon name="lucide:ticket"/> Actividades</div>
+      {scheduled.length===0&&<div className="gantt-empty"><Icon name="lucide:calendar-off"/><span>No hay tickets con fechas dentro del alcance actual.</span></div>}
+      {scheduled.map(t=>{const pos=position(t),product=products.find(p=>p.id===t.product_id),pct=ticketProgress(t.status);return <div className="gantt-row" key={t.id}><button type="button" className="gantt-label gantt-ticket-label" onClick={()=>onOpen(t)}><span><b>{t.ticket_key}</b><em>{product?.key||'—'}</em></span><strong>{t.title}</strong><small>{statusLabel(t.status)} · {pct}%</small></button><div className="gantt-days gantt-track" style={cellStyle}>{days.map(d=><i key={dateKey(d)} className={`${[0,6].includes(d.getDay())?'weekend':''} ${dateKey(d)===dateKey(new Date())?'today':''}`}></i>)}{pos&&<button type="button" className={`gantt-bar status-${t.status} ${pos.leftCut?'cut-left':''} ${pos.rightCut?'cut-right':''}`} style={{gridColumn:`${pos.start}/${pos.end}`}} onClick={()=>onOpen(t)} title={`${t.ticket_key} · ${t.title} · ${pct}%`}><span style={{width:`${pct}%`}}></span><b>{pct}%</b></button>}</div></div>})}
+    </div></div>
+    {unscheduled.length>0&&<div className="gantt-unscheduled"><div><Icon name="lucide:inbox"/><span><b>{unscheduled.length} actividades sin programar</b><small>Asigna fecha de inicio y entrega desde el ticket para incorporarlas al cronograma.</small></span></div><div>{unscheduled.slice(0,5).map(t=><button type="button" key={t.id} onClick={()=>onOpen(t)}>{t.ticket_key} · {t.title}</button>)}</div></div>}
+  </>
+  if(embedded)return <div className="gantt-embedded">{content}</div>
+  return <div className="page"><PageHeader eyebrow="Planificación" title="Cronograma Gantt" subtitle="Visualiza duración, progreso, sprints y proyección de entregas como un roadmap de Jira." icon="lucide:gantt-chart"/>
+    <section className="workspace-panel gantt-panel">{content}</section>
   </div>
 }
 
@@ -598,17 +675,19 @@ function HelpdeskView({items,allItems,departments,members,filters,onFilter,onCre
   </div>
 }
 
-function TeamView({members,canManage,isSuperadmin,session,onInvite,onMember}){
-  const guide=[
-    ['superadmin','lucide:crown'],['admin','lucide:shield-check'],['pm','lucide:calendar-range'],['dev','lucide:code-2'],['qa','lucide:scan-search'],['reporter','lucide:upload'],['viewer','lucide:chart-no-axes-combined']
-  ]
-  return <div className="page"><PageHeader title="Equipo y permisos" subtitle="Cada rol se aplica únicamente dentro de este workspace. Los datos, productos, sprints y tickets no se comparten entre espacios." icon="lucide:users" action={canManage?<button className="primary" onClick={onInvite}><Icon name="lucide:user-plus"/> Invitar colaborador</button>:null}/>
-    <div className="role-guide role-guide-all">{guide.map(([role,icon])=><div key={role}><Icon name={icon}/><span><b>{ROLE_LABELS[role]}</b><small>{ROLE_DESCRIPTIONS[role]}</small></span></div>)}</div>
-    <section className="workspace-panel"><div className="member-grid">{members.map(m=>{const editable=canManage&&(isSuperadmin||m.role!=='superadmin');return <div className={`member-card ${m.active?'':'inactive'}`} key={m.user_id}><span className="avatar">{initials(m.profile?.full_name)}</span><div className="member-info"><b>{m.profile?.full_name||'Usuario'}{m.user_id===session.user.id&&<small> Tú</small>}</b><span>{m.profile?.job_title||ROLE_LABELS[m.role]} · {m.active?'Activo':'Acceso desactivado'}</span><small className="role-description">{ROLE_DESCRIPTIONS[m.role]||''}</small></div><em>{ROLE_LABELS[m.role]||m.role}</em>{editable&&<button type="button" className="icon-button" onClick={()=>onMember(m)}><Icon name="lucide:ellipsis-vertical"/></button>}</div>})}</div></section>
+function StaffRolesView({workspace,members,products,memberProductAccess,canManage,isSuperadmin,session,onInvite,onMember}){
+  const [tab,setTab]=useState('staff')
+  const guide=[['consulta','lucide:eye'],['dev','lucide:code-2'],['qa','lucide:scan-search'],['pm','lucide:calendar-range'],['admin','lucide:shield-check'],['superadmin','lucide:crown']]
+  const accessFor=m=>m.role==='superadmin'||m.role==='admin'||m.all_products ? products : products.filter(p=>memberProductAccess.some(x=>x.user_id===m.user_id&&x.product_id===p.id))
+  return <div className="page"><PageHeader title="Staff y Roles" subtitle={`Control de acceso de ${workspace.name}: rol base, estado y productos autorizados.`} icon="lucide:users-round" action={canManage?<button className="primary" onClick={onInvite}><Icon name="lucide:user-plus"/> Agregar Staff</button>:null}/>
+    <div className="workspace-scope-strip"><Icon name="lucide:layers-3"/><span><b>Workspace activo: {workspace.name}</b><small>Los roles y productos de esta vista solo aplican aquí. Cambia de workspace para administrar otro espacio.</small></span></div>
+    <div className="staff-tabs"><button type="button" className={tab==='staff'?'active':''} onClick={()=>setTab('staff')}><Icon name="lucide:users"/> Staff <em>{members.length}</em></button><button type="button" className={tab==='roles'?'active':''} onClick={()=>setTab('roles')}><Icon name="lucide:shield-check"/> Roles base</button></div>
+    {tab==='staff'&&<section className="workspace-panel staff-panel"><div className="staff-table-head"><span>COLABORADOR</span><span>ROL</span><span>PRODUCTOS</span><span>ESTADO</span><span></span></div><div className="staff-list">{members.map(m=>{const editable=canManage&&(isSuperadmin||m.role!=='superadmin'),scope=accessFor(m);return <div className={`staff-row ${m.active?'':'inactive'}`} key={m.user_id}><div className="staff-person"><span className="avatar">{initials(m.profile?.full_name)}</span><span><b>{m.profile?.full_name||'Usuario'}{m.user_id===session.user.id&&<small> Tú</small>}</b><small>{m.profile?.job_title||m.profile?.email||'Colaborador del workspace'}</small></span></div><span><em className={`role-pill role-${m.role}`}>{ROLE_LABELS[m.role]||m.role}</em></span><div className="staff-products">{m.role==='superadmin'||m.role==='admin'||m.all_products?<span className="scope-all"><Icon name="lucide:boxes"/> Todos los productos</span>:scope.length?<>{scope.slice(0,2).map(p=><span key={p.id}>{p.name}</span>)}{scope.length>2&&<em>+{scope.length-2}</em>}</>:<span className="scope-none">Sin productos</span>}</div><span className={`staff-status ${m.active?'active':'off'}`}><i></i>{m.active?'Activo':'Desactivado'}</span><span>{editable&&<button type="button" className="secondary-button compact" onClick={()=>onMember(m)}><Icon name="lucide:sliders-horizontal"/> Accesos</button>}</span></div>})}</div></section>}
+    {tab==='roles'&&<><div className="role-guide role-guide-all">{guide.map(([role,icon])=><div key={role}><Icon name={icon}/><span><b>{ROLE_LABELS[role]}</b><small>{ROLE_DESCRIPTIONS[role]}</small></span></div>)}</div><section className="workspace-panel role-matrix-wrap"><div className="role-matrix"><div className="role-matrix-head"><span>Permiso</span>{guide.map(([r])=><b key={r}>{ROLE_LABELS[r]}</b>)}</div>{PERMISSION_DEFS.map(([key,label,icon])=><div className="role-matrix-row" key={key}><span><Icon name={icon} size={15}/>{label}</span>{guide.map(([r])=><i key={r} className={ROLE_DEFAULTS[r]?.[key]?'yes':'no'}><Icon name={ROLE_DEFAULTS[r]?.[key]?'lucide:check':'lucide:minus'} size={14}/></i>)}</div>)}</div><div className="role-note"><Icon name="lucide:info"/><span>Los roles son la base. Superadmin siempre conserva todos los accesos. Para el resto puedes ajustar permisos específicos y alcance de productos desde <b>Accesos</b>.</span></div></section></>}
   </div>
 }
 
-function SettingsView({workspace,settings,products,sprints,departments,emailQueue,emailProviderStatus,canManage,canDeleteWorkspace,onWorkspaceEdit,onWorkspaceConfig,onWorkspaceDelete,onSettingsSaved,onProductCreate,onProductEdit,onProductDelete,onSprintCreate,onSprintEdit,onSprintDelete,onDepartmentCreate,onDepartmentEdit,onDepartmentDelete,onProcessEmails,toast}){
+function SettingsView({workspace,settings,products,sprints,departments,emailQueue,emailProviderStatus,canManageSettings,canManageProducts,canPlan,canDeleteWorkspace,onWorkspaceEdit,onWorkspaceConfig,onWorkspaceDelete,onSettingsSaved,onProductCreate,onProductEdit,onProductDelete,onSprintCreate,onSprintEdit,onSprintDelete,onDepartmentCreate,onDepartmentEdit,onDepartmentDelete,onProcessEmails,toast}){
   const [tab,setTab]=useState('workspace')
   const tabs=[
     ['workspace','lucide:building-2','Workspace'],
@@ -620,11 +699,11 @@ function SettingsView({workspace,settings,products,sprints,departments,emailQueu
   return <div className="page"><PageHeader title="Configuración" subtitle="Gestiona el espacio, productos, sprints, Helpdesk y notificaciones." icon="lucide:settings"/>
     <section className="workspace-panel settings-panel">
       <div className="settings-tabs">{tabs.map(([key,icon,label])=><button key={key} className={tab===key?'active':''} onClick={()=>setTab(key)}><Icon name={icon} size={16}/>{label}</button>)}</div>
-      {tab==='workspace'&&<WorkspaceSettings workspace={workspace} settings={settings} canManage={canManage} canDelete={canDeleteWorkspace} onEdit={onWorkspaceEdit} onConfig={onWorkspaceConfig} onDelete={onWorkspaceDelete}/>}
-      {tab==='products'&&<EntitySettings title="Productos" subtitle="Tableros separados para cada producto." items={products} canManage={canManage} onCreate={onProductCreate} render={p=><><div><b>{p.name}</b><span>{p.key} · {p.description||'Sin descripción'}</span></div><div className="row-actions">{canManage&&<><button onClick={()=>onProductEdit(p)}><Icon name="lucide:pencil"/>Editar</button><button className="danger-text" onClick={()=>onProductDelete(p)}><Icon name="lucide:trash-2"/>Eliminar</button></>}</div></>}/>}
-      {tab==='sprints'&&<EntitySettings title="Sprints" subtitle="Planeación y periodos de trabajo." items={sprints} canManage={canManage} onCreate={onSprintCreate} render={x=><><div><b>{x.name}</b><span>{x.status} · {formatDate(x.start_date)} — {formatDate(x.end_date)}</span></div><div className="row-actions">{canManage&&<><button onClick={()=>onSprintEdit(x)}><Icon name="lucide:pencil"/>Editar</button><button className="danger-text" onClick={()=>onSprintDelete(x)}><Icon name="lucide:trash-2"/>Eliminar</button></>}</div></>}/>}
-      {tab==='helpdesk'&&<HelpdeskSettings settings={settings} departments={departments} canManage={canManage} onCreate={onDepartmentCreate} onEdit={onDepartmentEdit} onDelete={onDepartmentDelete}/>}
-      {tab==='notifications'&&<NotificationSettings settings={settings} queue={emailQueue} providerStatus={emailProviderStatus} canManage={canManage} onProcess={onProcessEmails} toast={toast}/>}
+      {tab==='workspace'&&<WorkspaceSettings workspace={workspace} settings={settings} canManage={canManageSettings} canDelete={canDeleteWorkspace} onEdit={onWorkspaceEdit} onConfig={onWorkspaceConfig} onDelete={onWorkspaceDelete}/>}
+      {tab==='products'&&<EntitySettings title="Productos" subtitle="Tableros separados para cada producto." items={products} canManage={canManageProducts} onCreate={onProductCreate} render={p=><><div><b>{p.name}</b><span>{p.key} · {p.description||'Sin descripción'}</span></div><div className="row-actions">{canManage&&<><button onClick={()=>onProductEdit(p)}><Icon name="lucide:pencil"/>Editar</button><button className="danger-text" onClick={()=>onProductDelete(p)}><Icon name="lucide:trash-2"/>Eliminar</button></>}</div></>}/>}
+      {tab==='sprints'&&<EntitySettings title="Sprints" subtitle="Planeación y periodos de trabajo." items={sprints} canManage={canPlan} onCreate={onSprintCreate} render={x=><><div><b>{x.name}</b><span>{x.status} · {formatDate(x.start_date)} — {formatDate(x.end_date)}</span></div><div className="row-actions">{canManage&&<><button onClick={()=>onSprintEdit(x)}><Icon name="lucide:pencil"/>Editar</button><button className="danger-text" onClick={()=>onSprintDelete(x)}><Icon name="lucide:trash-2"/>Eliminar</button></>}</div></>}/>}
+      {tab==='helpdesk'&&<HelpdeskSettings settings={settings} departments={departments} canManage={canManageSettings} onCreate={onDepartmentCreate} onEdit={onDepartmentEdit} onDelete={onDepartmentDelete}/>}
+      {tab==='notifications'&&<NotificationSettings settings={settings} queue={emailQueue} providerStatus={emailProviderStatus} canManage={canManageSettings} onProcess={onProcessEmails} toast={toast}/>}
     </section>
   </div>
 }
@@ -667,14 +746,14 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='workspace-config') return <WorkspaceConfigModal workspace={props.workspace} settings={props.settings} onClose={close} onSaved={async()=>{await props.refresh();props.toast('success','Configuración guardada.');close()}}/>
   if(modal.type==='workspace-delete' && props.isSuperadmin) return <ConfirmModal title="Eliminar workspace" message="Se eliminarán productos, sprints, tickets, Helpdesk y configuración de este espacio. Esta acción no se puede deshacer." danger onClose={close} onConfirm={async()=>{const {error}=await db.from('workspaces').delete().eq('id',props.workspace.id);if(error)throw error;await props.loadMemberships();props.toast('success','Workspace eliminado.');close()}}/>
 
-  if(modal.type==='ticket-create') return <TicketModal title="Crear ticket" reporterMode={props.myRole==='reporter'} products={props.products} sprints={props.sprints} members={props.members} onClose={close} onSave={async f=>{await props.saveTicket(f);close()}}/>
+  if(modal.type==='ticket-create') return <TicketModal title="Crear ticket" reporterMode={!props.canWork} products={props.products} sprints={props.sprints} members={props.members} onClose={close} onSave={async f=>{await props.saveTicket(f);close()}}/>
   if(modal.type==='ticket-edit' && props.canWork) return <TicketModal title={`Editar ${modal.ticket.ticket_key}`} ticket={modal.ticket} products={props.products} sprints={props.sprints} members={props.members} onClose={close} onSave={async f=>{await props.saveTicket(f,modal.ticket);close()}}/>
   if(modal.type==='ticket-detail') return <TicketDetailModal workspace={props.workspace} ticket={modal.ticket} products={props.products} members={props.members} session={props.session} canWork={props.canWork} canManage={props.canManage} onClose={close} onEdit={()=>setModal({type:'ticket-edit',ticket:modal.ticket})} onPlan={()=>setModal({type:'ticket-plan',ticket:modal.ticket})} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='ticket-actions'){
     const actions=[['lucide:eye','Ver detalle',()=>setModal({type:'ticket-detail',ticket:modal.ticket})]]
     if(props.canWork) actions.push(['lucide:pencil','Editar ticket',()=>setModal({type:'ticket-edit',ticket:modal.ticket})])
     if(props.canPlan) actions.push(['lucide:calendar-plus','Planificar / cambiar sprint',()=>setModal({type:'ticket-plan',ticket:modal.ticket})])
-    if(props.canManage) actions.push(['lucide:trash-2','Eliminar ticket',()=>setModal({type:'ticket-delete',ticket:modal.ticket}),'danger'])
+    if(props.canDeleteTicket) actions.push(['lucide:trash-2','Eliminar ticket',()=>setModal({type:'ticket-delete',ticket:modal.ticket}),'danger'])
     return <ActionSheet title={modal.ticket.ticket_key} subtitle={modal.ticket.title} onClose={close} actions={actions}/>
   }
   if(modal.type==='ticket-delete') return <ConfirmModal title={`Eliminar ${modal.ticket.ticket_key}`} message={`¿Deseas eliminar “${modal.ticket.title}”? También se eliminarán comentarios, evidencias e historial asociado.`} danger onClose={close} onConfirm={async()=>{await props.deleteTicket(modal.ticket);close()}}/>
@@ -687,21 +766,21 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='sprint-rollover') return <SprintRolloverModal sprint={modal.sprint} sprints={props.sprints} tickets={props.tickets} onClose={close} onSave={async nextId=>{await props.closeSprintAndRollover(modal.sprint,nextId);close()}}/>
   if(modal.type==='sprint-delete') return <ConfirmModal title="Eliminar sprint" message="Los tickets del sprint quedarán sin sprint. Para conservar el flujo recomendado usa “Cerrar / trasladar” desde Backlog." danger onClose={close} onConfirm={async()=>{const {error}=await db.from('sprints').delete().eq('id',modal.sprint.id);if(error)throw error;await props.refresh();props.toast('success','Sprint eliminado.');close()}}/>
 
-  if(modal.type==='help-create') return <HelpdeskModal title="Nueva solicitud de Helpdesk" departments={props.departments} members={props.members} session={props.session} canWork={props.canWork} onClose={close} onSave={async f=>{await props.saveHelpdesk(f);close()}}/>
-  if(modal.type==='help-edit') return <HelpdeskModal title={`Editar ${modal.item.ticket_key}`} item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canWork} onClose={close} onSave={async f=>{await props.saveHelpdesk(f,modal.item);close()}}/>
-  if(modal.type==='help-detail') return <HelpdeskDetailModal item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canWork} canManage={props.canManage} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
+  if(modal.type==='help-create') return <HelpdeskModal title="Nueva solicitud de Helpdesk" departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f);close()}}/>
+  if(modal.type==='help-edit') return <HelpdeskModal title={`Editar ${modal.item.ticket_key}`} item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f,modal.item);close()}}/>
+  if(modal.type==='help-detail') return <HelpdeskDetailModal item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} canManage={props.canManage} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='help-actions'){
-    const mayEdit=props.canWork
+    const mayEdit=props.canManageHelpdesk
     const actions=[['lucide:eye','Ver solicitud',()=>setModal({type:'help-detail',item:modal.item})]]
     if(mayEdit) actions.push(['lucide:pencil','Editar solicitud',()=>setModal({type:'help-edit',item:modal.item})])
-    if(props.canManage) actions.push(['lucide:trash-2','Eliminar solicitud',()=>setModal({type:'help-delete',item:modal.item}),'danger'])
+    if(props.canManageHelpdesk) actions.push(['lucide:trash-2','Eliminar solicitud',()=>setModal({type:'help-delete',item:modal.item}),'danger'])
     return <ActionSheet title={modal.item.ticket_key} subtitle={modal.item.subject} onClose={close} actions={actions}/>
   }
   if(modal.type==='help-delete') return <ConfirmModal title={`Eliminar ${modal.item.ticket_key}`} message={`¿Deseas eliminar “${modal.item.subject}”?`} danger onClose={close} onConfirm={async()=>{await props.deleteHelpdesk(modal.item);close()}}/>
   if(modal.type==='help-filters') return <HelpFilterModal filters={props.helpFilters} departments={props.departments} members={props.members} onClose={close} onApply={f=>{props.setHelpFilters(f);close()}}/>
 
-  if(modal.type==='invite') return <InviteModal workspace={props.workspace} isSuperadmin={props.isSuperadmin} onClose={close} onSaved={async()=>{await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Invitación procesada.');close()}}/>
-  if(modal.type==='member-edit') return <MemberModal member={modal.member} session={props.session} isSuperadmin={props.isSuperadmin} onClose={close} onSave={async f=>{const {error}=await db.from('workspace_members').update({role:f.role,active:f.active}).eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(error)throw error;await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Colaborador actualizado.');close()}}/>
+  if(modal.type==='invite') return <InviteModal workspace={props.workspace} products={props.products} isSuperadmin={props.isSuperadmin} onClose={close} onSaved={async()=>{await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Invitación y accesos procesados.');close()}}/>
+  if(modal.type==='member-edit') return <MemberModal workspace={props.workspace} member={{...modal.member,product_ids:props.memberProductAccess.filter(x=>x.user_id===modal.member.user_id).map(x=>x.product_id)}} products={props.products} session={props.session} isSuperadmin={props.isSuperadmin} onClose={close} onSave={async f=>{const allProducts=['superadmin','admin'].includes(f.role)?true:!!f.all_products;const permissions=f.role==='superadmin'?{}:f.permissions;const {error}=await db.from('workspace_members').update({role:f.role,active:f.active,all_products:allProducts,permissions}).eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(error)throw error;const del=await db.from('workspace_member_products').delete().eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(del.error)throw del.error;if(!allProducts&&f.product_ids.length){const ins=await db.from('workspace_member_products').insert(f.product_ids.map(product_id=>({workspace_id:props.workspace.id,user_id:modal.member.user_id,product_id})));if(ins.error)throw ins.error}await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Rol, permisos y productos actualizados.');close()}}/>
 
   if(modal.type==='product-create') return <ProductModal title="Nuevo producto" onClose={close} onSave={async f=>{const {error}=await db.from('products').insert({...f,workspace_id:props.workspace.id,board_order:props.products.length+1});if(error)throw error;await props.refresh();props.toast('success','Producto creado.');close()}}/>
   if(modal.type==='product-edit') return <ProductModal title="Editar producto" initial={modal.product} onClose={close} onSave={async f=>{const {error}=await db.from('products').update(f).eq('id',modal.product.id);if(error)throw error;await props.refresh();props.toast('success','Producto actualizado.');close()}}/>
@@ -710,7 +789,7 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='department-create') return <DepartmentModal title="Nueva área de Helpdesk" onClose={close} onSave={async f=>{const {error}=await db.from('helpdesk_departments').insert({...f,workspace_id:props.workspace.id});if(error)throw error;await props.refresh();props.toast('success','Área creada.');close()}}/>
   if(modal.type==='department-edit') return <DepartmentModal title="Editar área de Helpdesk" initial={modal.department} onClose={close} onSave={async f=>{const {error}=await db.from('helpdesk_departments').update(f).eq('id',modal.department.id);if(error)throw error;await props.refresh();props.toast('success','Área actualizada.');close()}}/>
   if(modal.type==='department-delete') return <ConfirmModal title="Eliminar área" message="Las solicitudes existentes conservarán el ticket, pero quedarán sin área asignada." danger onClose={close} onConfirm={async()=>{const {error}=await db.from('helpdesk_departments').delete().eq('id',modal.department.id);if(error)throw error;await props.refresh();props.toast('success','Área eliminada.');close()}}/>
-  if(modal.type==='quick-help') return <QuickHelpModal helpdeskEnabled={props.settings?.helpdesk_enabled!==false} onClose={close} onHelpdesk={()=>{props.setView('helpdesk');close()}} onSettings={()=>{props.setView('settings');close()}}/>
+  if(modal.type==='quick-help') return <QuickHelpModal helpdeskEnabled={props.settings?.helpdesk_enabled!==false} canOpenSettings={props.canManageSettings||props.canManageProducts} onClose={close} onHelpdesk={()=>{props.setView('helpdesk');close()}} onSettings={()=>{props.setView('settings');close()}}/>
   return null
 }
 
@@ -721,7 +800,7 @@ function AsyncForm({onSubmit,children,submitLabel='Guardar',danger=false}){
   const list=React.Children.toArray(children)
   const secondary=list.filter(child=>child?.props?.className==='modal-secondary')
   const content=list.filter(child=>child?.props?.className!=='modal-secondary')
-  return <form className="form" onSubmit={go}>{content}{error&&<div className="error"><Icon name="lucide:triangle-alert"/>{error}</div>}<div className="form-footer"><div className="form-footer-left">{secondary}</div><div className="modal-actions"><button type="submit" className={danger?'danger-button':'primary'} disabled={saving}>{saving?'Procesando…':submitLabel}</button></div></div></form>
+  return <form className="form modal-form" onSubmit={go}><div className="form-body">{content}{error&&<div className="error"><Icon name="lucide:triangle-alert"/>{error}</div>}</div><div className="form-footer"><div className="form-footer-left">{secondary.flatMap(x=>React.Children.toArray(x.props.children))}</div><div className="modal-actions"><button type="submit" className={danger?'danger-button':'primary'} disabled={saving}>{saving?'Procesando…':submitLabel}</button></div></div></form>
 }
 
 function ConfirmModal({title,message,danger,onClose,onConfirm}){return <Modal title={title} onClose={onClose} size="sm"><AsyncForm onSubmit={onConfirm} submitLabel={danger?'Eliminar definitivamente':'Confirmar'} danger={danger}><div className="confirm-box"><span className={danger?'danger-icon':'info-icon'}><Icon name={danger?'lucide:triangle-alert':'lucide:circle-help'} size={26}/></span><p>{message}</p></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
@@ -736,8 +815,9 @@ function TicketModal({title,ticket,products,sprints,members,reporterMode=false,o
     product_id:ticket?.product_id||products[0]?.id||'',sprint_id:ticket?.sprint_id||'',title:ticket?.title||'',description:ticket?.description||'',type:ticket?.type||'task',priority:ticket?.priority||'medium',status:ticket?.status||'backlog',dev_owner_id:ticket?.dev_owner_id||'',qa_owner_id:ticket?.qa_owner_id||'',story_points:ticket?.story_points??'',start_date:ticket?.start_date||'',due_date:ticket?.due_date||''
   })
   const set=(k,v)=>setF(x=>({...x,[k]:v}))
-  const devs=members.filter(m=>m.active&&['superadmin','admin','pm','dev'].includes(m.role))
-  const qas=members.filter(m=>m.active&&['superadmin','admin','pm','qa'].includes(m.role))
+  const memberHasProduct=m=>m.role==='superadmin'||m.role==='admin'||m.all_products||m.product_ids?.includes(f.product_id)
+  const devs=members.filter(m=>m.active&&['superadmin','admin','pm','dev'].includes(m.role)&&memberHasProduct(m))
+  const qas=members.filter(m=>m.active&&['superadmin','admin','pm','qa'].includes(m.role)&&memberHasProduct(m))
   return <Modal title={title} subtitle={reporterMode?'Envía una solicitud al Backlog. El equipo definirá sprint, responsables y fechas.':'Define alcance, prioridad, responsables y ciclo de entrega.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave(f)} submitLabel={ticket?'Guardar cambios':reporterMode?'Enviar al Backlog':'Crear ticket'}>
     <div className="form-section"><h4>Información principal</h4><label>Título<input value={f.title} onChange={e=>set('title',e.target.value)} required placeholder="Describe el trabajo en una frase"/></label><label>Descripción<textarea rows="5" value={f.description} onChange={e=>set('description',e.target.value)} placeholder="Contexto, criterios de aceptación, pasos para reproducir…"/></label></div>
     <div className="form-section"><h4>{reporterMode?'Clasificación':'Planeación'}</h4><div className="form-grid">
@@ -819,7 +899,7 @@ function TicketDetailModal({workspace,ticket,products,members,session,canWork,ca
 
 function DetailRow({label,children}){return <div className="detail-row"><span>{label}</span><div>{children}</div></div>}
 
-function TicketFilterModal({filters,members,sprints,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de tickets" subtitle="Combina criterios para encontrar exactamente lo que necesitas." onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Responsable<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Sprint<select value={f.sprint} onChange={e=>setF({...f,sprint:e.target.value})}><option value="all">Todos</option>{sprints.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label><label>Tipo<select value={f.type} onChange={e=>setF({...f,type:e.target.value})}><option value="all">Todos</option>{TYPES.map(t=><option value={t} key={t}>{TYPE_LABELS[t]}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={()=>setF({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})}>Restablecer</button></div></AsyncForm></Modal>}
+function TicketFilterModal({filters,members,sprints,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de tickets" subtitle="Combina criterios para encontrar exactamente lo que necesitas." onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Responsable<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Sprint<select value={f.sprint} onChange={e=>setF({...f,sprint:e.target.value})}><option value="all">Todos</option>{sprints.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label><label>Tipo<select value={f.type} onChange={e=>setF({...f,type:e.target.value})}><option value="all">Todos</option>{TYPES.map(t=><option value={t} key={t}>{TYPE_LABELS[t]}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="text-button" onClick={()=>setF({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})}>Restablecer</button><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
 
 function PlanTicketModal({ticket,sprints,onClose,onSave}){
   const [sprintId,setSprintId]=useState(ticket.sprint_id||'')
@@ -877,7 +957,7 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
 function HelpdeskModal({title,item,departments,members,session,canWork,onClose,onSave}){
   const [f,setF]=useState({department_id:item?.department_id||departments.find(d=>d.active)?.id||'',subject:item?.subject||'',description:item?.description||'',requester_name:item?.requester_name||session.user.user_metadata?.full_name||'',requester_email:item?.requester_email||session.user.email||'',category:item?.category||'general',priority:item?.priority||'medium',status:item?.status||'created',assigned_to:item?.assigned_to||'',source:item?.source||(canWork?'internal':'portal'),due_at:toLocalDateTimeInput(item?.due_at)})
   const activeDepartments=departments.filter(d=>d.active||d.id===item?.department_id)
-  const assignees=members.filter(m=>m.active&&['superadmin','admin','pm','dev','qa'].includes(m.role))
+  const assignees=members.filter(m=>m.active&&effectivePermissions(m).manage_helpdesk)
   return <Modal title={title} subtitle={canWork?'Registra y administra una solicitud interna de servicio.':'Describe tu solicitud y consulta después su seguimiento desde Mis solicitudes.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave({...f,source:canWork?f.source:'portal'})} submitLabel={item?'Guardar cambios':'Crear solicitud'}>
     <div className="form-section"><h4>Solicitud</h4><label>Asunto<input value={f.subject} onChange={e=>setF({...f,subject:e.target.value})} required placeholder="¿Qué apoyo necesitas?"/></label><label>Descripción<textarea rows="5" value={f.description} onChange={e=>setF({...f,description:e.target.value})} placeholder="Contexto, impacto, evidencia y resultado esperado…"/></label><div className="form-grid"><label>Departamento solicitante<select value={f.department_id} onChange={e=>setF({...f,department_id:e.target.value})} required><option value="" disabled>Selecciona un departamento</option>{activeDepartments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Categoría<select value={f.category} onChange={e=>setF({...f,category:e.target.value})}><option value="general">General</option><option value="access">Accesos</option><option value="incident">Incidente</option><option value="request">Solicitud</option><option value="data">Datos / Reporte</option><option value="configuration">Configuración</option></select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}</select></label>{canWork&&<label>Origen<select value={f.source} onChange={e=>setF({...f,source:e.target.value})}><option value="internal">Interno</option><option value="portal">Portal</option><option value="email">Correo</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>}</div></div>
     <div className="form-section"><h4>Solicitante</h4><div className="form-grid"><label>Solicitante<input value={f.requester_name} onChange={e=>setF({...f,requester_name:e.target.value})}/></label><label>Correo<input type="email" value={f.requester_email} onChange={e=>setF({...f,requester_email:e.target.value})}/></label></div></div>
@@ -922,32 +1002,55 @@ function HelpdeskDetailModal({item,departments,members,session,canWork,canManage
   </>
 }
 
-function HelpFilterModal({filters,departments,members,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de Helpdesk" onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Área<select value={f.department} onChange={e=>setF({...f,department:e.target.value})}><option value="all">Todas</option>{departments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Asignado<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label></div></AsyncForm></Modal>}
+function HelpFilterModal({filters,departments,members,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de Helpdesk" onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Área<select value={f.department} onChange={e=>setF({...f,department:e.target.value})}><option value="all">Todas</option>{departments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Asignado<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
 
-function InviteModal({workspace,isSuperadmin,onClose,onSaved}){
-  const [email,setEmail]=useState(''),[name,setName]=useState(''),[role,setRole]=useState('reporter')
-  const roles=Object.entries(ROLE_LABELS).filter(([k])=>isSuperadmin||k!=='superadmin')
-  return <Modal title="Invitar colaborador" subtitle="El rol se aplicará únicamente dentro de este workspace." onClose={onClose}><AsyncForm onSubmit={async()=>{const {data,error}=await db.functions.invoke('invite-member',{body:{email,full_name:name.trim()||null,role,workspace_id:workspace.id,redirect_to:getAppUrl()}});if(error||data?.error)throw new Error(error?.message||data.error);await onSaved()}} submitLabel="Enviar invitación">
-    <label>Nombre del colaborador <span className="optional">Opcional</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido"/></label>
-    <label>Correo<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="colaborador@trobbu.com"/></label>
-    <label>Rol<select value={role} onChange={e=>setRole(e.target.value)}>{roles.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select><small className="field-help">{ROLE_DESCRIPTIONS[role]}</small></label>
+function ProductScopeEditor({products,role,allProducts,setAllProducts,selected,setSelected,disabled=false}){
+  const forced=['superadmin','admin'].includes(role)
+  const all=forced||allProducts
+  const toggle=id=>setSelected(selected.includes(id)?selected.filter(x=>x!==id):[...selected,id])
+  return <div className="access-section"><div className="access-section-head"><div><h4>Productos autorizados</h4><p>Define qué productos puede consultar y operar dentro de este workspace.</p></div>{forced&&<span className="readonly-chip"><Icon name="lucide:lock"/> Todos por rol</span>}</div>{!forced&&<div className="scope-choice"><button type="button" className={all?'active':''} disabled={disabled} onClick={()=>setAllProducts(true)}><Icon name="lucide:boxes"/><span><b>Todos</b><small>Incluye productos nuevos automáticamente</small></span></button><button type="button" className={!all?'active':''} disabled={disabled} onClick={()=>setAllProducts(false)}><Icon name="lucide:list-checks"/><span><b>Seleccionados</b><small>Limita el acceso a productos concretos</small></span></button></div>}{!all&&<div className="product-access-grid">{products.map(p=><label key={p.id} className={selected.includes(p.id)?'checked':''}><input type="checkbox" checked={selected.includes(p.id)} disabled={disabled} onChange={()=>toggle(p.id)}/><span><b>{p.name}</b><small>{p.key}</small></span><Icon name={selected.includes(p.id)?'lucide:circle-check':'lucide:circle'} /></label>)}</div>}</div>
+}
+
+function PermissionEditor({role,permissions,setPermissions,disabled=false}){
+  const defaults=ROLE_DEFAULTS[role]||ROLE_DEFAULTS.consulta
+  const effective={...defaults,...permissions}
+  const set=(key,value)=>{const next={...permissions};if(value===defaults[key])delete next[key];else next[key]=value;setPermissions(next)}
+  return <div className="access-section"><div className="access-section-head"><div><h4>Permisos efectivos</h4><p>El rol define la base. Puedes ajustar excepciones por usuario.</p></div>{role==='superadmin'&&<span className="readonly-chip"><Icon name="lucide:crown"/> Acceso total</span>}</div><div className="permission-grid">{PERMISSION_DEFS.map(([key,label,icon])=><label key={key} className={effective[key]?'on':''}><span><Icon name={icon}/><b>{label}</b></span><button type="button" className={`switch ${effective[key]?'on':''}`} disabled={disabled||role==='superadmin'} onClick={()=>set(key,!effective[key])}><i></i></button></label>)}</div></div>
+}
+
+
+function WorkspaceAccessSummary({workspace}){return <div className="form-section workspace-access-summary"><h4>Workspace</h4><div className="notice"><Icon name="lucide:layers-3"/><span><b>{workspace.name}</b><small>Estos accesos aplican únicamente dentro de este espacio de trabajo.</small></span></div></div>}
+
+function InviteModal({workspace,products,isSuperadmin,onClose,onSaved}){
+  const [email,setEmail]=useState(''),[name,setName]=useState(''),[role,setRole]=useState('consulta')
+  const [allProducts,setAllProducts]=useState(true),[productIds,setProductIds]=useState(products.map(p=>p.id)),[permissions,setPermissions]=useState({})
+  const roles=['consulta','dev','qa','pm','admin',...(isSuperadmin?['superadmin']:[])]
+  const changeRole=value=>{setRole(value);setPermissions({});if(['superadmin','admin'].includes(value))setAllProducts(true)}
+  const overrides=()=>permissions
+  return <Modal title="Agregar Staff" subtitle="Define rol, permisos y productos dentro del workspace seleccionado." onClose={onClose} size="lg"><AsyncForm onSubmit={async()=>{if(!allProducts&&!['superadmin','admin'].includes(role)&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');const {data,error}=await db.functions.invoke('invite-member',{body:{email,full_name:name.trim()||null,role,workspace_id:workspace.id,redirect_to:getAppUrl(),all_products:['superadmin','admin'].includes(role)?true:allProducts,product_ids:productIds,permissions:overrides()}});if(error||data?.error)throw new Error(error?.message||data.error);await onSaved()}} submitLabel="Guardar acceso">
+    <WorkspaceAccessSummary workspace={workspace}/>
+    <div className="form-section"><h4>Colaborador</h4><div className="form-grid"><label>Nombre <span className="optional">Opcional</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido"/></label><label>Correo<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="colaborador@trobbu.com"/></label><label>Rol base<select value={role} onChange={e=>changeRole(e.target.value)}>{roles.map(k=><option value={k} key={k}>{ROLE_LABELS[k]}</option>)}</select><small className="field-help">{ROLE_DESCRIPTIONS[role]}</small></label></div></div>
+    <ProductScopeEditor products={products} role={role} allProducts={allProducts} setAllProducts={setAllProducts} selected={productIds} setSelected={setProductIds}/>
+    <PermissionEditor role={role} permissions={permissions} setPermissions={setPermissions}/>
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
 
-function MemberModal({member,session,isSuperadmin,onClose,onSave}){
-  const [role,setRole]=useState(member.role),[active,setActive]=useState(member.active)
+function MemberModal({workspace,member,products,session,isSuperadmin,onClose,onSave}){
+  const [role,setRole]=useState(member.role),[active,setActive]=useState(member.active),[allProducts,setAllProducts]=useState(member.role==='superadmin'||member.role==='admin'||!!member.all_products),[productIds,setProductIds]=useState(member.product_ids||[]),[permissions,setPermissions]=useState(member.permissions||{})
   const self=member.user_id===session.user.id
-  const roles=Object.entries(ROLE_LABELS).filter(([k])=>isSuperadmin||k!=='superadmin')
-  return <Modal title="Editar colaborador" subtitle={member.profile?.full_name||'Usuario'} onClose={onClose}><AsyncForm onSubmit={()=>onSave({role,active})} submitLabel="Guardar cambios">
-    <label>Rol<select value={role} onChange={e=>setRole(e.target.value)} disabled={self}>{roles.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select><small className="field-help">{ROLE_DESCRIPTIONS[role]}</small></label>
-    <Toggle label="Acceso activo" checked={active} onChange={setActive} disabled={self}/>
-    {self&&<div className="notice">No puedes desactivar ni cambiar tu propio rol desde esta pantalla.</div>}
+  const roles=['consulta','dev','qa','pm','admin',...(isSuperadmin?['superadmin']:[])]
+  const changeRole=value=>{setRole(value);setPermissions({});if(['superadmin','admin'].includes(value))setAllProducts(true)}
+  return <Modal title="Accesos del colaborador" subtitle={member.profile?.full_name||'Usuario'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>{if(!allProducts&&!['superadmin','admin'].includes(role)&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');return onSave({role,active,all_products:allProducts,product_ids:productIds,permissions})}} submitLabel="Guardar accesos">
+    <WorkspaceAccessSummary workspace={workspace}/>
+    <div className="form-section"><h4>Rol y estado</h4><div className="form-grid"><label>Rol base<select value={role} onChange={e=>changeRole(e.target.value)} disabled={self}>{roles.map(k=><option value={k} key={k}>{ROLE_LABELS[k]}</option>)}</select><small className="field-help">{ROLE_DESCRIPTIONS[role]}</small></label><div><Toggle label="Acceso activo" checked={active} onChange={setActive} disabled={self}/></div></div>{self&&<div className="notice"><Icon name="lucide:shield-alert"/><span>No puedes desactivar ni cambiar tu propio rol desde esta pantalla. Superadmin conserva siempre acceso total.</span></div>}</div>
+    <ProductScopeEditor products={products} role={role} allProducts={allProducts} setAllProducts={setAllProducts} selected={productIds} setSelected={setProductIds} disabled={self}/>
+    <PermissionEditor role={role} permissions={permissions} setPermissions={setPermissions} disabled={self}/>
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
 
-function ProductModal({title,initial,onClose,onSave}){const [f,setF]=useState({name:initial?.name||'',key:initial?.key||'',description:initial?.description||''});return <Modal title={title} onClose={onClose}><AsyncForm onSubmit={()=>onSave({...f,key:f.key.trim().toUpperCase()})} submitLabel="Guardar producto"><label>Nombre<input value={f.name} onChange={e=>setF({...f,name:e.target.value})} required/></label><label>Clave<input value={f.key} onChange={e=>setF({...f,key:e.target.value.replace(/[^A-Za-z0-9]/g,'').slice(0,6)})} required placeholder="WEB"/></label><label>Descripción<textarea rows="3" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/></label></AsyncForm></Modal>}
+function ProductModal({title,initial,onClose,onSave}){const [f,setF]=useState({name:initial?.name||'',key:initial?.key||'',description:initial?.description||''});return <Modal title={title} onClose={onClose}><AsyncForm onSubmit={()=>onSave({...f,key:f.key.trim().toUpperCase()})} submitLabel="Guardar producto"><label>Nombre<input value={f.name} onChange={e=>setF({...f,name:e.target.value})} required/></label><label>Clave<input value={f.key} onChange={e=>setF({...f,key:e.target.value.replace(/[^A-Za-z0-9]/g,'').slice(0,6)})} required placeholder="WEB"/></label><label>Descripción<textarea rows="3" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/></label><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
 function SprintModal({title,initial,onClose,onSave}){
   const [f,setF]=useState({name:initial?.name||'',goal:initial?.goal||'',details:initial?.details||'',start_date:initial?.start_date||'',end_date:initial?.end_date||'',status:initial?.status||'planned'})
   return <Modal title={title} subtitle="Define objetivo, alcance y ventana de trabajo del sprint." onClose={onClose}><AsyncForm onSubmit={()=>onSave(f)} submitLabel="Guardar sprint">
@@ -963,6 +1066,6 @@ function DepartmentModal({title,initial,onClose,onSave}){const [f,setF]=useState
 
 function CommentEditModal({title,initial,onClose,onSave}){const [body,setBody]=useState(initial||'');return <Modal title={title} subtitle="Actualiza el contenido sin perder el contexto del ticket." onClose={onClose} size="sm"><AsyncForm onSubmit={()=>onSave(body)} submitLabel="Guardar comentario"><label>Comentario<textarea rows="5" value={body} onChange={e=>setBody(e.target.value)} required/></label><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
 
-function QuickHelpModal({helpdeskEnabled,onClose,onHelpdesk,onSettings}){return <Modal title="Centro de ayuda" subtitle="Accesos rápidos y guía del Jira Interno TROBBU." onClose={onClose}><div className="help-grid">{helpdeskEnabled?<button onClick={onHelpdesk}><span><Icon name="lucide:life-buoy"/></span><div><b>Abrir Helpdesk</b><p>Registra o atiende solicitudes internas de otras áreas.</p></div><Icon name="lucide:chevron-right"/></button>:<button onClick={onSettings}><span><Icon name="lucide:life-buoy"/></span><div><b>Helpdesk deshabilitado</b><p>Actívalo desde Configuración para recibir solicitudes internas.</p></div><Icon name="lucide:settings"/></button>}<button onClick={onSettings}><span><Icon name="lucide:settings"/></span><div><b>Configuración</b><p>Administra workspace, productos, sprints y notificaciones.</p></div><Icon name="lucide:chevron-right"/></button><div className="shortcut-card"><span><Icon name="lucide:keyboard"/></span><div><b>Atajo de búsqueda</b><p>Usa <kbd>⌘ K</kbd> o <kbd>Ctrl K</kbd> para enfocar el buscador global.</p></div></div></div></Modal>}
+function QuickHelpModal({helpdeskEnabled,canOpenSettings,onClose,onHelpdesk,onSettings}){return <Modal title="Centro de ayuda" subtitle="Accesos rápidos y guía del Jira Interno TROBBU." onClose={onClose}><div className="help-grid">{helpdeskEnabled?<button type="button" onClick={onHelpdesk}><span><Icon name="lucide:life-buoy"/></span><div><b>Abrir Helpdesk</b><p>Registra o atiende solicitudes internas de otras áreas.</p></div><Icon name="lucide:chevron-right"/></button>:canOpenSettings?<button type="button" onClick={onSettings}><span><Icon name="lucide:life-buoy"/></span><div><b>Helpdesk deshabilitado</b><p>Actívalo desde Configuración para recibir solicitudes internas.</p></div><Icon name="lucide:settings"/></button>:<div className="shortcut-card"><span><Icon name="lucide:life-buoy"/></span><div><b>Helpdesk deshabilitado</b><p>Solicita a un administrador que habilite el módulo.</p></div></div>}{canOpenSettings&&<button type="button" onClick={onSettings}><span><Icon name="lucide:settings"/></span><div><b>Configuración</b><p>Administra workspace, productos y notificaciones.</p></div><Icon name="lucide:chevron-right"/></button>}<div className="shortcut-card"><span><Icon name="lucide:keyboard"/></span><div><b>Atajo de búsqueda</b><p>Usa <kbd>⌘ K</kbd> o <kbd>Ctrl K</kbd> para enfocar el buscador global.</p></div></div></div></Modal>}
 
 ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>)

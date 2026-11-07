@@ -1,101 +1,133 @@
-# QA Report — Jira Interno TROBBU v11.2
+# QA Report — Jira Interno TROBBU v12.1
 
-Fecha de revisión: 6–7 noviembre 2026.
+Fecha de revisión: 7 noviembre 2026.
 
-## Resultado
+## Estado final
 
-**Backend/RLS:** PASS  
-**Jerarquía por workspace:** PASS  
-**Backlog/Sprints:** PASS  
-**Helpdesk requester/staff:** PASS  
-**Evidencias:** PASS  
-**Frontend estático:** PASS  
-**Responsive/layout:** PASS
+- Backend / CRUD / RLS: **PASS**
+- Staff y Roles: **PASS**
+- Scope por workspace/producto: **PASS**
+- Superadmin full access: **PASS**
+- Gantt: **PASS**
+- Backlog / Sprints: **PASS**
+- Helpdesk: **PASS**
+- Evidencias: **PASS**
+- JSX/CSS: **PASS**
+- Modales: **PASS**
+- Responsive: **PASS**
 
-Todas las pruebas de escritura sobre Supabase se ejecutaron dentro de transacciones con `ROLLBACK`; no se conservaron datos QA.
+Todas las escrituras QA contra Supabase se ejecutaron dentro de transacciones con `ROLLBACK`. El estado final reporta **0 workspaces, tickets y solicitudes Helpdesk QA persistidos**.
 
-## Matriz de permisos — 22/22 PASS
+## Matriz de producto/permisos — 16/16 PASS
 
-1. Nuevo workspace crea Superadmin, 3 productos y 10 departamentos activos.
-2. Superadmin puede administrar productos.
-3. Administrador no puede otorgarse/otorgar Superadmin.
-4. Administrador puede administrar productos.
-5. PM puede crear/administrar sprints.
-6. PM no puede administrar productos.
-7. Desarrollo puede crear y actualizar tickets.
-8. Desarrollo no puede crear sprints.
-9. QA puede operar estados de tickets.
-10. Solo carga puede crear su ticket en Backlog.
-11. Solo carga no puede planificar fechas ni datos internos.
-12. Solo carga solo puede consultar tickets propios.
-13. Solo carga no puede editar tickets después del alta.
-14. Requester puede crear solicitud de Helpdesk.
-15. Requester no puede editar datos internos de la solicitud.
-16. Requester puede comentar su solicitud.
-17. Solo dashboards puede leer el tablero.
-18. Solo dashboards no puede escribir tickets.
-19. Cierre/rollover de sprint trasladó exactamente 2 tickets no resueltos; los cerrados permanecieron en origen.
-20. Fecha de entrega anterior a fecha de inicio fue rechazada.
-21. Metadatos de evidencia de ticket y sprint respetaron RLS.
-22. Helpdesk registró timestamps para En revisión, Atendido, Resuelto y Cerrado.
+1. Superadmin conserva todos los permisos aunque su JSON intente desactivarlos.
+2. Dev limitado a ADM solo ve el producto ADM.
+3. Dev crea ticket en producto autorizado.
+4. Dev no puede crear ticket en producto no autorizado.
+5. Dev solo consulta tickets del producto autorizado.
+6. QA puede operar ticket del producto autorizado.
+7. Consulta base es lectura únicamente y respeta producto.
+8. Consulta no puede crear ticket por defecto.
+9. Consulta no puede editar ticket.
+10. Override `create_tickets=true` permite carga controlada a Backlog.
+11. Usuario con create pero sin edit no puede introducir fechas/planificación.
+12. PM puede gestionar sprints.
+13. Admin mantiene todos los productos.
+14. Admin puede administrar mappings de productos del Staff.
+15. Un permiso de Admin puede revocarse mediante override.
+16. Overrides restrictivos nunca reducen a Superadmin.
 
-## Helpdesk
+## Pruebas de privacidad — 7/7 PASS
 
-Se validó además que un requester que intente enviar valores internos manipulados en el INSERT sea normalizado por backend a:
+1. Actividad de un ticket de producto no autorizado queda oculta.
+2. Notificación de un producto no autorizado queda oculta.
+3. Caso Helpdesk ajeno queda oculto sin `manage_helpdesk`.
+4. Comentarios Helpdesk ajenos quedan ocultos sin permiso.
+5. Actividad Helpdesk ajena queda oculta sin permiso.
+6. Alta de portal se normaliza a `created / portal / sin responsable`.
+7. Un override `manage_helpdesk=true` habilita correctamente Mesa de atención y asignación.
 
-- `status = created`
-- `source = portal`
-- `requester_user_id = auth.uid()`
-- `assigned_to = null`
-- SLA calculado automáticamente
+## E2E final — 13/13 PASS
 
-Departamentos validados: Reservaciones, Recepción, Gerencia, Administración, Aperturas, Marketing, Callcenter, Plataforma, Atención a clientes y Atención a socios.
+1. Bootstrap de workspace: Superadmin + 3 productos + 10 departamentos.
+2. Actualización de configuración.
+3. CRUD de producto.
+4. Creación de sprint con detalle.
+5. Ticket con fechas Gantt, responsable, story points y cambio de estado.
+6. Comentario/evidencia de ticket.
+7. Actividad de ticket.
+8. Flujo Helpdesk completo con timestamps.
+9. Comentario Helpdesk.
+10. Notificaciones in-app.
+11. Cierre y rollover trasladó exactamente 3 tickets pendientes y conservó el cerrado en origen.
+12. Deletes de Helpdesk/tickets/sprints/producto.
+13. Eliminación de workspace con cascada.
 
-## Storage/evidencias
+## Frontend / sintaxis
 
-- Superadmin/Administrador/PM/Dev/QA pueden subir evidencia válida del workspace.
-- Solo carga puede leer evidencia de sus propios tickets y no puede subirla.
-- Solo carga no puede leer evidencias de sprint.
-- Solo dashboards es lectura únicamente.
-- Bucket privado `jira-evidence`, máximo 10 MB por imagen.
+- Parser JSX real (TypeScript ScriptKind.JSX): **0 diagnostics**.
+- CSS PostCSS parse: **PASS**.
+- Botones auditados por AST: **125**.
+- Botones no-submit sin acción: **0**.
+- Formularios `AsyncForm`: **17**.
+- Formularios sin botón Cancelar: **0**.
+- Botones internos de formularios sin `type`: **0**.
+- Tipos de modal abiertos: **32**.
+- Rutas de modal implementadas: **32**.
+- Rutas de modal faltantes: **0**.
+- `alert()`, `prompt()`, `confirm()`: **0**.
 
-## Frontend estático
+Durante esta revisión el parser detectó inicialmente un error JSX en la fila Staff. Fue corregido y el parser se volvió a ejecutar con **0 diagnostics** antes del empaquetado.
 
-- JSX parse diagnostics: **0**.
-- Botones auditados: **109**.
-- Botones sin acción: **0**.
-- Botones dentro de forms sin `type`: **0**.
-- Tipos globales de modal detectados: **32**.
-- Rutas globales de modal: **32**.
-- Rutas faltantes: **0**.
-- Uso de `alert()`, `prompt()` o `confirm()`: **0**.
-- Todas las cargas principales filtran explícitamente por `workspace_id`; tablas hijas están además protegidas por RLS/FK.
+## QA visual Playwright — 12/12 PASS
 
-## QA visual de modales — 12/12 PASS
+Renderizado real de CSS/DOM en Chromium mediante Playwright, 3 tamaños:
 
-Desktop, tablet y móvil:
+- Desktop: 1440×900
+- Tablet: 820×1180
+- Mobile: 390×844
 
-- footer del formulario alineado;
-- Cancelar integrado en footer propio;
-- acción primaria alineada;
-- modal dentro del viewport;
-- sin overflow horizontal general;
-- navegación móvil visible.
+Módulos probados:
 
-En móvil, Cancelar y acción primaria se apilan a ancho completo.
+- Staff
+- Roles base
+- Gantt
+- Modal largo de Accesos
 
-## QA visual de módulos — 16/16 PASS
+Validaciones:
 
-Desktop/tablet/móvil:
+- sin overflow horizontal del documento;
+- Staff contenido dentro del viewport;
+- matriz de roles usa scroll interno en móvil;
+- Gantt usa scroll horizontal interno, nunca el documento;
+- modal contenido dentro del viewport;
+- footer no queda recortado;
+- Cancelar y Guardar permanecen dentro del modal;
+- móvil: Cancelar arriba, Guardar abajo, ambos a ancho completo.
 
-- Calendario presente y contenido dentro del viewport;
-- Backlog/Sprints presente;
-- Helpdesk con stepper de 5 estados;
-- detalle de sprint con evidencia;
-- sin overflow horizontal de página.
+Resultado: **12/12 PASS**.
 
-En móvil, el único scroll horizontal permitido queda contenido dentro del calendario mensual, no en el documento completo.
+## Gantt
 
-## Supabase
+Se verificó visualmente:
 
-El Security Advisor mantiene únicamente la recomendación de habilitar **Leaked Password Protection** de Supabase Auth. No representa un error funcional de Jira Interno.
+- bandas de sprint;
+- barras de tickets;
+- porcentaje/progreso;
+- 4/8/12 semanas;
+- navegación temporal;
+- indicadores de tickets planificados, sin fechas, vencidos y cerrados;
+- sección de actividades sin programar;
+- sticky label de actividad y scroll interno en móvil.
+
+## Supabase final
+
+- Usuario principal en `Trobbu Tecnología`: **Superadmin**.
+- `all_products=true`.
+- `manage_staff=true`.
+- `manage_settings=true`.
+- Productos del workspace: 3.
+- `invite-member`: ACTIVE v9.
+- `process-notifications`: ACTIVE v6.
+- Health Advisor: **0 issues**.
+- Security Advisor: solo permanece **Leaked Password Protection Disabled** de Supabase Auth.

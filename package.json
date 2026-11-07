@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "11.2.0",
-  "description": "Jira Interno Trobbu - versión raíz compatible con GitHub Pages",
+  "version": "12.1.0",
+  "description": "Jira Interno TROBBU v12.1 - Staff/Roles por workspace y producto, Gantt y QA responsive",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   }
