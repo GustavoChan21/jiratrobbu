@@ -237,12 +237,6 @@ language plpgsql security definer
 set search_path = public, pg_temp
 as $$
 begin
-  if tg_op = 'INSERT' then
-    insert into public.ticket_activity(ticket_id,actor_id,action,to_value)
-    values(new.id,(select auth.uid()),'created',new.status::text);
-    return new;
-  end if;
-
   if old.status is distinct from new.status then
     if new.status = 'dev_done' and new.dev_completed_at is null then new.dev_completed_at := now(); end if;
     if new.status = 'qa_passed' and new.qa_completed_at is null then new.qa_completed_at := now(); end if;
@@ -270,6 +264,17 @@ begin
       jsonb_build_object('ticket_key',new.ticket_key,'title',new.title));
   end if;
 
+  return new;
+end $$;
+
+create or replace function private.log_ticket_created()
+returns trigger
+language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.ticket_activity(ticket_id,actor_id,action,to_value)
+  values(new.id,(select auth.uid()),'created',new.status::text);
   return new;
 end $$;
 
@@ -341,7 +346,8 @@ create or replace trigger trg_sprints_updated before update on public.sprints fo
 create or replace trigger trg_comments_updated before update on public.ticket_comments for each row execute function public.set_updated_at();
 create or replace trigger trg_ticket_key before insert on public.tickets for each row execute function private.assign_ticket_key();
 create or replace trigger trg_ticket_updated before update on public.tickets for each row execute function public.set_updated_at();
-create or replace trigger trg_ticket_change before insert or update on public.tickets for each row execute function private.track_ticket_change();
+create or replace trigger trg_ticket_change before update on public.tickets for each row execute function private.track_ticket_change();
+create or replace trigger trg_ticket_activity_created after insert on public.tickets for each row execute function private.log_ticket_created();
 create or replace trigger trg_ticket_notify_created after insert on public.tickets for each row execute function private.notify_ticket_created();
 create or replace trigger trg_bootstrap_workspace after insert on public.workspaces for each row execute function private.bootstrap_workspace();
 
@@ -440,6 +446,7 @@ grant usage,select on all sequences in schema public to authenticated;
 revoke all on function public.set_updated_at() from public,anon;
 revoke all on function private.assign_ticket_key() from public,anon,authenticated;
 revoke all on function private.track_ticket_change() from public,anon,authenticated;
+revoke all on function private.log_ticket_created() from public,anon,authenticated;
 revoke all on function private.notify_ticket_created() from public,anon,authenticated;
 revoke all on function private.handle_new_user() from public,anon,authenticated;
 revoke all on function private.bootstrap_workspace() from public,anon,authenticated;

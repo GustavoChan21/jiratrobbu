@@ -129,8 +129,8 @@ function WorkspaceApp({ session }) {
   const [sprintId, setSprintId] = useState('all')
   const [tickets, setTickets] = useState([])
   const [members, setMembers] = useState([])
-  const [view, setView] = useState('dashboard')
-  const [boardMode, setBoardMode] = useState('kanban')
+  const [view, setView] = useState('board')
+  const [boardMode, setBoardMode] = useState('table')
   const [statusFilter, setStatusFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -232,7 +232,7 @@ function WorkspaceApp({ session }) {
   const pageMeta = {
     dashboard: ['Dashboard', 'Indicadores del sprint y avance general del equipo.'],
     tasks: ['Mis tareas', 'Tickets en los que participas como reporter, Dev o QA.'],
-    board: ['Tablero', 'Visualiza, filtra y mueve tickets entre etapas.'],
+    board: ['Mis Tickets', 'Consulta, filtra y gestiona todos los tickets del equipo.'],
     team: ['Miembros', 'Colaboradores, roles y accesos del workspace.']
   }[view]
 
@@ -240,11 +240,11 @@ function WorkspaceApp({ session }) {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <img src="./logo.svg" alt="TROBBU" className="sidebar-logo" />
-        <div><strong>Jira Interno</strong><span>TROBBU Technology</span></div>
+        <div><strong>TROBBU</strong><span>Jira Interno</span></div>
       </div>
 
       <div className="sidebar-separator"></div>
-      <div className="sidebar-title-row"><span>WORKSPACE</span><button title="Nuevo workspace" onClick={canManage ? createWorkspace : undefined}><Icon name="lucide:plus-circle" size={17} /></button></div>
+      <div className="sidebar-title-row"><span>WORKSPACES</span><button title="Nuevo workspace" onClick={canManage ? createWorkspace : undefined}><Icon name="lucide:plus-circle" size={17} /></button></div>
       <button className="workspace-card">
         <span className="workspace-avatar"><Icon name="lucide:panels-top-left" size={20} /></span>
         <span className="workspace-copy"><b>{workspace?.name || 'Workspace'}</b><small>{myRole.toUpperCase()}</small></span>

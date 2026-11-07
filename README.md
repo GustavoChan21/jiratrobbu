@@ -66,3 +66,13 @@ Archivos principales de UI:
 - `index.html` — carga Inter + Iconify para iconografía Lucide.
 
 La publicación en GitHub Pages sigue funcionando sin build y sin carpetas adicionales.
+
+## Corrección de auditoría de tickets
+
+El error `ticket_activity_ticket_id_fkey` quedó corregido en producción y en `database.sql`.
+La actividad `created` ahora se registra mediante un trigger `AFTER INSERT`, cuando el ticket padre ya existe.
+Se incluye `fix-ticket-activity.sql` en raíz como referencia del hotfix aplicado.
+
+## UI Jira/TROBBU v2
+
+La vista inicial ahora abre directamente en **Mis Tickets → Tabla**, con navegación y composición deliberadamente inspiradas en Jira: sidebar claro, workspace selector, productos, tabla/Kanban, filtros y CTA `Nuevo` dentro del panel principal. Los colores de TROBBU se conservan como tokens CSS.
