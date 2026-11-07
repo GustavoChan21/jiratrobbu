@@ -106,14 +106,24 @@ Deno.serve(async(req:Request)=>{
       if((data?.length??0)!==productIds.length)throw new Error("Uno o más productos no pertenecen a este workspace.");
     }
     const redirectTo=safeRedirect(body.redirect_to);
+    const authMode=body.auth_mode==="invite"?"invite":"password";
+    const requestedPassword=String(body.password??"");
+    if(authMode==="password"&&requestedPassword.length<10)throw new Error("La contraseña inicial debe tener al menos 10 caracteres.");
     let user=await findUserByEmail(admin,email);
     let invitationSent=false;
     let temporaryPassword:string|null=null;
     let inviteErrorMessage:string|null=null;
+    const meta:any={workspace_id:workspaceId,role:role.base_role,role_id:role.id};
+    if(fullName)meta.full_name=fullName;
 
-    if(!user){
-      const meta:any={workspace_id:workspaceId,role:role.base_role,role_id:role.id};
-      if(fullName)meta.full_name=fullName;
+    if(user&&authMode==="password")throw new Error("Este correo ya pertenece a un usuario. Para agregarlo al workspace usa Enviar invitación; la contraseña existente no se modifica desde Staff.");
+
+    if(!user&&authMode==="password"){
+      temporaryPassword=requestedPassword;
+      const created=await admin.auth.admin.createUser({email,password:requestedPassword,email_confirm:true,user_metadata:meta});
+      if(created.error)throw new Error("No se pudo crear el usuario: "+created.error.message);
+      user=created.data.user;
+    }else if(!user){
       const {data,error}=await admin.auth.admin.inviteUserByEmail(email,{redirectTo,data:meta});
       if(data?.user?.id){user=data.user;invitationSent=true;}
       if(error){
@@ -121,10 +131,7 @@ Deno.serve(async(req:Request)=>{
         user=await findUserByEmail(admin,email);
         if(!user){
           temporaryPassword=randomPassword();
-          const created=await admin.auth.admin.createUser({
-            email,password:temporaryPassword,email_confirm:true,
-            user_metadata:meta,
-          });
+          const created=await admin.auth.admin.createUser({email,password:temporaryPassword,email_confirm:true,user_metadata:meta});
           if(created.error)throw new Error("No se pudo crear el usuario: "+created.error.message);
           user=created.data.user;
         }
@@ -166,7 +173,7 @@ Deno.serve(async(req:Request)=>{
       invitation_sent:invitationSent,temporary_password:temporaryPassword,
       invite_warning:inviteErrorMessage,membership_active:true,
       status:user.email_confirmed_at||temporaryPassword?"accepted":"pending",
-      redirect_to:redirectTo,
+      credential_mode:temporaryPassword?"password":authMode,redirect_to:redirectTo,
     }),{headers:{...cors,"Content-Type":"application/json"}});
   }catch(error){
     const message=error instanceof Error?error.message:"Unknown error";

@@ -156,5 +156,56 @@ Security Advisor: permanece la recomendación externa `Leaked Password Protectio
 - Rutas de modal: **38/38** implementadas.
 - Formularios con footer común: **19/19**.
 - Diálogos nativos (`alert`, `prompt`, `confirm`): **0**.
-- `invite-member` desplegada en Supabase como versión **13 ACTIVE** con soporte a perfiles sin producto.
+- `invite-member` desplegada en Supabase como versión **15 ACTIVE** con soporte a perfiles sin producto y contraseña inicial explícita.
 
+
+
+## QA v14.1 — Correcciones solicitadas 07/11/2026
+
+### Staff / credenciales
+
+- El modal **Agregar Staff** permite elegir **Crear con contraseña** o **Enviar invitación**.
+- Crear con contraseña es el modo inicial y genera una contraseña fuerte que el administrador puede editar, mostrar u regenerar.
+- La Edge Function `invite-member` v15 usa `auth.admin.createUser` cuando se define contraseña, confirma el email para acceso inmediato y devuelve la contraseña únicamente en la respuesta de esa operación administrativa.
+- Si el correo ya existe, el flujo con contraseña se bloquea para no sobrescribir credenciales existentes; se debe usar invitación/agregar al workspace.
+- La contraseña nunca se persiste en tablas del workspace ni en perfiles.
+
+### Configuración
+
+- Corregido `ReferenceError: canManage is not defined` al entrar a **Productos** o **Sprints**.
+- Productos usa `canManageProducts`; Sprints usa `canPlan`.
+- La tab Helpdesk vuelve a exponer CRUD de departamentos para administradores: crear, editar, activar/desactivar y eliminar.
+
+### Helpdesk
+
+Matriz transaccional backend: **7/7 PASS**.
+
+- Alta desde portal forzada a `created`, `assigned_to=null`, `due_at=null`, `source=portal`.
+- Solicitante y correo se normalizan desde la sesión autenticada.
+- PM/Admin/Superadmin recibe `Nueva solicitud por canalizar · HD-X`.
+- El solicitante recibe confirmación de creación.
+- Al canalizar a `review`, si no se definió fecha objetivo, el SLA se calcula automáticamente.
+- El responsable asignado recibe notificación.
+- Módulos/funcionalidades/requerimientos permanecen sin SLA y generan `Nueva propuesta por decidir · HD-X`.
+
+### QA visual v14.1
+
+Chromium/Playwright: **12/12 PASS** sin overflow general en desktop 1440, tablet 820 y mobile 390 para:
+
+- Configuración / Productos;
+- Configuración / Helpdesk;
+- Staff con contraseña inicial;
+- Alta de solicitud Helpdesk sin campos internos.
+
+Sanity estático:
+
+- `SettingsView`: 0 referencias a `canManage` fuera de scope.
+- Llaves, paréntesis y corchetes balanceados en `app.js`.
+- El alta Helpdesk solo muestra información de solicitud y solicitante; los campos de atención interna aparecen únicamente al editar una solicitud existente con permisos de mesa.
+
+### Revisión final Supabase v14.1
+
+- Health Advisor: **0 incidencias**.
+- Security Advisor: únicamente `Leaked Password Protection Disabled` (configuración global de Auth ya existente).
+- `invite-member`: **v15 ACTIVE**, `verify_jwt=true`.
+- Residuos de QA: **0 workspaces** y **0 solicitudes** persistidas.

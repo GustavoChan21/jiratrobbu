@@ -138,3 +138,20 @@ La publishable key de Supabase incluida en `config.js` es una clave pública de 
 - Al aceptar, el producto se elige en la decisión y se crea un ticket `improvement` en Backlog sin exponerlo al solicitante.
 - Edge Function `invite-member` v13 permite roles sin productos y conserva validación estricta para roles de producto.
 
+
+
+## v14.1 — Staff con contraseña, Configuración estable y canalización Helpdesk
+
+- **Staff:** al crear un usuario se puede elegir `Crear con contraseña` para entregar correo + contraseña inmediatamente, o `Enviar invitación`.
+- **Configuración:** corregida la regresión de las tabs Productos/Sprints y restaurado el CRUD de departamentos de Helpdesk.
+- **Alta Helpdesk:** el solicitante solo captura asunto, descripción, departamento, tipo y prioridad; nombre/correo provienen de su sesión. No puede definir responsable, estado ni fecha objetivo.
+- **Canalización:** PM/Admin/Superadmin abre la solicitud después y define responsable/estado/fecha. Si cambia a `En revisión` sin fecha objetivo, se calcula automáticamente con el SLA del workspace.
+- **Notificaciones:** al crear una solicitud se genera una notificación in-app para PM/Admin/Superadmin; propuestas de producto usan una notificación específica de decisión pendiente.
+
+### Actualizar desde v14.0
+
+1. Reemplazar los archivos frontend por esta versión.
+2. Ejecutar `upgrade-v14.1.sql`.
+3. Desplegar `invite-member.ts` (la versión activa correspondiente es v15).
+
+`database.sql` incluye al final los ajustes v14.1 para instalaciones nuevas.
