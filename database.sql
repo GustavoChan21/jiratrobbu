@@ -723,3 +723,1010 @@ select workspace_id,count(*) total,
  count(*) filter(where resolved_at is not null and due_at is not null and resolved_at<=due_at) resolved_within_sla
 from public.helpdesk_tickets group by workspace_id;
 grant select on public.helpdesk_dashboard_stats to authenticated;
+
+
+-- Jira Interno TROBBU · Upgrade v5
+-- Apply after database.sql / v4. Idempotent where practical.
+
+-- 1) Ticket/helpdesk keys are unique inside each workspace, not globally.
+alter table public.tickets drop constraint if exists tickets_ticket_key_key;
+alter table public.tickets drop constraint if exists tickets_workspace_ticket_key_key;
+alter table public.tickets add constraint tickets_workspace_ticket_key_key unique(workspace_id,ticket_key);
+
+alter table public.helpdesk_tickets drop constraint if exists helpdesk_tickets_ticket_key_key;
+alter table public.helpdesk_tickets drop constraint if exists helpdesk_workspace_ticket_key_key;
+alter table public.helpdesk_tickets add constraint helpdesk_workspace_ticket_key_key unique(workspace_id,ticket_key);
+
+-- 2) Workspace creator may immediately read the new workspace; admins may delete it.
+drop policy if exists workspaces_select on public.workspaces;
+create policy workspaces_select on public.workspaces
+for select to authenticated
+using (
+  private.is_workspace_member(id)
+  or created_by = (select auth.uid())
+);
+
+drop policy if exists workspaces_delete on public.workspaces;
+create policy workspaces_delete on public.workspaces
+for delete to authenticated
+using (
+  private.has_workspace_role(id,array['admin']::public.app_role[])
+  or created_by = (select auth.uid())
+);
+
+create or replace function public.create_workspace(p_name text,p_slug text)
+returns uuid
+language plpgsql
+security invoker
+set search_path=public,pg_temp
+as $$
+declare
+  v_uid uuid:=auth.uid();
+  v_id uuid;
+begin
+  if v_uid is null then raise exception 'Authentication required'; end if;
+  if nullif(trim(p_name),'') is null or nullif(trim(p_slug),'') is null then
+    raise exception 'Workspace name and slug are required';
+  end if;
+
+  insert into public.workspaces(name,slug,created_by)
+  values(trim(p_name),trim(p_slug),v_uid)
+  returning id into v_id;
+
+  return v_id;
+end
+$$;
+revoke all on function public.create_workspace(text,text) from public,anon;
+grant execute on function public.create_workspace(text,text) to authenticated;
+
+-- 3) Viewer is read-only for product tickets.
+drop policy if exists tickets_insert on public.tickets;
+create policy tickets_insert on public.tickets
+for insert to authenticated
+with check (
+  private.has_workspace_role(workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+);
+
+drop policy if exists tickets_update on public.tickets;
+create policy tickets_update on public.tickets
+for update to authenticated
+using (
+  private.has_workspace_role(workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+)
+with check (
+  private.has_workspace_role(workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+);
+
+-- 4) Ticket comment permissions.
+drop policy if exists comments_access on public.ticket_comments;
+drop policy if exists ticket_comments_select on public.ticket_comments;
+create policy ticket_comments_select on public.ticket_comments
+for select to authenticated
+using (exists (
+  select 1 from public.tickets t
+  where t.id=ticket_id and private.is_workspace_member(t.workspace_id)
+));
+
+drop policy if exists ticket_comments_insert on public.ticket_comments;
+create policy ticket_comments_insert on public.ticket_comments
+for insert to authenticated
+with check (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.tickets t
+    where t.id=ticket_id
+      and private.has_workspace_role(t.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  )
+);
+
+drop policy if exists ticket_comments_update on public.ticket_comments;
+create policy ticket_comments_update on public.ticket_comments
+for update to authenticated
+using (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.tickets t
+    where t.id=ticket_id
+      and private.has_workspace_role(t.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  )
+)
+with check (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.tickets t
+    where t.id=ticket_id
+      and private.has_workspace_role(t.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  )
+);
+
+drop policy if exists ticket_comments_delete on public.ticket_comments;
+create policy ticket_comments_delete on public.ticket_comments
+for delete to authenticated
+using (
+  (
+    author_id=(select auth.uid())
+    and exists (
+      select 1 from public.tickets t
+      where t.id=ticket_id
+        and private.has_workspace_role(t.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+    )
+  )
+  or exists (
+    select 1 from public.tickets t
+    where t.id=ticket_id
+      and private.has_workspace_role(t.workspace_id,array['admin','pm']::public.app_role[])
+  )
+);
+
+-- 5) Membership guard: protect Admin role and keep at least one active Admin.
+create or replace function private.guard_workspace_membership()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+declare
+  v_caller uuid := auth.uid();
+  v_caller_is_admin boolean;
+  v_admins integer;
+begin
+  -- Workspace FK cascade must be allowed.
+  if tg_op='DELETE' and not exists(
+    select 1 from public.workspaces w where w.id=old.workspace_id
+  ) then
+    return old;
+  end if;
+
+  -- Trusted backend/service_role calls are authorized server-side.
+  if v_caller is null then
+    if tg_op='DELETE' then return old; end if;
+    return new;
+  end if;
+
+  if tg_op='INSERT' then
+    if new.role='admin' then
+      select private.has_workspace_role(new.workspace_id,array['admin']::public.app_role[])
+      into v_caller_is_admin;
+      if not v_caller_is_admin and new.user_id is distinct from v_caller then
+        raise exception 'Only an admin can grant the admin role';
+      end if;
+    end if;
+    return new;
+  end if;
+
+  select private.has_workspace_role(old.workspace_id,array['admin']::public.app_role[])
+  into v_caller_is_admin;
+
+  if old.role='admin' and not v_caller_is_admin then
+    raise exception 'Only an admin can modify another admin';
+  end if;
+
+  if tg_op='UPDATE' and new.role='admin' and old.role<>'admin' and not v_caller_is_admin then
+    raise exception 'Only an admin can grant the admin role';
+  end if;
+
+  if old.role='admin' and (
+    tg_op='DELETE'
+    or (tg_op='UPDATE' and (new.role<>'admin' or new.active=false))
+  ) then
+    select count(*) into v_admins
+    from public.workspace_members wm
+    where wm.workspace_id=old.workspace_id
+      and wm.active=true
+      and wm.role='admin'
+      and wm.user_id<>old.user_id;
+
+    if v_admins=0 then
+      raise exception 'A workspace must keep at least one active admin';
+    end if;
+  end if;
+
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end
+$$;
+revoke all on function private.guard_workspace_membership() from public,anon,authenticated;
+
+drop trigger if exists trg_guard_workspace_membership on public.workspace_members;
+create trigger trg_guard_workspace_membership
+before insert or update or delete on public.workspace_members
+for each row execute function private.guard_workspace_membership();
+
+-- 6) Requester Helpdesk guard.
+create or replace function private.guard_helpdesk_requester_update()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+declare
+  v_staff boolean;
+begin
+  select private.has_workspace_role(old.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  into v_staff;
+
+  if v_staff then return new; end if;
+
+  if old.requester_user_id is distinct from auth.uid() then
+    raise exception 'You cannot update this Helpdesk request';
+  end if;
+
+  if new.workspace_id is distinct from old.workspace_id
+     or new.requester_user_id is distinct from old.requester_user_id
+     or new.assigned_to is distinct from old.assigned_to
+     or new.status is distinct from old.status
+     or new.due_at is distinct from old.due_at
+     or new.first_response_at is distinct from old.first_response_at
+     or new.resolved_at is distinct from old.resolved_at
+     or new.closed_at is distinct from old.closed_at then
+    raise exception 'Requesters cannot change internal Helpdesk handling fields';
+  end if;
+
+  return new;
+end
+$$;
+revoke all on function private.guard_helpdesk_requester_update() from public,anon,authenticated;
+
+drop trigger if exists trg_guard_helpdesk_requester_update on public.helpdesk_tickets;
+create trigger trg_guard_helpdesk_requester_update
+before update on public.helpdesk_tickets
+for each row execute function private.guard_helpdesk_requester_update();
+
+-- 7) Helpdesk key + automatic resolution SLA due_at.
+create or replace function private.assign_helpdesk_key()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+declare
+  v_seq bigint;
+  v_sla integer;
+begin
+  insert into public.workspace_settings(workspace_id)
+  values(new.workspace_id)
+  on conflict (workspace_id) do nothing;
+
+  update public.workspace_settings
+  set helpdesk_seq=helpdesk_seq+1
+  where workspace_id=new.workspace_id
+  returning helpdesk_seq,sla_resolution_hours into v_seq,v_sla;
+
+  new.ticket_number := v_seq;
+  new.ticket_key := 'HD-' || v_seq::text;
+  if new.due_at is null then
+    new.due_at := now() + make_interval(hours=>coalesce(v_sla,24));
+  end if;
+  return new;
+end
+$$;
+revoke all on function private.assign_helpdesk_key() from public,anon,authenticated;
+
+-- 8) Respect workspace notification preferences.
+create or replace function private.notify_ticket_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_in_app boolean := true;
+  v_email boolean := true;
+begin
+  select coalesce(ws.in_app_notifications,true),coalesce(ws.email_notifications,true)
+  into v_in_app,v_email
+  from public.workspace_settings ws
+  where ws.workspace_id=new.workspace_id;
+
+  if not found then v_in_app:=true; v_email:=true; end if;
+
+  if v_email then
+    insert into public.notification_outbox(workspace_id,ticket_id,recipient_user_id,event_type,payload)
+    select new.workspace_id,new.id,wm.user_id,'ticket_created',
+      jsonb_build_object('ticket_key',new.ticket_key,'title',new.title,'product_id',new.product_id)
+    from public.workspace_members wm
+    where wm.workspace_id = new.workspace_id
+      and wm.active = true
+      and wm.role in ('admin','pm')
+      and wm.user_id is distinct from new.reporter_id;
+
+    if new.dev_owner_id is not null then
+      insert into public.notification_outbox(workspace_id,ticket_id,recipient_user_id,event_type,payload)
+      values(new.workspace_id,new.id,new.dev_owner_id,'assigned_dev',
+        jsonb_build_object('ticket_key',new.ticket_key,'title',new.title));
+    end if;
+
+    if new.qa_owner_id is not null then
+      insert into public.notification_outbox(workspace_id,ticket_id,recipient_user_id,event_type,payload)
+      values(new.workspace_id,new.id,new.qa_owner_id,'assigned_qa',
+        jsonb_build_object('ticket_key',new.ticket_key,'title',new.title));
+    end if;
+  end if;
+
+  if v_in_app then
+    if new.reporter_id is not null then
+      insert into public.notifications(workspace_id,user_id,ticket_id,type,title,body)
+      values(new.workspace_id,new.reporter_id,new.id,'ticket_created','Ticket creado '||new.ticket_key,new.title);
+    end if;
+
+    insert into public.notifications(workspace_id,user_id,ticket_id,type,title,body)
+    select distinct new.workspace_id,x.user_id,new.id,x.notification_type,x.notification_title,x.notification_body
+    from (
+      select wm.user_id,
+        'ticket_created'::text as notification_type,
+        ('Nuevo ticket '||new.ticket_key)::text as notification_title,
+        new.title::text as notification_body
+      from public.workspace_members wm
+      where wm.workspace_id=new.workspace_id
+        and wm.active=true
+        and wm.role in ('admin','pm')
+        and wm.user_id is distinct from new.reporter_id
+      union all
+      select new.dev_owner_id,'assigned_dev','Ticket asignado '||new.ticket_key,new.title
+      where new.dev_owner_id is not null and new.dev_owner_id is distinct from new.reporter_id
+      union all
+      select new.qa_owner_id,'assigned_qa','Ticket asignado a QA '||new.ticket_key,new.title
+      where new.qa_owner_id is not null and new.qa_owner_id is distinct from new.reporter_id
+    ) x
+    where x.user_id is not null;
+  end if;
+
+  return new;
+end
+$$;
+
+create or replace function private.track_ticket_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_in_app boolean := true;
+  v_email boolean := true;
+begin
+  select coalesce(ws.in_app_notifications,true),coalesce(ws.email_notifications,true)
+  into v_in_app,v_email
+  from public.workspace_settings ws
+  where ws.workspace_id=new.workspace_id;
+  if not found then v_in_app:=true; v_email:=true; end if;
+
+  if old.status is distinct from new.status then
+    if new.status='dev_done' and new.dev_completed_at is null then new.dev_completed_at:=now(); end if;
+    if new.status='qa_passed' and new.qa_completed_at is null then new.qa_completed_at:=now(); end if;
+    if new.status='closed' and new.closed_at is null then new.closed_at:=now(); end if;
+
+    insert into public.ticket_activity(ticket_id,actor_id,action,from_value,to_value)
+    values(new.id,auth.uid(),'status_changed',old.status::text,new.status::text);
+
+    if v_in_app and new.reporter_id is not null and new.reporter_id is distinct from auth.uid() then
+      insert into public.notifications(workspace_id,user_id,ticket_id,type,title,body)
+      values(new.workspace_id,new.reporter_id,new.id,'ticket_status',new.ticket_key||' actualizado','El estado cambió de '||old.status::text||' a '||new.status::text||'.');
+    end if;
+
+    if new.status='qa_rejected' and new.dev_owner_id is not null then
+      if v_email then
+        insert into public.notification_outbox(workspace_id,ticket_id,recipient_user_id,event_type,payload)
+        values(new.workspace_id,new.id,new.dev_owner_id,'qa_rejected',jsonb_build_object('ticket_key',new.ticket_key,'title',new.title,'status',new.status));
+      end if;
+      if v_in_app and new.dev_owner_id is distinct from auth.uid() then
+        insert into public.notifications(workspace_id,user_id,ticket_id,type,title,body)
+        values(new.workspace_id,new.dev_owner_id,new.id,'qa_rejected',new.ticket_key||' regresado por QA','Requiere correcciones antes de volver a revisión.');
+      end if;
+    end if;
+  end if;
+
+  if old.dev_owner_id is distinct from new.dev_owner_id and new.dev_owner_id is not null then
+    if v_email then
+      insert into public.notification_outbox(workspace_id,ticket_id,recipient_user_id,event_type,payload)
+      values(new.workspace_id,new.id,new.dev_owner_id,'assigned_dev',jsonb_build_object('ticket_key',new.ticket_key,'title',new.title));
+    end if;
+    if v_in_app and new.dev_owner_id is distinct from auth.uid() then
+      insert into public.notifications(workspace_id,user_id,ticket_id,type,title,body)
+      values(new.workspace_id,new.dev_owner_id,new.id,'assigned_dev','Ticket asignado '||new.ticket_key,new.title);
+    end if;
+  end if;
+
+  if old.qa_owner_id is distinct from new.qa_owner_id and new.qa_owner_id is not null then
+    if v_email then
+      insert into public.notification_outbox(workspace_id,ticket_id,recipient_user_id,event_type,payload)
+      values(new.workspace_id,new.id,new.qa_owner_id,'assigned_qa',jsonb_build_object('ticket_key',new.ticket_key,'title',new.title));
+    end if;
+    if v_in_app and new.qa_owner_id is distinct from auth.uid() then
+      insert into public.notifications(workspace_id,user_id,ticket_id,type,title,body)
+      values(new.workspace_id,new.qa_owner_id,new.id,'assigned_qa','Ticket asignado a QA '||new.ticket_key,new.title);
+    end if;
+  end if;
+  return new;
+end
+$$;
+
+create or replace function private.helpdesk_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_in_app boolean := true;
+begin
+  select coalesce(ws.in_app_notifications,true) into v_in_app
+  from public.workspace_settings ws where ws.workspace_id=new.workspace_id;
+  if not found then v_in_app:=true; end if;
+
+  insert into public.helpdesk_activity(helpdesk_ticket_id,actor_id,action,to_value)
+  values(new.id,auth.uid(),'created',new.status);
+
+  if v_in_app then
+    if new.requester_user_id is not null then
+      insert into public.notifications(workspace_id,user_id,helpdesk_ticket_id,type,title,body)
+      values(new.workspace_id,new.requester_user_id,new.id,'helpdesk_created','Solicitud creada '||new.ticket_key,new.subject);
+    end if;
+    insert into public.notifications(workspace_id,user_id,helpdesk_ticket_id,type,title,body)
+    select new.workspace_id,wm.user_id,new.id,'helpdesk_new','Nueva solicitud '||new.ticket_key,new.subject
+    from public.workspace_members wm
+    where wm.workspace_id=new.workspace_id and wm.active=true
+      and wm.role in ('admin','pm','dev','qa')
+      and wm.user_id is distinct from new.requester_user_id;
+    if new.assigned_to is not null and new.assigned_to is distinct from new.requester_user_id then
+      insert into public.notifications(workspace_id,user_id,helpdesk_ticket_id,type,title,body)
+      values(new.workspace_id,new.assigned_to,new.id,'helpdesk_assigned',new.ticket_key||' asignado',new.subject);
+    end if;
+  end if;
+  return new;
+end
+$$;
+
+create or replace function private.track_helpdesk_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_in_app boolean := true;
+begin
+  select coalesce(ws.in_app_notifications,true) into v_in_app
+  from public.workspace_settings ws where ws.workspace_id=new.workspace_id;
+  if not found then v_in_app:=true; end if;
+
+  if old.status is distinct from new.status then
+    if new.status='in_progress' and new.first_response_at is null then new.first_response_at=now(); end if;
+    if new.status='resolved' and new.resolved_at is null then new.resolved_at=now(); end if;
+    if new.status='closed' and new.closed_at is null then new.closed_at=now(); end if;
+
+    insert into public.helpdesk_activity(helpdesk_ticket_id,actor_id,action,from_value,to_value)
+    values(new.id,auth.uid(),'status_changed',old.status,new.status);
+
+    if v_in_app and new.requester_user_id is not null and new.requester_user_id is distinct from auth.uid() then
+      insert into public.notifications(workspace_id,user_id,helpdesk_ticket_id,type,title,body)
+      values(new.workspace_id,new.requester_user_id,new.id,'helpdesk_status',new.ticket_key||' actualizado','El estado de tu solicitud cambió a '||new.status||'.');
+    end if;
+  end if;
+
+  if old.assigned_to is distinct from new.assigned_to and new.assigned_to is not null then
+    insert into public.helpdesk_activity(helpdesk_ticket_id,actor_id,action,from_value,to_value)
+    values(new.id,auth.uid(),'assigned',old.assigned_to::text,new.assigned_to::text);
+    if v_in_app and new.assigned_to is distinct from auth.uid() then
+      insert into public.notifications(workspace_id,user_id,helpdesk_ticket_id,type,title,body)
+      values(new.workspace_id,new.assigned_to,new.id,'helpdesk_assigned',new.ticket_key||' asignado',new.subject);
+    end if;
+  end if;
+  return new;
+end
+$$;
+
+-- Keep the internal trigger functions non-callable through the API.
+revoke all on function private.notify_ticket_created() from public,anon,authenticated;
+revoke all on function private.track_ticket_change() from public,anon,authenticated;
+revoke all on function private.helpdesk_created() from public,anon,authenticated;
+revoke all on function private.track_helpdesk_change() from public,anon,authenticated;
+-- Jira Interno TROBBU · Upgrade v6
+-- Integridad multi-workspace, privacidad Helpdesk y controles finales de permisos.
+
+-- 1) Integridad: las relaciones operativas deben permanecer dentro del mismo workspace.
+alter table public.products drop constraint if exists products_id_workspace_id_key;
+alter table public.products add constraint products_id_workspace_id_key unique(id,workspace_id);
+
+alter table public.sprints drop constraint if exists sprints_id_workspace_id_key;
+alter table public.sprints add constraint sprints_id_workspace_id_key unique(id,workspace_id);
+
+alter table public.helpdesk_departments drop constraint if exists helpdesk_departments_id_workspace_id_key;
+alter table public.helpdesk_departments add constraint helpdesk_departments_id_workspace_id_key unique(id,workspace_id);
+
+alter table public.tickets drop constraint if exists tickets_product_workspace_fkey;
+alter table public.tickets add constraint tickets_product_workspace_fkey
+  foreign key(product_id,workspace_id)
+  references public.products(id,workspace_id)
+  on update cascade on delete restrict;
+
+alter table public.tickets drop constraint if exists tickets_sprint_workspace_fkey;
+alter table public.tickets add constraint tickets_sprint_workspace_fkey
+  foreign key(sprint_id,workspace_id)
+  references public.sprints(id,workspace_id)
+  on update cascade on delete set null (sprint_id);
+
+alter table public.helpdesk_tickets drop constraint if exists helpdesk_department_workspace_fkey;
+alter table public.helpdesk_tickets add constraint helpdesk_department_workspace_fkey
+  foreign key(department_id,workspace_id)
+  references public.helpdesk_departments(id,workspace_id)
+  on update cascade on delete set null (department_id);
+
+-- 2) Solo Admin puede eliminar por completo un workspace.
+drop policy if exists workspaces_delete on public.workspaces;
+create policy workspaces_delete on public.workspaces
+for delete to authenticated
+using (private.has_workspace_role(id,array['admin']::public.app_role[]));
+
+-- 3) Privacidad de Helpdesk:
+-- Staff ve todas las solicitudes; usuarios Viewer/requesters solo ven las propias.
+drop policy if exists helpdesk_tickets_select on public.helpdesk_tickets;
+create policy helpdesk_tickets_select on public.helpdesk_tickets
+for select to authenticated
+using (
+  private.has_workspace_role(workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  or (
+    requester_user_id=(select auth.uid())
+    and private.is_workspace_member(workspace_id)
+  )
+);
+
+drop policy if exists helpdesk_comments_select on public.helpdesk_comments;
+create policy helpdesk_comments_select on public.helpdesk_comments
+for select to authenticated
+using (
+  exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+drop policy if exists helpdesk_comments_insert on public.helpdesk_comments;
+create policy helpdesk_comments_insert on public.helpdesk_comments
+for insert to authenticated
+with check (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+drop policy if exists helpdesk_activity_select on public.helpdesk_activity;
+create policy helpdesk_activity_select on public.helpdesk_activity
+for select to authenticated
+using (
+  exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+-- 4) El toggle Helpdesk debe ser efectivo también a nivel de API/RLS.
+drop policy if exists helpdesk_tickets_insert on public.helpdesk_tickets;
+create policy helpdesk_tickets_insert on public.helpdesk_tickets
+for insert to authenticated
+with check (
+  private.is_workspace_member(workspace_id)
+  and (requester_user_id is null or requester_user_id=(select auth.uid()))
+  and coalesce(
+    (select ws.helpdesk_enabled
+       from public.workspace_settings ws
+      where ws.workspace_id=helpdesk_tickets.workspace_id),
+    true
+  )
+);
+-- Jira Interno TROBBU · Upgrade v7
+-- Inmutabilidad de workspace/propietario y membresías para evitar movimientos cruzados vía API.
+
+create or replace function private.prevent_workspace_reassignment()
+returns trigger
+language plpgsql
+security invoker
+set search_path=public,pg_temp
+as $$
+begin
+  if new.workspace_id is distinct from old.workspace_id then
+    raise exception 'workspace_id cannot be changed after creation';
+  end if;
+  return new;
+end
+$$;
+revoke all on function private.prevent_workspace_reassignment() from public,anon,authenticated;
+
+drop trigger if exists trg_products_workspace_immutable on public.products;
+create trigger trg_products_workspace_immutable
+before update on public.products
+for each row execute function private.prevent_workspace_reassignment();
+
+drop trigger if exists trg_sprints_workspace_immutable on public.sprints;
+create trigger trg_sprints_workspace_immutable
+before update on public.sprints
+for each row execute function private.prevent_workspace_reassignment();
+
+drop trigger if exists trg_tickets_workspace_immutable on public.tickets;
+create trigger trg_tickets_workspace_immutable
+before update on public.tickets
+for each row execute function private.prevent_workspace_reassignment();
+
+drop trigger if exists trg_helpdesk_departments_workspace_immutable on public.helpdesk_departments;
+create trigger trg_helpdesk_departments_workspace_immutable
+before update on public.helpdesk_departments
+for each row execute function private.prevent_workspace_reassignment();
+
+drop trigger if exists trg_helpdesk_tickets_workspace_immutable on public.helpdesk_tickets;
+create trigger trg_helpdesk_tickets_workspace_immutable
+before update on public.helpdesk_tickets
+for each row execute function private.prevent_workspace_reassignment();
+
+create or replace function private.guard_workspace_identity()
+returns trigger
+language plpgsql
+security invoker
+set search_path=public,pg_temp
+as $$
+begin
+  if new.created_by is distinct from old.created_by then
+    raise exception 'created_by cannot be changed';
+  end if;
+  return new;
+end
+$$;
+revoke all on function private.guard_workspace_identity() from public,anon,authenticated;
+
+drop trigger if exists trg_workspace_identity_immutable on public.workspaces;
+create trigger trg_workspace_identity_immutable
+before update on public.workspaces
+for each row execute function private.guard_workspace_identity();
+
+create or replace function private.guard_workspace_membership()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+declare
+  v_caller uuid := auth.uid();
+  v_caller_is_admin boolean;
+  v_admins integer;
+begin
+  if tg_op='DELETE' and not exists(
+    select 1 from public.workspaces w where w.id=old.workspace_id
+  ) then
+    return old;
+  end if;
+
+  if v_caller is null then
+    if tg_op='UPDATE' and (
+      new.workspace_id is distinct from old.workspace_id
+      or new.user_id is distinct from old.user_id
+    ) then
+      raise exception 'Membership workspace/user cannot be reassigned';
+    end if;
+    if tg_op='DELETE' then return old; end if;
+    return new;
+  end if;
+
+  if tg_op='INSERT' then
+    if new.role='admin' then
+      select private.has_workspace_role(new.workspace_id,array['admin']::public.app_role[])
+      into v_caller_is_admin;
+      if not v_caller_is_admin and new.user_id is distinct from v_caller then
+        raise exception 'Only an admin can grant the admin role';
+      end if;
+    end if;
+    return new;
+  end if;
+
+  if tg_op='UPDATE' and (
+    new.workspace_id is distinct from old.workspace_id
+    or new.user_id is distinct from old.user_id
+  ) then
+    raise exception 'Membership workspace/user cannot be reassigned';
+  end if;
+
+  select private.has_workspace_role(old.workspace_id,array['admin']::public.app_role[])
+  into v_caller_is_admin;
+
+  if old.role='admin' and not v_caller_is_admin then
+    raise exception 'Only an admin can modify another admin';
+  end if;
+
+  if tg_op='UPDATE' and new.role='admin' and old.role<>'admin' and not v_caller_is_admin then
+    raise exception 'Only an admin can grant the admin role';
+  end if;
+
+  if old.role='admin' and (
+    tg_op='DELETE'
+    or (tg_op='UPDATE' and (new.role<>'admin' or new.active=false))
+  ) then
+    select count(*) into v_admins
+    from public.workspace_members wm
+    where wm.workspace_id=old.workspace_id
+      and wm.active=true
+      and wm.role='admin'
+      and wm.user_id<>old.user_id;
+
+    if v_admins=0 then
+      raise exception 'A workspace must keep at least one active admin';
+    end if;
+  end if;
+
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end
+$$;
+-- Jira Interno TROBBU · Upgrade v8
+-- Privacidad de perfiles: solo perfil propio o colaboradores que comparten workspace.
+
+create or replace function private.shares_workspace_with(p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,pg_temp
+as $$
+  select exists (
+    select 1
+    from public.workspace_members me
+    join public.workspace_members other
+      on other.workspace_id=me.workspace_id
+     and other.active=true
+    where me.user_id=(select auth.uid())
+      and me.active=true
+      and other.user_id=p_user
+  );
+$$;
+revoke all on function private.shares_workspace_with(uuid) from public,anon;
+grant execute on function private.shares_workspace_with(uuid) to authenticated;
+
+drop policy if exists profiles_select on public.profiles;
+create policy profiles_select on public.profiles
+for select to authenticated
+using (
+  id=(select auth.uid())
+  or private.shares_workspace_with(id)
+);
+-- Jira Interno TROBBU · Upgrade v9
+-- Validación de reporter/requester/asignaciones y orden de triggers antes de notificaciones.
+
+create or replace function private.validate_ticket_people()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+begin
+  if tg_op='UPDATE' and new.reporter_id is distinct from old.reporter_id then
+    raise exception 'reporter_id cannot be changed after ticket creation';
+  end if;
+
+  if tg_op='INSERT' and new.reporter_id is not null and not exists(
+    select 1 from public.workspace_members wm
+    where wm.workspace_id=new.workspace_id
+      and wm.user_id=new.reporter_id
+      and wm.active=true
+  ) then
+    raise exception 'Reporter must be an active member of the workspace';
+  end if;
+
+  if (tg_op='INSERT' or new.dev_owner_id is distinct from old.dev_owner_id)
+     and new.dev_owner_id is not null
+     and not exists(
+       select 1 from public.workspace_members wm
+       where wm.workspace_id=new.workspace_id
+         and wm.user_id=new.dev_owner_id
+         and wm.active=true
+         and wm.role in ('admin','pm','dev')
+     ) then
+    raise exception 'Development owner must be an active Admin, PM or Dev in the workspace';
+  end if;
+
+  if (tg_op='INSERT' or new.qa_owner_id is distinct from old.qa_owner_id)
+     and new.qa_owner_id is not null
+     and not exists(
+       select 1 from public.workspace_members wm
+       where wm.workspace_id=new.workspace_id
+         and wm.user_id=new.qa_owner_id
+         and wm.active=true
+         and wm.role in ('admin','pm','qa')
+     ) then
+    raise exception 'QA owner must be an active Admin, PM or QA in the workspace';
+  end if;
+
+  return new;
+end
+$$;
+revoke all on function private.validate_ticket_people() from public,anon,authenticated;
+
+drop trigger if exists trg_validate_ticket_people on public.tickets;
+drop trigger if exists trg_00_validate_ticket_people on public.tickets;
+create trigger trg_00_validate_ticket_people
+before insert or update on public.tickets
+for each row execute function private.validate_ticket_people();
+
+create or replace function private.validate_helpdesk_people()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+begin
+  if tg_op='UPDATE' and new.requester_user_id is distinct from old.requester_user_id then
+    raise exception 'requester_user_id cannot be changed after request creation';
+  end if;
+
+  if tg_op='INSERT' and new.requester_user_id is not null and not exists(
+    select 1 from public.workspace_members wm
+    where wm.workspace_id=new.workspace_id
+      and wm.user_id=new.requester_user_id
+      and wm.active=true
+  ) then
+    raise exception 'Requester must be an active member of the workspace';
+  end if;
+
+  if (tg_op='INSERT' or new.assigned_to is distinct from old.assigned_to)
+     and new.assigned_to is not null
+     and not exists(
+       select 1 from public.workspace_members wm
+       where wm.workspace_id=new.workspace_id
+         and wm.user_id=new.assigned_to
+         and wm.active=true
+         and wm.role in ('admin','pm','dev','qa')
+     ) then
+    raise exception 'Helpdesk assignee must be an active staff member of the workspace';
+  end if;
+
+  return new;
+end
+$$;
+revoke all on function private.validate_helpdesk_people() from public,anon,authenticated;
+
+drop trigger if exists trg_validate_helpdesk_people on public.helpdesk_tickets;
+drop trigger if exists trg_00_validate_helpdesk_people on public.helpdesk_tickets;
+create trigger trg_00_validate_helpdesk_people
+before insert or update on public.helpdesk_tickets
+for each row execute function private.validate_helpdesk_people();
+-- Jira Interno TROBBU · Upgrade v10
+-- Privacidad Helpdesk tras baja de usuario y visibilidad de perfiles de colaboradores inactivos del mismo workspace.
+
+-- Los miembros activos pueden seguir viendo el perfil de colaboradores desactivados
+-- que conservan una membresía en el mismo workspace, para poder administrarlos/reactivarlos.
+create or replace function private.shares_workspace_with(p_user uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,pg_temp
+as $$
+  select exists (
+    select 1
+    from public.workspace_members me
+    join public.workspace_members other
+      on other.workspace_id=me.workspace_id
+    where me.user_id=(select auth.uid())
+      and me.active=true
+      and other.user_id=p_user
+  );
+$$;
+
+-- Requesters solo conservan acceso al Helpdesk mientras su membresía siga activa.
+drop policy if exists helpdesk_tickets_update on public.helpdesk_tickets;
+create policy helpdesk_tickets_update on public.helpdesk_tickets
+for update to authenticated
+using (
+  private.has_workspace_role(workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  or (
+    requester_user_id=(select auth.uid())
+    and private.is_workspace_member(workspace_id)
+  )
+)
+with check (
+  private.has_workspace_role(workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+  or (
+    requester_user_id=(select auth.uid())
+    and private.is_workspace_member(workspace_id)
+  )
+);
+
+drop policy if exists helpdesk_comments_select on public.helpdesk_comments;
+create policy helpdesk_comments_select on public.helpdesk_comments
+for select to authenticated
+using (
+  exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and private.is_workspace_member(h.workspace_id)
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+drop policy if exists helpdesk_comments_insert on public.helpdesk_comments;
+create policy helpdesk_comments_insert on public.helpdesk_comments
+for insert to authenticated
+with check (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and private.is_workspace_member(h.workspace_id)
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+drop policy if exists helpdesk_comments_update on public.helpdesk_comments;
+create policy helpdesk_comments_update on public.helpdesk_comments
+for update to authenticated
+using (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and private.is_workspace_member(h.workspace_id)
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+)
+with check (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and private.is_workspace_member(h.workspace_id)
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+drop policy if exists helpdesk_comments_delete on public.helpdesk_comments;
+create policy helpdesk_comments_delete on public.helpdesk_comments
+for delete to authenticated
+using (
+  author_id=(select auth.uid())
+  and exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and private.is_workspace_member(h.workspace_id)
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);
+
+drop policy if exists helpdesk_activity_select on public.helpdesk_activity;
+create policy helpdesk_activity_select on public.helpdesk_activity
+for select to authenticated
+using (
+  exists (
+    select 1 from public.helpdesk_tickets h
+    where h.id=helpdesk_ticket_id
+      and private.is_workspace_member(h.workspace_id)
+      and (
+        private.has_workspace_role(h.workspace_id,array['admin','pm','dev','qa']::public.app_role[])
+        or h.requester_user_id=(select auth.uid())
+      )
+  )
+);

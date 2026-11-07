@@ -7,6 +7,7 @@ const cors = {
 };
 
 const PROD_APP_URL = "https://gustavochan21.github.io/jiratrobbu/";
+const ROLES = ["admin", "pm", "dev", "qa", "viewer"] as const;
 
 function safeRedirect(value: unknown) {
   try {
@@ -22,6 +23,7 @@ function safeRedirect(value: unknown) {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+
   try {
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
     if (!token) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
@@ -35,56 +37,109 @@ Deno.serve(async (req: Request) => {
     const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData.user) throw new Error("Invalid session");
 
-    const { email, role, workspace_id, redirect_to } = await req.json();
-    if (!email || !workspace_id) throw new Error("email and workspace_id are required");
-    if (!["admin","pm","dev","qa","viewer"].includes(role)) throw new Error("Invalid role");
+    const { email, full_name, role, workspace_id, redirect_to } = await req.json();
+    const normalizedEmail = String(email ?? "").trim().toLowerCase();
+    const normalizedName = String(full_name ?? "").trim();
+    if (!normalizedEmail || !workspace_id) throw new Error("email and workspace_id are required");
+    if (!ROLES.includes(role)) throw new Error("Invalid role");
 
-    const { data: membership } = await admin.from("workspace_members")
+    const { data: callerMembership } = await admin
+      .from("workspace_members")
       .select("role,active")
       .eq("workspace_id", workspace_id)
       .eq("user_id", userData.user.id)
       .maybeSingle();
 
-    if (!membership?.active || !["admin","pm"].includes(membership.role)) {
+    if (!callerMembership?.active || !["admin", "pm"].includes(callerMembership.role)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
     }
+    if (role === "admin" && callerMembership.role !== "admin") {
+      return new Response(JSON.stringify({ error: "Only an admin can grant the admin role" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+    }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
     const redirectTo = safeRedirect(redirect_to);
-
     await admin.from("workspace_invites").upsert({
-      workspace_id, email: normalizedEmail, role, invited_by: userData.user.id, status: "pending"
+      workspace_id,
+      email: normalizedEmail,
+      role,
+      invited_by: userData.user.id,
+      status: "pending",
+      accepted_at: null,
     }, { onConflict: "workspace_id,email" });
 
     let invitedUserId: string | null = null;
+    let invitationSent = false;
+    let resolvedConfirmed = false;
+
+    const inviteMeta: Record<string, unknown> = { workspace_id, role };
+    if (normalizedName) inviteMeta.full_name = normalizedName;
+
     const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
       normalizedEmail,
-      { redirectTo, data: { workspace_id, role } }
+      { redirectTo, data: inviteMeta }
     );
-    if (inviteData?.user?.id) invitedUserId = inviteData.user.id;
+
+    if (inviteData?.user?.id) {
+      invitedUserId = inviteData.user.id;
+      invitationSent = true;
+      resolvedConfirmed = Boolean(inviteData.user.email_confirmed_at);
+    }
 
     if (inviteError) {
-      const { data: users } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const { data: users, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) throw listError;
       const existing = users.users.find((u) => u.email?.toLowerCase() === normalizedEmail);
       if (!existing) throw inviteError;
       invitedUserId = existing.id;
+      resolvedConfirmed = Boolean(existing.email_confirmed_at);
+
+      if (normalizedName) {
+        const { error: profileError } = await admin
+          .from("profiles")
+          .update({ full_name: normalizedName })
+          .eq("id", existing.id)
+          .is("full_name", null);
+        if (profileError) throw profileError;
+      }
     }
 
     if (!invitedUserId) throw new Error("Unable to resolve invited user");
 
+    const { data: existingMembership } = await admin
+      .from("workspace_members")
+      .select("role,active")
+      .eq("workspace_id", workspace_id)
+      .eq("user_id", invitedUserId)
+      .maybeSingle();
+
+    if (existingMembership?.role === "admin" && callerMembership.role !== "admin") {
+      return new Response(JSON.stringify({ error: "Only an admin can modify another admin" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
     const { error: memberError } = await admin.from("workspace_members").upsert({
-      workspace_id, user_id: invitedUserId, role, active: true
+      workspace_id,
+      user_id: invitedUserId,
+      role,
+      active: true,
     }, { onConflict: "workspace_id,user_id" });
     if (memberError) throw memberError;
 
     await admin.from("workspace_invites")
-      .update({ status: "accepted", accepted_at: new Date().toISOString() })
+      .update({
+        status: resolvedConfirmed ? "accepted" : "pending",
+        accepted_at: resolvedConfirmed ? new Date().toISOString() : null,
+      })
       .eq("workspace_id", workspace_id)
       .eq("email", normalizedEmail);
 
-    return new Response(JSON.stringify({ ok: true, user_id: invitedUserId }), {
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      ok: true,
+      user_id: invitedUserId,
+      invitation_sent: invitationSent,
+      membership_active: true,
+      status: resolvedConfirmed ? "accepted" : "pending",
+      redirect_to: redirectTo,
+    }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 400,
