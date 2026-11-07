@@ -42,3 +42,14 @@ Cuando definas la URL final del repositorio, agrega esa URL en Supabase Authenti
 `https://USUARIO.github.io/REPOSITORIO/`
 
 La aplicación usa `window.location.pathname`, por lo que conserva correctamente el subdirectorio del repositorio al crear enlaces de confirmación e invitación.
+
+
+## URL productiva y autenticación
+
+La URL canónica usada por el frontend para confirmaciones e invitaciones es:
+
+`https://gustavochan21.github.io/jiratrobbu/`
+
+En Supabase → Authentication → URL Configuration configura esa URL como **Site URL** y agrégala también en **Redirect URLs**. El frontend ya envía `emailRedirectTo`/`redirect_to` a esa dirección y limpia `access_token`, `refresh_token` y parámetros de callback de la barra del navegador después de establecer la sesión.
+
+La cuenta administradora existente ya debe estar asociada al workspace `Trobbu Tecnología`; los colaboradores nuevos deben agregarse mediante la función de invitación para no otorgar acceso automático a registros públicos.

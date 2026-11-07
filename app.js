@@ -5,7 +5,22 @@ if (!cfg.supabaseUrl || !cfg.supabasePublishableKey) {
   throw new Error('Falta la configuración pública de Supabase en config.js')
 }
 const db = window.supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey)
-const getAppUrl = () => `${window.location.origin}${window.location.pathname}`
+const getAppUrl = () => {
+  const configured = String(cfg.appUrl || '').trim()
+  if (configured) return configured.endsWith('/') ? configured : configured + '/'
+  const path = window.location.pathname.endsWith('/')
+    ? window.location.pathname
+    : window.location.pathname.replace(/[^/]*$/, '')
+  return `${window.location.origin}${path || '/'}`
+}
+
+const cleanupAuthUrl = () => {
+  const authHash = /(?:access_token|refresh_token|error|error_description)=/.test(window.location.hash)
+  const authQuery = /(?:code|token_hash|type)=/.test(window.location.search)
+  if (authHash || authQuery) {
+    window.history.replaceState({}, document.title, getAppUrl())
+  }
+}
 
 
 const STATUS = [
@@ -19,8 +34,15 @@ function useSession() {
   const [session,setSession] = useState(null)
   const [loading,setLoading] = useState(true)
   useEffect(() => {
-    db.auth.getSession().then(({data}) => { setSession(data.session); setLoading(false) })
-    const {data:{subscription}} = db.auth.onAuthStateChange((_e,s) => setSession(s))
+    db.auth.getSession().then(({data}) => {
+      setSession(data.session)
+      if (data.session) cleanupAuthUrl()
+      setLoading(false)
+    })
+    const {data:{subscription}} = db.auth.onAuthStateChange((event,s) => {
+      setSession(s)
+      if (s && ['SIGNED_IN','TOKEN_REFRESHED','USER_UPDATED'].includes(event)) cleanupAuthUrl()
+    })
     return () => subscription.unsubscribe()
   },[])
   return {session,loading}
