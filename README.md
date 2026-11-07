@@ -53,3 +53,16 @@ La URL canónica usada por el frontend para confirmaciones e invitaciones es:
 En Supabase → Authentication → URL Configuration configura esa URL como **Site URL** y agrégala también en **Redirect URLs**. El frontend ya envía `emailRedirectTo`/`redirect_to` a esa dirección y limpia `access_token`, `refresh_token` y parámetros de callback de la barra del navegador después de establecer la sesión.
 
 La cuenta administradora existente ya debe estar asociada al workspace `Trobbu Tecnología`; los colaboradores nuevos deben agregarse mediante la función de invitación para no otorgar acceso automático a registros públicos.
+
+## UI TROBBU / Jira
+
+La interfaz fue actualizada tomando como referencia visual Jira y Jira Clone, manteniendo la identidad TROBBU. Todo continúa en la raíz del repositorio.
+
+Archivos principales de UI:
+
+- `logo.svg` — logo TROBBU principal.
+- `styles.css` — paleta TROBBU de 20 colores y estilos Jira-like.
+- `app.js` — navegación, Dashboard, Mis tareas, Tabla/Kanban, filtros y modales.
+- `index.html` — carga Inter + Iconify para iconografía Lucide.
+
+La publicación en GitHub Pages sigue funcionando sin build y sin carpetas adicionales.
