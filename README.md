@@ -1,55 +1,102 @@
-# Jira Interno TROBBU · v10.1
+# Jira Interno TROBBU v11.2
 
-Aplicación estática tipo Jira, preparada para **GitHub Pages** y **Supabase**, con todos los archivos directamente en la raíz del repositorio.
+Plataforma interna tipo Jira para TROBBU, preparada para ejecutarse directamente desde **GitHub Pages** con todos los archivos en la carpeta raíz y Supabase como backend.
 
-## Funcionalidad incluida
+## Funcionalidades principales
 
-- Múltiples espacios de trabajo: crear, cambiar, editar nombre y eliminar (solo Admin).
-- Productos/tableros independientes: Web Administrativa, Web Socios, App Socios y productos adicionales.
-- Tickets con clave por workspace/producto, Tabla y Kanban, drag & drop, prioridad, tipo, Sprint, story points, fecha límite, Dev y QA.
-- Menú de tres puntos: Ver detalle, Editar y Eliminar según permisos.
-- Comentarios e historial de actividad en tickets.
-- Sprints: crear, editar y eliminar; dashboard filtrable por producto/Sprint.
-- Dashboard: tickets creados, en curso, terminados por Desarrollo, terminados por QA, rechazados por QA y cerrados; story points y avance por producto.
-- Equipo: Admin, PM, Dev, QA y Viewer; invitación por correo y administración de acceso/rol.
-- Helpdesk interno: solicitudes de otras áreas, dashboard de SLA, categorías, prioridades, asignación, estados, comentarios, historial y fecha objetivo automática.
-- Notificaciones in-app: no leídas/leídas, abrir elemento relacionado, marcar, eliminar y limpiar leídas.
-- Cola de emails operativos: ticket nuevo, asignación Dev/QA y regresado por QA.
-- Configuración operativa del workspace: zona horaria, duración de Sprint, correo de soporte, SLA, Helpdesk y canales de notificación.
-- UI inspirada en Jira con identidad TROBBU, logo SVG y paleta corporativa.
-- Navegación responsive: sidebar completo en desktop y barra inferior funcional en móvil/tablet.
+- Workspaces completamente aislados: cada espacio tiene sus propios productos, tickets, sprints, miembros, configuraciones, Helpdesk, notificaciones y evidencias.
+- Productos iniciales por workspace: **Web Administrativa**, **Web Socios** y **App Socios**. Los Superadmins/Administradores pueden administrar el catálogo del espacio.
+- Tickets con Tabla, Kanban y **Calendario**.
+- Calendario mensual con fecha de inicio, rango de ejecución y fecha de entrega, más próximos vencimientos y tickets aún sin planificar.
+- **Backlog / Sprints** como módulo propio.
+- Planeación de tickets del Backlog hacia un sprint.
+- Cierre de sprint con traslado de tickets no resueltos al siguiente sprint o regreso automático al Backlog.
+- Detalle de sprint con objetivo, texto de detalle, avance, tickets, comentarios e imágenes de evidencia.
+- Detalle de ticket con comentarios e imágenes clasificadas como: Comentario, Revisión, Rechazo, Fix/Corrección o Cierre.
+- Imágenes privadas almacenadas en Supabase Storage (`jira-evidence`) con RLS por workspace.
+- Dashboard de sprint y estadísticas de tickets.
+- Centro de notificaciones in-app.
+- Invitación de colaboradores por workspace mediante Edge Function.
+- Diseño TROBBU inspirado en Jira, responsive y sin diálogos nativos `alert`, `prompt` o `confirm`.
 
-## UX / modales
+## Roles por workspace
 
-No se utiliza `alert()`, `prompt()` ni `confirm()` del navegador.
+Los permisos son independientes en cada workspace. Un usuario puede tener roles distintos en espacios diferentes.
 
-Los flujos de creación, edición, eliminación y filtros principales utilizan componentes propios:
+| Rol | Permisos principales |
+| --- | --- |
+| **Superadmin** | Control total del workspace, miembros, administradores, productos, configuración, tickets, sprints, Helpdesk y eliminación del workspace. Siempre debe existir al menos uno activo. |
+| **Administrador** | Administra configuración, equipo (excepto promover/modificar Superadmin), productos, tickets, sprints y Helpdesk. No puede eliminar el workspace. |
+| **Gestor / PM** | Planea Backlog y sprints, administra tickets y operación del Helpdesk. No administra productos, configuración general ni equipo. |
+| **Desarrollo** | Opera tickets, estados, comentarios/evidencias y solicitudes asignadas. No crea/administra sprints ni configuración. |
+| **QA** | Opera revisión QA, comentarios/evidencias y solicitudes de Helpdesk. No administra sprints ni configuración. |
+| **Solo carga de tickets** | Puede crear tickets propios exclusivamente en Backlog y consultar solo los tickets que reportó. No puede asignar sprint, Dev/QA, story points ni fechas. |
+| **Solo dashboards** | Solo lectura de Resumen, Tablero, Backlog/Sprints y Calendario. No puede crear ni modificar tickets. |
 
-- Workspace y configuración.
-- Tickets y filtros.
-- Comentarios.
-- Helpdesk y filtros.
-- Colaboradores e invitaciones.
-- Productos.
-- Sprints.
-- Áreas de Helpdesk.
-- Confirmaciones destructivas.
+El **portal Helpdesk** permanece disponible para todos los miembros del workspace independientemente del rol Jira: cada usuario puede crear y consultar sus propias solicitudes.
 
-## Roles
+## Helpdesk
 
-| Rol | Tickets | Configuración | Equipo | Helpdesk |
-| --- | --- | --- | --- | --- |
-| Admin | CRUD | CRUD + eliminar workspace | CRUD + otorgar Admin | CRUD |
-| PM | Crear/editar/eliminar | Editar | Invitar/editar no-Admins | CRUD |
-| Dev | Crear/editar | Lectura | Lectura | Atender |
-| QA | Crear/editar | Lectura | Lectura | Atender |
-| Viewer | Solo lectura | Lectura | Lectura | Crear/editar sus solicitudes |
+El módulo se divide en dos experiencias:
 
-El sistema impide dejar un workspace sin al menos un Admin activo y evita que un PM otorgue el rol Admin.
+### Mis solicitudes
+
+Portal para cualquier miembro del workspace:
+
+1. Crear solicitud.
+2. Consultar únicamente sus solicitudes.
+3. Ver el avance completo.
+4. Añadir comentarios de seguimiento.
+
+El requester no puede modificar responsable, estado, SLA ni datos internos después del alta.
+
+Flujo:
+
+**Creado → En revisión → Atendido → Resuelto → Cerrado**
+
+### Mesa de atención
+
+Disponible para Superadmin, Administrador, PM, Desarrollo y QA. Permite consultar todas las solicitudes del workspace, asignar responsable, avanzar estado, registrar comentarios y controlar SLA.
+
+Departamentos solicitantes configurados por workspace:
+
+- Reservaciones
+- Recepción
+- Gerencia
+- Administración
+- Aperturas
+- Marketing
+- Callcenter
+- Plataforma
+- Atención a clientes
+- Atención a socios
+
+## Backlog y Sprints
+
+Un ticket sin sprint pertenece al Backlog. Superadmin, Administrador o PM pueden planificarlo hacia un sprint.
+
+Al cerrar un sprint:
+
+- tickets `QA aprobado` o `Cerrado` permanecen en el sprint concluido;
+- tickets no resueltos pueden pasar al siguiente sprint;
+- si no se selecciona sprint destino, regresan a Backlog y su estado se establece en Backlog;
+- el sprint origen queda `completed`;
+- un sprint destino `planned` pasa a `active` automáticamente.
+
+## Evidencias
+
+Las evidencias son privadas y se guardan en el bucket `jira-evidence`. Se aceptan JPEG, PNG, WebP y GIF de hasta 10 MB.
+
+Rutas internas:
+
+- `<workspace>/tickets/<ticket>/...`
+- `<workspace>/sprints/<sprint>/...`
+
+La visibilidad sigue los permisos del workspace. El rol Solo carga puede ver evidencias de sus propios tickets pero no subirlas; Solo dashboards puede ver evidencias pero no escribir.
 
 ## Estructura raíz
 
-No existen `src/`, `public/`, `dist/` ni carpetas de aplicación. Archivos principales:
+La aplicación no requiere `/src`, `/public` ni `/dist`:
 
 - `index.html`
 - `app.js`
@@ -57,161 +104,41 @@ No existen `src/`, `public/`, `dist/` ni carpetas de aplicación. Archivos princ
 - `config.js`
 - `logo.svg`
 - `database.sql`
-- `upgrade-v4.sql`
-- `upgrade-v5.sql`
-- `upgrade-v6.sql`
-- `upgrade-v7.sql`
-- `upgrade-v8.sql`
-- `upgrade-v9.sql`
-- `upgrade-v10.sql`
-- `fix-ticket-activity.sql`
+- `upgrade-v11-enum.sql`
+- `upgrade-v11.sql`
 - `invite-member.ts`
 - `process-notifications.ts`
-- `.nojekyll`
-- `.gitignore`
-- `package.json`
+- `QA-REPORT.md`
+- archivos de upgrades anteriores como respaldo histórico
+
+GitHub Pages solo necesita los archivos frontend de raíz.
+
+## Actualizar una BD v10.1 a v11
+
+Por una restricción de PostgreSQL con valores nuevos de enums, ejecutar en este orden y confirmar cada archivo por separado:
+
+1. `upgrade-v11-enum.sql`
+2. `upgrade-v11.sql`
+
+En el proyecto Supabase productivo de este proyecto estos cambios **ya fueron aplicados**.
+
+Para una instalación nueva se puede utilizar directamente `database.sql`, que ya contiene los nuevos roles y el upgrade v11 consolidado.
+
+## Edge Functions
+
+- `invite-member`: invita colaboradores y asigna el rol dentro del workspace. Solo Superadmin/Administrador pueden invitar; solo Superadmin puede otorgar Superadmin.
+- `process-notifications`: procesa correo transaccional mediante Resend o Mailgun cuando existe un proveedor configurado.
+
+Las notificaciones dentro de la plataforma no dependen de un proveedor externo de email.
 
 ## GitHub Pages
 
-La URL canónica configurada es:
+Publicar desde:
 
-`https://gustavochan21.github.io/jiratrobbu/`
+**Settings → Pages → Deploy from a branch → `main` → `/ (root)`**
 
-Los assets usan `?v=10.0.0` para evitar que Safari o GitHub Pages reutilicen JS/CSS anteriores.
+La versión frontend usa cache busting `v=11.2.0` en `index.html`.
 
-Publicación:
+## QA
 
-1. Colocar los archivos de este paquete en la raíz de `main`.
-2. GitHub → Settings → Pages.
-3. Deploy from a branch → `main` → `/ (root)`.
-
-No requiere build.
-
-## Supabase
-
-Proyecto productivo actual:
-
-`https://prweelxfuvbsdsxfopuh.supabase.co`
-
-El backend productivo ya recibió los cambios v10. No es necesario ejecutar los SQL nuevamente allí.
-
-Para una instalación nueva usa `database.sql`.
-
-Para una instalación que ya estaba en v4, ejecuta en orden `upgrade-v5.sql`, `upgrade-v6.sql`, `upgrade-v7.sql`, `upgrade-v8.sql`, `upgrade-v9.sql` y `upgrade-v10.sql`.
-
-Para una instalación que ya estaba en v5, ejecuta en orden `upgrade-v6.sql`, `upgrade-v7.sql`, `upgrade-v8.sql`, `upgrade-v9.sql` y `upgrade-v10.sql`.
-
-Para una instalación que ya estaba en v6, ejecuta en orden `upgrade-v7.sql`, `upgrade-v8.sql`, `upgrade-v9.sql` y `upgrade-v10.sql`.
-
-Para una instalación que ya estaba en v7, ejecuta en orden `upgrade-v8.sql`, `upgrade-v9.sql` y `upgrade-v10.sql`.
-
-Para una instalación que ya estaba en v8, ejecuta `upgrade-v9.sql` y después `upgrade-v10.sql`.
-
-Para una instalación que ya estaba en v9, ejecuta únicamente `upgrade-v10.sql`.
-
-### Edge Functions desplegadas
-
-- `invite-member` v5: invitaciones, roles y redirect seguro a GitHub Pages.
-- `process-notifications` v5: estado del proveedor, reintentos y envío por Resend o Mailgun.
-
-## Emails operativos
-
-La plataforma siempre mantiene las **notificaciones in-app** independientemente del proveedor externo.
-
-Para envío de emails, `process-notifications` detecta uno de estos esquemas de secretos de Supabase:
-
-### Resend
-
-- `RESEND_API_KEY`
-- `EMAIL_FROM`
-
-### Mailgun
-
-- `MAILGUN_API_KEY`
-- `MAILGUN_DOMAIN`
-- `EMAIL_FROM` (opcional; si se omite se genera un remitente con el dominio)
-- `MAILGUN_BASE_URL` (opcional)
-
-Configuración → Notificaciones muestra si el proveedor está listo y el estado de la cola.
-
-## QA ejecutado contra Supabase productivo
-
-Todas las pruebas de base se ejecutaron como `authenticated`, con RLS activo, dentro de transacciones con `ROLLBACK` para no dejar datos de prueba.
-
-### CRUD
-
-- Workspace: create/read/update/delete.
-- Workspace settings: read/update.
-- Productos: create/update/delete.
-- Sprints: create/update/delete.
-- Tickets: create/read/update/delete.
-- Comentarios de tickets: create/update/delete.
-- Helpdesk departments: create/update/delete.
-- Helpdesk tickets: create/read/update/delete.
-- Helpdesk comments: create/update/delete.
-- Notificaciones: read/update/delete.
-
-### Matriz de roles
-
-Verificado:
-
-- Admin no puede eliminar/desactivar al último Admin activo.
-- PM puede administrar productos pero no otorgar Admin.
-- Dev puede crear y actualizar tickets, pero no eliminarlos.
-- QA puede actualizar el flujo de tickets.
-- Viewer puede leer tickets pero no crearlos, editarlos ni comentarlos.
-- Viewer puede crear/editar su solicitud de Helpdesk y comentar.
-- Viewer no puede cambiar estado, asignación ni SLA interno del Helpdesk.
-- Cualquier usuario autenticado puede crear su propio workspace.
-
-### Integración
-
-Verificado:
-
-- Dos workspaces pueden tener simultáneamente `ADM-1` y `HD-1` sin colisión global.
-- Bootstrap de workspace crea 3 productos, settings y 6 áreas de Helpdesk.
-- Notificaciones in-app/email respetan los toggles del workspace.
-- Helpdesk calcula `due_at` automáticamente según SLA.
-- Comentarios de ticket y Helpdesk completan CRUD.
-- Eliminar un workspace limpia correctamente sus entidades dependientes.
-- `ticket_activity` registra creación y cambios de estado sin violar FK.
-
-### Validación frontend
-
-- JSX parseado correctamente.
-- CSS parseado sin errores.
-- Auditoría estática de botones: todos tienen acción o submit válido.
-- 29 rutas globales de modal verificadas sin rutas faltantes, además de modales locales de dashboard/comentarios.
-- 0 usos de `alert()`, `prompt()` o `confirm()`.
-- 0 subcarpetas requeridas por la aplicación.
-
-## Seguridad
-
-Supabase Health no reporta incidencias funcionales. El Security Advisor únicamente mantiene la recomendación de habilitar **Leaked Password Protection** en Supabase Auth.
-
-
-### Integridad v7
-
-- Producto, sprint y área de Helpdesk deben pertenecer al mismo workspace que su ticket.
-- Los requesters de Helpdesk solo ven sus propias solicitudes; el staff ve todas.
-- `workspace_id`, `created_by` y la identidad de una membresía son inmutables tras su creación.
-- El toggle de Helpdesk también se aplica a nivel RLS/API.
-
-
-### Privacidad de perfiles v8
-
-Los perfiles solo pueden consultarse cuando son el perfil propio o existe al menos un workspace activo compartido con el colaborador.
-
-
-### Validación de responsables v9
-
-- Reporter/requester quedan inmutables tras crear el caso.
-- Nuevas asignaciones solo aceptan colaboradores activos y con rol compatible del mismo workspace.
-- Los casos históricos siguen siendo editables aunque un responsable sea desactivado posteriormente.
-- La validación corre antes que los triggers de actividad/notificaciones para devolver errores claros.
-
-
-### Privacidad Helpdesk v10
-
-- Un requester pierde acceso a sus solicitudes/comentarios cuando su membresía deja de estar activa.
-- Los miembros activos conservan visibilidad del perfil de colaboradores desactivados del mismo workspace para poder administrarlos/reactivarlos.
+Consulta `QA-REPORT.md`. La revisión v11 incluyó RLS por rol, aislamiento multi-workspace, Backlog/rollover, Helpdesk, evidencias, sintaxis JSX, botones/modales y pruebas visuales desktop/tablet/móvil.

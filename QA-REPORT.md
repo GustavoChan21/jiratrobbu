@@ -1,39 +1,101 @@
-# QA Report · Jira Interno TROBBU v10.1
+# QA Report — Jira Interno TROBBU v11.2
 
-Fecha de validación: 06/11/2026. Backend: Supabase `prweelxfuvbsdsxfopuh`.
+Fecha de revisión: 6–7 noviembre 2026.
 
 ## Resultado
 
-**PASS** en las matrices funcionales ejecutadas con RLS activo y transacciones con `ROLLBACK`, sin dejar datos de prueba.
+**Backend/RLS:** PASS  
+**Jerarquía por workspace:** PASS  
+**Backlog/Sprints:** PASS  
+**Helpdesk requester/staff:** PASS  
+**Evidencias:** PASS  
+**Frontend estático:** PASS  
+**Responsive/layout:** PASS
 
-## Cobertura validada
+Todas las pruebas de escritura sobre Supabase se ejecutaron dentro de transacciones con `ROLLBACK`; no se conservaron datos QA.
 
-- Workspace: crear por RPC, lectura inmediata, editar, cambiar, eliminar Admin, cascada y bloqueo de eliminación para PM.
-- Bootstrap: 3 productos, configuración y 6 áreas de Helpdesk por nuevo workspace.
-- Productos: crear, editar, eliminar e integridad de workspace.
-- Sprints: crear, editar, eliminar y `SET NULL` de `sprint_id` sin alterar workspace.
-- Tickets: crear, editar, eliminar, estados, responsables Dev/QA, story points, fecha límite, claves independientes por workspace y actividad.
-- Comentarios de tickets: crear, editar y eliminar con permisos.
-- Roles: Admin, PM, Dev, QA y Viewer; Viewer solo lectura en tickets; PM no puede otorgar Admin; no se puede dejar el workspace sin Admin activo.
-- Helpdesk: crear, editar, eliminar, categorías, área, asignación, estado, SLA automático, comentarios, actividad y privacidad del requester.
-- Helpdesk deshabilitado: RLS bloquea nuevas solicitudes.
-- Notificaciones in-app: creación, leído/no leído y eliminación; preferencias in-app/email respetadas.
-- Cola de email: Resend/Mailgun, reintentos y reporte de proveedor no configurado.
-- Integridad: producto/sprint/área deben pertenecer al mismo workspace; `workspace_id`, creator/reporter/requester y memberships protegidos contra reasignación.
-- Responsables: solo miembros activos y con rol compatible pueden recibir nuevas asignaciones; los históricos siguen actualizables después de una baja.
-- Perfil: visible solo al propio usuario o a personas del mismo workspace.
-- UI: JSX parseado sin errores, CSS parseado sin errores, 82 botones auditados, 0 botones sin acción, 0 botones de form con submit implícito, 0 `alert/prompt/confirm`.
-- Modales: 29 tipos abiertos y 29 rutas correspondientes en `ModalRouter`, sin rutas huérfanas.
-- Responsive: navegación móvil agregada para Resumen, Tablero, Mis tareas, Helpdesk, Equipo y Configuración.
+## Matriz de permisos — 22/22 PASS
 
-## Estado de Supabase
+1. Nuevo workspace crea Superadmin, 3 productos y 10 departamentos activos.
+2. Superadmin puede administrar productos.
+3. Administrador no puede otorgarse/otorgar Superadmin.
+4. Administrador puede administrar productos.
+5. PM puede crear/administrar sprints.
+6. PM no puede administrar productos.
+7. Desarrollo puede crear y actualizar tickets.
+8. Desarrollo no puede crear sprints.
+9. QA puede operar estados de tickets.
+10. Solo carga puede crear su ticket en Backlog.
+11. Solo carga no puede planificar fechas ni datos internos.
+12. Solo carga solo puede consultar tickets propios.
+13. Solo carga no puede editar tickets después del alta.
+14. Requester puede crear solicitud de Helpdesk.
+15. Requester no puede editar datos internos de la solicitud.
+16. Requester puede comentar su solicitud.
+17. Solo dashboards puede leer el tablero.
+18. Solo dashboards no puede escribir tickets.
+19. Cierre/rollover de sprint trasladó exactamente 2 tickets no resueltos; los cerrados permanecieron en origen.
+20. Fecha de entrega anterior a fecha de inicio fue rechazada.
+21. Metadatos de evidencia de ticket y sprint respetaron RLS.
+22. Helpdesk registró timestamps para En revisión, Atendido, Resuelto y Cerrado.
 
-- Health advisor: sin incidencias.
-- Security advisor: únicamente recomienda habilitar **Leaked Password Protection** en Supabase Auth. Esta preferencia no es modificable mediante el conector disponible en esta sesión.
-- Edge Functions activas: `invite-member` v5 y `process-notifications` v5.
+## Helpdesk
 
-## Dependencias externas
+Se validó además que un requester que intente enviar valores internos manipulados en el INSERT sea normalizado por backend a:
 
-El transporte de correo operativo requiere secretos de Resend o Mailgun. La aplicación detecta si existe proveedor y evita aparentar un envío exitoso cuando no está configurado. Las notificaciones in-app no dependen de ese proveedor.
+- `status = created`
+- `source = portal`
+- `requester_user_id = auth.uid()`
+- `assigned_to = null`
+- SLA calculado automáticamente
 
-La publicación automática en `GustavoChan21/jiratrobbu` no puede ejecutarse desde esta sesión porque la GitHub App devuelve `403 Resource not accessible by integration` tanto en Contents API como Git Data API y reporta cero instalaciones autorizadas.
+Departamentos validados: Reservaciones, Recepción, Gerencia, Administración, Aperturas, Marketing, Callcenter, Plataforma, Atención a clientes y Atención a socios.
+
+## Storage/evidencias
+
+- Superadmin/Administrador/PM/Dev/QA pueden subir evidencia válida del workspace.
+- Solo carga puede leer evidencia de sus propios tickets y no puede subirla.
+- Solo carga no puede leer evidencias de sprint.
+- Solo dashboards es lectura únicamente.
+- Bucket privado `jira-evidence`, máximo 10 MB por imagen.
+
+## Frontend estático
+
+- JSX parse diagnostics: **0**.
+- Botones auditados: **109**.
+- Botones sin acción: **0**.
+- Botones dentro de forms sin `type`: **0**.
+- Tipos globales de modal detectados: **32**.
+- Rutas globales de modal: **32**.
+- Rutas faltantes: **0**.
+- Uso de `alert()`, `prompt()` o `confirm()`: **0**.
+- Todas las cargas principales filtran explícitamente por `workspace_id`; tablas hijas están además protegidas por RLS/FK.
+
+## QA visual de modales — 12/12 PASS
+
+Desktop, tablet y móvil:
+
+- footer del formulario alineado;
+- Cancelar integrado en footer propio;
+- acción primaria alineada;
+- modal dentro del viewport;
+- sin overflow horizontal general;
+- navegación móvil visible.
+
+En móvil, Cancelar y acción primaria se apilan a ancho completo.
+
+## QA visual de módulos — 16/16 PASS
+
+Desktop/tablet/móvil:
+
+- Calendario presente y contenido dentro del viewport;
+- Backlog/Sprints presente;
+- Helpdesk con stepper de 5 estados;
+- detalle de sprint con evidencia;
+- sin overflow horizontal de página.
+
+En móvil, el único scroll horizontal permitido queda contenido dentro del calendario mensual, no en el documento completo.
+
+## Supabase
+
+El Security Advisor mantiene únicamente la recomendación de habilitar **Leaked Password Protection** de Supabase Auth. No representa un error funcional de Jira Interno.
