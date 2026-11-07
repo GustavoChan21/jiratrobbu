@@ -34,6 +34,25 @@ const HELP_STATUS = [
   ['resolved','Resuelto','lucide:circle-check'],
   ['closed','Cerrado','lucide:badge-check']
 ]
+const HELP_CATEGORY_LABELS = {
+  general:'Otro / General',
+  access:'Acceso a panel / permisos',
+  incident:'Error / incidente',
+  request:'Solicitud general',
+  module:'Nuevo módulo',
+  feature:'Nueva funcionalidad',
+  new_requirement:'Nuevo requerimiento',
+  data:'Datos / reporte',
+  configuration:'Configuración'
+}
+const REQUIREMENT_STATUS_LABELS = {
+  pending:'Pendiente de decisión',
+  accepted_backlog:'Aceptado a Backlog',
+  rejected:'Sugerencia rechazada'
+}
+const helpCategoryLabel = value => HELP_CATEGORY_LABELS[value] || value || 'General'
+const requirementStatusLabel = value => REQUIREMENT_STATUS_LABELS[value] || value || 'Pendiente de decisión'
+const isProposalCategory = value => ['module','feature','new_requirement'].includes(value)
 const PRIORITIES = ['lowest','low','medium','high','highest','blocker']
 const PRIORITY_LABELS = {lowest:'Muy baja',low:'Baja',medium:'Media',high:'Alta',highest:'Muy alta',blocker:'Bloqueante'}
 const TYPES = ['task','bug','story','improvement']
@@ -84,6 +103,13 @@ const effectivePermissions = (member,roleDef=null) => {
   return base
 }
 const roleDisplayName = member => member?.role_template?.name || ROLE_LABELS[member?.role] || member?.role || 'Consulta'
+const roleIsHelpdeskRequester = roleDef => roleDef?.code==='helpdesk_requester'
+const roleNeedsProducts = (roleDef,memberOverrides={}) => {
+  if(!roleDef)return true
+  if(roleDef.code==='superadmin')return true
+  const effective={...roleDefinitionPermissions(roleDef),...(memberOverrides||{})}
+  return ['view_dashboard','view_tickets','create_tickets','edit_tickets','delete_tickets','manage_sprints','qa_review','manage_products'].some(k=>!!effective[k])
+}
 
 const EVIDENCE_TYPES = [['general','General'],['review','Revisión'],['rejection','Rechazo'],['fix','Fix / Corrección'],['closure','Cierre']]
 const evidenceLabel = value => EVIDENCE_TYPES.find(x=>x[0]===value)?.[1] || value
@@ -160,32 +186,52 @@ function Auth(){
   const [mode,setMode]=useState('login')
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
+  const [confirmPassword,setConfirmPassword]=useState('')
   const [name,setName]=useState('')
+  const [showPassword,setShowPassword]=useState(false)
+  const [showConfirm,setShowConfirm]=useState(false)
   const [msg,setMsg]=useState('')
   const [submitting,setSubmitting]=useState(false)
+  const signup=mode==='signup'
+  const changeMode=next=>{setMode(next);setMsg('');setPassword('');setConfirmPassword('');setShowPassword(false);setShowConfirm(false)}
   const submit=async e=>{
-    e.preventDefault(); setSubmitting(true); setMsg('')
-    const result=mode==='login'
-      ? await db.auth.signInWithPassword({email,password})
-      : await db.auth.signUp({email,password,options:{data:{full_name:name},emailRedirectTo:getAppUrl()}})
-    setMsg(result.error ? result.error.message : mode==='login' ? 'Acceso correcto.' : 'Cuenta creada. Revisa tu correo para confirmar el acceso.')
-    setSubmitting(false)
+    e.preventDefault();setSubmitting(true);setMsg('')
+    try{
+      if(signup&&password!==confirmPassword)throw new Error('Las contraseñas no coinciden.')
+      const result=signup
+        ? await db.auth.signUp({email,password,options:{data:{full_name:name.trim()},emailRedirectTo:getAppUrl()}})
+        : await db.auth.signInWithPassword({email,password})
+      if(result.error)throw result.error
+      setMsg(signup?'Cuenta creada. Revisa tu correo para confirmar el acceso.':'Acceso correcto.')
+    }catch(err){setMsg(err.message||String(err))}
+    finally{setSubmitting(false)}
   }
-  return <div className="auth-shell"><div className="auth-card">
-    <img src="./logo.svg" className="auth-logo" alt="TROBBU" />
-    <span className="eyebrow">JIRA INTERNO</span><h1>{mode==='login'?'Bienvenido de nuevo':'Crea tu cuenta'}</h1>
-    <p>Gestión de tickets, sprints, QA, Helpdesk y operación del equipo.</p>
-    <form onSubmit={submit} className="form">
-      {mode==='signup' && <label>Nombre completo<input value={name} onChange={e=>setName(e.target.value)} required /></label>}
-      <label>Correo<input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required /></label>
-      <label>Contraseña<input type="password" autoComplete={mode==='login'?'current-password':'new-password'} minLength="6" value={password} onChange={e=>setPassword(e.target.value)} required /></label>
-      <button type="submit" className="primary full" disabled={submitting}>{submitting?'Procesando…':mode==='login'?'Iniciar sesión':'Crear cuenta'}</button>
-    </form>
-    <button type="button" className="text-button" onClick={()=>{setMode(mode==='login'?'signup':'login');setMsg('')}}>{mode==='login'?'Crear una cuenta':'Ya tengo cuenta'}</button>
-    {msg && <div className="notice">{msg}</div>}
-  </div></div>
+  return <div className="auth-shell">
+    <div className="auth-visual-copy" aria-hidden="true">
+      <span className="auth-collection">TROBBU</span>
+      <small>BOUTIQUE COLLECTION</small>
+    </div>
+    <div className={`auth-card luxury-auth-card ${signup?'signup':''}`}>
+      <div className="auth-brand">
+        <img src="./logo.svg" className="auth-logo" alt="TROBBU"/>
+        <div className="auth-eyebrow-row"><i></i><span>JIRA INTERNO</span><i></i></div>
+        <h1>{signup?'Crea tu cuenta':'Bienvenido de nuevo'}</h1>
+        <p>{signup?'Solicita acceso para colaborar en tickets, sprints, QA y Helpdesk del equipo.':'Gestión de tickets, sprints, QA, Helpdesk y operación del equipo.'}</p>
+      </div>
+      <form onSubmit={submit} className="form auth-form">
+        {signup&&<label>Nombre completo<div className="auth-input"><Icon name="lucide:user" size={18}/><input value={name} onChange={e=>setName(e.target.value)} required placeholder="Ej. Gustavo A. Mendoza" autoComplete="name"/></div></label>}
+        <label>Correo<div className="auth-input"><Icon name="lucide:mail" size={18}/><input type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="Ej. usuario@trobbu.com"/></div></label>
+        <label>Contraseña<div className="auth-input"><Icon name="lucide:lock-keyhole" size={18}/><input type={showPassword?'text':'password'} autoComplete={signup?'new-password':'current-password'} minLength="6" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="Mínimo 6 caracteres"/><button type="button" className="auth-eye" onClick={()=>setShowPassword(v=>!v)} aria-label={showPassword?'Ocultar contraseña':'Mostrar contraseña'}><Icon name={showPassword?'lucide:eye-off':'lucide:eye'} size={18}/></button></div></label>
+        {signup&&<label>Confirmar contraseña<div className="auth-input"><Icon name="lucide:lock-keyhole" size={18}/><input type={showConfirm?'text':'password'} autoComplete="new-password" minLength="6" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required placeholder="Repite tu contraseña"/><button type="button" className="auth-eye" onClick={()=>setShowConfirm(v=>!v)} aria-label={showConfirm?'Ocultar contraseña':'Mostrar contraseña'}><Icon name={showConfirm?'lucide:eye-off':'lucide:eye'} size={18}/></button></div></label>}
+        {signup&&<p className="auth-legal">Al continuar aceptas las políticas internas de acceso y uso de la plataforma.</p>}
+        <button type="submit" className="primary full auth-submit" disabled={submitting}>{submitting?'Procesando…':signup?'Crear cuenta':'Iniciar sesión'}<Icon name="lucide:arrow-right" size={18}/></button>
+      </form>
+      <div className="auth-divider"><i></i><Icon name="lucide:sun-medium" size={18}/><i></i></div>
+      <button type="button" className="auth-switch" onClick={()=>changeMode(signup?'login':'signup')}>{signup?'Ya tengo una cuenta':'Crear una cuenta'}</button>
+      {msg&&<div className="notice auth-message">{msg}</div>}
+    </div>
+  </div>
 }
-
 function App(){
   const {session,loading}=useSession()
   if(loading) return <div className="center loading-screen"><span className="loader"></span><span>Cargando Jira Interno…</span></div>
@@ -281,7 +327,9 @@ function WorkspaceApp({session}){
   const canManage=canPlan
   const isAdmin=canAdminWorkspace
   const helpdeskEnabled=settings?.helpdesk_enabled!==false
-  const workspaces=memberships.map(m=>({...m.workspaces,role:m.role})).filter(Boolean)
+  const helpdeskOnly=helpdeskEnabled && roleIsHelpdeskRequester(myRoleTemplate)
+  const myRoleName=myRoleTemplate?.name||ROLE_LABELS[myRole]||myRole
+  const workspaces=memberships.map(m=>({...m.workspaces,role:m.role,role_id:m.role_id})).filter(Boolean)
   const unread=notifications.filter(n=>!n.read_at).length
 
   useEffect(()=>{loadMemberships().then(()=>setBusy(false))},[])
@@ -313,25 +361,26 @@ function WorkspaceApp({session}){
     db.functions.invoke('process-notifications',{body:{workspace_id:workspace.id,status_only:true}}).then(({data,error})=>{if(!cancelled)setEmailProviderStatus(error?{configured:false,error:error.message}:data||null)}).catch(err=>{if(!cancelled)setEmailProviderStatus({configured:false,error:err.message||String(err)})})
     return ()=>{cancelled=true}
   },[workspace?.id,settings?.email_notifications])
-  useEffect(()=>{if(settings?.helpdesk_enabled===false && view==='helpdesk')setView('overview')},[settings?.helpdesk_enabled,view])
-  useEffect(()=>{if(search.trim() && !['board','mytasks'].includes(view))setView('board')},[search])
+  useEffect(()=>{if(settings?.helpdesk_enabled===false && view==='helpdesk')setView(canViewDashboard?'overview':'mytasks')},[settings?.helpdesk_enabled,view,canViewDashboard])
+  useEffect(()=>{if(search.trim() && canViewTickets && !['board','mytasks'].includes(view))setView('board')},[search,canViewTickets])
   useEffect(()=>{
     if(!workspace?.id)return
-    if(!canViewDashboard && !['mytasks','helpdesk'].includes(view)) setView('mytasks')
+    if(helpdeskOnly && view!=='helpdesk'){setView('helpdesk');return}
+    if(!canViewDashboard && !['mytasks','helpdesk'].includes(view)) setView(helpdeskEnabled?'helpdesk':'mytasks')
     if(canViewDashboard && !canWork && !['overview','board','backlog','timeline','helpdesk'].includes(view)) setView('overview')
-    if(!canManageStaff && view==='team') setView(canViewDashboard?'overview':'mytasks')
-    if(!(canManageSettings||canManageProducts) && view==='settings') setView(canViewDashboard?'overview':'mytasks')
-  },[workspace?.id,myRole])
+    if(!canManageStaff && view==='team') setView(canViewDashboard?'overview':helpdeskEnabled?'helpdesk':'mytasks')
+    if(!(canManageSettings||canManageProducts) && view==='settings') setView(canViewDashboard?'overview':helpdeskEnabled?'helpdesk':'mytasks')
+  },[workspace?.id,myRole,myRoleTemplate?.id,helpdeskOnly,helpdeskEnabled])
   useEffect(()=>{
     const onKey=e=>{
-      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){
+      if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&canViewTickets){
         e.preventDefault()
         document.getElementById('global-ticket-search')?.focus()
       }
     }
     window.addEventListener('keydown',onKey)
     return ()=>window.removeEventListener('keydown',onKey)
-  },[])
+  },[canViewTickets])
 
   const filteredTickets=useMemo(()=>tickets.filter(t=>{
     const q=search.trim().toLowerCase()
@@ -412,6 +461,7 @@ function WorkspaceApp({session}){
   }
 
   const saveHelpdesk=async(form,item=null)=>{
+    const isRequirement=isProposalCategory(form.category)||isProposalCategory(item?.category)
     const base={
       department_id:form.department_id||null,
       subject:form.subject,
@@ -424,12 +474,21 @@ function WorkspaceApp({session}){
     }
     const payload=item
       ? (canManageHelpdesk
-          ? {...base,status:form.status,assigned_to:form.assigned_to||null,due_at:localDateTimeToIso(form.due_at)}
+          ? (isRequirement?base:{...base,status:form.status,assigned_to:form.assigned_to||null,due_at:localDateTimeToIso(form.due_at)})
           : base)
-      : {...base,workspace_id:workspace.id,requester_user_id:session.user.id,status:canManageHelpdesk?(form.status||'created'):'created',assigned_to:canManageHelpdesk?(form.assigned_to||null):null,due_at:canManageHelpdesk?localDateTimeToIso(form.due_at):null}
+      : {...base,workspace_id:workspace.id,requester_user_id:session.user.id,status:isRequirement?'created':canManageHelpdesk?(form.status||'created'):'created',assigned_to:isRequirement?null:canManageHelpdesk?(form.assigned_to||null):null,due_at:isRequirement?null:canManageHelpdesk?localDateTimeToIso(form.due_at):null}
     const result=item ? await db.from('helpdesk_tickets').update(payload).eq('id',item.id) : await db.from('helpdesk_tickets').insert(payload)
     if(result.error) throw result.error
-    await refresh(); showToast('success',item?'Solicitud actualizada.':'Solicitud de soporte creada.')
+    await refresh(); showToast('success',item?'Solicitud actualizada.':isRequirement?'Nuevo requerimiento enviado para decisión.':'Solicitud de soporte creada.')
+  }
+
+  const decideRequirement=async(item,decision,productId,note)=>{
+    if(!canPlan)throw new Error('Tu rol no permite decidir nuevos requerimientos.')
+    const {data,error}=await db.rpc('decide_helpdesk_requirement',{p_helpdesk_id:item.id,p_decision:decision,p_product_id:decision==='accepted_backlog'?productId:null,p_note:note||null})
+    if(error)throw error
+    await refresh();runEmails()
+    showToast('success',decision==='accepted_backlog'?`Requerimiento aceptado a Backlog${data?.ticket_key?` como ${data.ticket_key}`:''}.`:'Sugerencia rechazada y notificada al solicitante.')
+    return data
   }
 
   const deleteHelpdesk=async item=>{
@@ -471,9 +530,9 @@ function WorkspaceApp({session}){
   if(!workspace && !busy) return <EmptyWorkspace onCreate={()=>setModal({type:'workspace-create'})}/>
 
   return <div className="app-shell">
-    <Topbar session={session} unread={unread} search={search} setSearch={setSearch} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} onAppSwitcher={()=>setModal({type:'workspace-switch'})} onHelp={()=>setModal({type:'quick-help'})}/>
-    <Sidebar workspace={workspace} workspaces={workspaces} products={products} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} helpdeskEnabled={helpdeskEnabled} role={myRole} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canViewDashboard={canViewDashboard} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
-    <MobileNav view={view} setView={setView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canViewDashboard={canViewDashboard}/>
+    <Topbar session={session} unread={unread} search={search} setSearch={setSearch} canSearch={canViewTickets} portalOnly={helpdeskOnly} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} onAppSwitcher={()=>setModal({type:'workspace-switch'})} onHelp={()=>setModal({type:'quick-help'})}/>
+    <Sidebar workspace={workspace} workspaces={workspaces} products={products} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canViewDashboard={canViewDashboard} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
+    <MobileNav view={view} setView={setView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canViewDashboard={canViewDashboard}/>
     <main className="main-area">
       {busy ? <LoadingPanel/> : <>
         {view==='overview' && canViewDashboard && <Overview workspace={workspace} tickets={tickets} helpdesk={helpdesk} products={products} sprints={sprints}/>} 
@@ -482,49 +541,45 @@ function WorkspaceApp({session}){
         {view==='backlog' && canViewDashboard && <BacklogView workspace={workspace} tickets={tickets} products={products} sprints={sprints} members={members} canPlan={canPlan} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onPlan={ticket=>setModal({type:'ticket-plan',ticket})} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onCloseSprint={sprint=>setModal({type:'sprint-rollover',sprint})} onCreateSprint={()=>setModal({type:'sprint-create'})}/>} 
         {view==='mytasks' && <TicketWorkspace workspace={workspace} title="Mis tareas" subtitle="Tickets que reportaste o que tienes asignados." tickets={myTickets} allTickets={myTickets} products={products} members={members} sprints={sprints} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})} canWork={canWork} canPlan={canPlan} canDelete={canDeleteTicket} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={ticket=>setModal({type:'ticket-edit',ticket})} onDelete={ticket=>setModal({type:'ticket-delete',ticket})} onBacklog={ticket=>planTicket(ticket,null)} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onMove={moveTicket}/>} 
         {view==='helpdesk' && helpdeskEnabled && (helpdeskStaff
-          ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} members={members} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})}/>
+          ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} members={members} canPlan={canPlan} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})} onDecision={item=>setModal({type:'help-requirement-decision',item})}/>
           : <HelpdeskPortal items={helpdesk} departments={departments} onCreate={()=>setModal({type:'help-create'})} onOpen={item=>setModal({type:'help-detail',item})}/>)} 
         {view==='team' && canManageStaff && <StaffRolesView workspace={workspace} members={members} products={products} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} canManage={canManageStaff} isSuperadmin={isSuperadmin} session={session} onInvite={()=>setModal({type:'invite'})} onMember={member=>setModal({type:'member-edit',member})} onRoleCreate={()=>setModal({type:'role-create'})} onRoleEdit={role=>setModal({type:'role-edit',role})} onRoleDelete={role=>setModal({type:'role-delete',role})}/>} 
         {view==='settings' && (canManageSettings||canManageProducts) && <SettingsView workspace={workspace} settings={settings} products={products} sprints={sprints} departments={departments} emailQueue={emailQueue} emailProviderStatus={emailProviderStatus} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canPlan={canPlan} canDeleteWorkspace={isSuperadmin} onWorkspaceEdit={()=>setModal({type:'workspace-edit'})} onWorkspaceConfig={()=>setModal({type:'workspace-config'})} onWorkspaceDelete={()=>setModal({type:'workspace-delete'})} onSettingsSaved={refresh} onProductCreate={()=>setModal({type:'product-create'})} onProductEdit={product=>setModal({type:'product-edit',product})} onProductDelete={product=>setModal({type:'product-delete',product})} onSprintCreate={()=>setModal({type:'sprint-create'})} onSprintEdit={sprint=>setModal({type:'sprint-edit',sprint})} onSprintDelete={sprint=>setModal({type:'sprint-delete',sprint})} onDepartmentCreate={()=>setModal({type:'department-create'})} onDepartmentEdit={department=>setModal({type:'department-edit',department})} onDepartmentDelete={department=>setModal({type:'department-delete',department})} onProcessEmails={processEmails} toast={showToast}/>} 
       </>}
     </main>
     {drawer==='notifications' && <NotificationsDrawer notifications={notifications} onClose={()=>setDrawer(null)} onMark={markNotification} onMarkAll={markAll} onDelete={deleteNotification} onClearRead={clearReadNotifications} onOpen={n=>{setDrawer(null); if(n.ticket_id){const t=tickets.find(x=>x.id===n.ticket_id); if(t)setModal({type:'ticket-detail',ticket:t});else showToast('error','El ticket relacionado ya no está disponible.')} else if(n.helpdesk_ticket_id){const h=helpdesk.find(x=>x.id===n.helpdesk_ticket_id); if(h)setModal({type:'help-detail',item:h});else showToast('error','La solicitud relacionada ya no está disponible.')}}}/>} 
-    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>} 
+    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>} 
     {toast && <Toast toast={toast}/>} 
   </div>
 }
 
-function Topbar({session,unread,search,setSearch,canCreate,onCreate,onNotifications,onAppSwitcher,onHelp}){return <header className="global-topbar">
+function Topbar({session,unread,search,setSearch,canSearch=true,portalOnly=false,canCreate,onCreate,onNotifications,onAppSwitcher,onHelp}){return <header className="global-topbar">
   <div className="topbar-brand"><button className="app-switcher" onClick={onAppSwitcher} title="Cambiar workspace"><Icon name="lucide:grid-2x2"/></button><img src="./logo.svg" alt="TROBBU"/><span></span><b>Jira Interno</b></div>
-  <div className="global-search"><Icon name="lucide:search"/><input id="global-ticket-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar tickets por clave, título o descripción"/><kbd>⌘ K</kbd></div>
+  {canSearch?<div className="global-search"><Icon name="lucide:search"/><input id="global-ticket-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar tickets por clave, título o descripción"/><kbd>⌘ K</kbd></div>:<div className="portal-topbar-context"><Icon name="lucide:life-buoy"/><span><b>Portal de solicitudes</b><small>{portalOnly?'Seguimiento personal de Helpdesk':'Workspace interno'}</small></span></div>}
   <div className="topbar-actions">{canCreate&&<button className="primary create-button" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button>}<button className="icon-button bell" onClick={onNotifications} title="Notificaciones"><Icon name="lucide:bell"/>{unread>0&&<em>{unread>9?'9+':unread}</em>}</button><button className="icon-button" onClick={onHelp} title="Ayuda"><Icon name="lucide:circle-help"/></button><div className="top-user"><span className="avatar sm">{initials(session.user.user_metadata?.full_name||session.user.email)}</span><div><b>{session.user.user_metadata?.full_name||'Usuario'}</b><small>{session.user.email}</small></div></div></div>
 </header>}
-
-function Sidebar({workspace,workspaces,products,productId,setProductId,view,setView,tickets,helpdesk,helpdeskEnabled,role,canManageStaff,canManageSettings,canViewDashboard,onWorkspace}){
-  const items=canViewDashboard
-    ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['timeline','lucide:gantt-chart','Cronograma'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy',role==='consulta'?'Mis solicitudes':'Helpdesk']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff y Roles']]:[])]
-    : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[])]
+function Sidebar({workspace,workspaces,products,productId,setProductId,view,setView,tickets,helpdesk,helpdeskEnabled,role,roleName,helpdeskOnly=false,canManageStaff,canManageSettings,canViewDashboard,onWorkspace}){
+  const items=helpdeskOnly
+    ? [['helpdesk','lucide:life-buoy','Mis solicitudes']]
+    : canViewDashboard
+      ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['timeline','lucide:gantt-chart','Cronograma'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy',role==='consulta'?'Mis solicitudes':'Helpdesk']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff y Roles']]:[])]
+      : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[])]
   return <aside className="sidebar">
     <div className="sidebar-section-title"><span>ESPACIO DE TRABAJO</span><button className="ghost-icon" onClick={onWorkspace} title="Cambiar o crear workspace"><Icon name="lucide:plus" size={16}/></button></div>
-    <button className="workspace-card" onClick={onWorkspace}><span className="workspace-icon"><Icon name="lucide:layers-3"/></span><div><b>{workspace?.name}</b><small>{ROLE_LABELS[role]||role}</small></div><Icon name="lucide:chevrons-up-down" size={16}/></button>
-    <nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{key==='board'&&<em>{tickets.length}</em>}{key==='backlog'&&<em>{tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length}</em>}{key==='helpdesk'&&<em>{helpdesk.filter(h=>!['resolved','closed'].includes(h.status)).length}</em>}</button>)}</nav>
-    {canViewDashboard&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div>
-      <button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{tickets.length}</em></button>
-      {products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{tickets.filter(t=>t.product_id===p.id).length}</em></button>)}
-    </>}
-    <div className="sidebar-spacer"></div><div className="sidebar-divider"></div>
-    {canManageSettings&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}
-    <button className="footer-nav" onClick={()=>db.auth.signOut()}><Icon name="lucide:log-out"/>Cerrar sesión</button>
+    <button className="workspace-card" onClick={onWorkspace}><span className="workspace-icon"><Icon name="lucide:layers-3"/></span><div><b>{workspace?.name}</b><small>{roleName||ROLE_LABELS[role]||role}</small></div><Icon name="lucide:chevrons-up-down" size={16}/></button>
+    <nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{key==='board'&&<em>{tickets.length}</em>}{key==='backlog'&&<em>{tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length}</em>}{key==='helpdesk'&&<em>{helpdeskOnly?helpdesk.length:helpdesk.filter(h=>isProposalCategory(h.category)?h.proposal_status==='pending':!['resolved','closed'].includes(h.status)).length}</em>}</button>)}</nav>
+    {canViewDashboard&&!helpdeskOnly&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div><button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{tickets.length}</em></button>{products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{tickets.filter(t=>t.product_id===p.id).length}</em></button>)}</>}
+    <div className="sidebar-spacer"></div><div className="sidebar-divider"></div>{canManageSettings&&!helpdeskOnly&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}<button className="footer-nav" onClick={()=>db.auth.signOut()}><Icon name="lucide:log-out"/>Cerrar sesión</button>
   </aside>
 }
-
-function MobileNav({view,setView,setProductId,helpdeskEnabled,role,canManageStaff,canManageSettings,canViewDashboard}){
-  const items=canViewDashboard
-    ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],['timeline','lucide:gantt-chart','Gantt'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff']]:[]),...(canManageSettings?[['settings','lucide:settings','Ajustes']]:[])]
-    : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[])]
+function MobileNav({view,setView,setProductId,helpdeskEnabled,role,helpdeskOnly=false,canManageStaff,canManageSettings,canViewDashboard}){
+  const items=helpdeskOnly
+    ? [['helpdesk','lucide:life-buoy','Solicitudes']]
+    : canViewDashboard
+      ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],['timeline','lucide:gantt-chart','Gantt'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff']]:[]),...(canManageSettings?[['settings','lucide:settings','Ajustes']]:[])]
+      : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[])]
   return <nav className="mobile-nav" aria-label="Navegación móvil">{items.map(([key,icon,label])=><button type="button" key={key} className={view===key?'active':''} onClick={()=>{setProductId('all');setView(key)}}><Icon name={icon} size={19}/><span>{label}</span></button>)}</nav>
 }
-
 function PageHeader({eyebrow='Proyectos',title,subtitle,icon='lucide:clipboard-check',action}){return <div className="page-header"><div><div className="breadcrumbs"><span>{eyebrow}</span><Icon name="lucide:chevron-right" size={14}/><span>TROBBU</span></div><div className="page-title-row"><span className="page-icon"><Icon name={icon}/></span><div><h1>{title}</h1><p>{subtitle}</p></div></div></div>{action}</div>}
 function LoadingPanel(){return <div className="center content-loading"><span className="loader"></span><span>Actualizando información…</span></div>}
 function EmptyWorkspace({onCreate}){return <div className="empty-state"><img src="./logo.svg"/><span className="page-icon"><Icon name="lucide:layers-3" size={26}/></span><h2>Crea tu primer espacio de trabajo</h2><p>Los productos base y la configuración se crearán automáticamente.</p><button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Crear workspace</button></div>}
@@ -613,11 +668,13 @@ function CalendarView({workspace,tickets,products,onOpen}){
 }
 
 function GanttView({workspace,tickets,products,sprints,members=[],onOpen,onEdit,onDelete,onBacklog,onSprint,canWork=false,canPlan=false,canDelete=false,embedded=false}){
-  const [months,setMonths]=useState(3)
-  const [cursor,setCursor]=useState(()=>{const d=new Date();return dateKey(new Date(d.getFullYear(),d.getMonth(),1))})
-  useEffect(()=>{const d=new Date();setCursor(dateKey(new Date(d.getFullYear(),d.getMonth(),1)))},[workspace?.id])
+  const yesterday=()=>{const d=new Date();d.setDate(d.getDate()-1);return dateKey(d)}
+  const [range,setRange]=useState('4w')
+  const [cursor,setCursor]=useState(yesterday)
+  useEffect(()=>{setCursor(yesterday());setRange('4w')},[workspace?.id])
   const start=new Date(`${cursor}T12:00:00`)
-  const endExclusive=new Date(start);endExclusive.setMonth(endExclusive.getMonth()+months)
+  const addRange=(date,key)=>{const d=new Date(date);if(key.endsWith('w'))d.setDate(d.getDate()+Number(key.slice(0,-1))*7);else d.setMonth(d.getMonth()+Number(key.slice(0,-1)));return d}
+  const endExclusive=addRange(start,range)
   const end=new Date(endExclusive);end.setDate(end.getDate()-1)
   const span=daysBetween(cursor,dateKey(end))+1
   const days=Array.from({length:span},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d})
@@ -625,37 +682,40 @@ function GanttView({workspace,tickets,products,sprints,members=[],onOpen,onEdit,
   const scheduled=tickets.filter(t=>t.start_date||t.due_date).sort((a,b)=>String(a.start_date||a.due_date).localeCompare(String(b.start_date||b.due_date)))
   const unscheduled=tickets.filter(t=>!t.start_date&&!t.due_date&&t.status!=='closed')
   const overdue=tickets.filter(t=>t.due_date&&t.due_date<todayKey&&!['qa_passed','closed'].includes(t.status)).length
-  const dayWidth=months===1?34:months===3?22:months===6?15:10
+  const dayWidth=span<=8?70:span<=30?34:span<=45?26:span<=60?22:span<=95?16:11
   const cellStyle={gridTemplateColumns:`repeat(${span},${dayWidth}px)`}
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n))
   const position=t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;if(!a||!b)return null;const from=daysBetween(cursor,a),to=daysBetween(cursor,b);if(to<0||from>=span)return null;return {start:clamp(from,0,span-1)+1,end:clamp(to,0,span-1)+2,leftCut:from<0,rightCut:to>=span}}
   const visibleTickets=scheduled.filter(t=>position(t))
   const sprintRows=sprints.filter(x=>x.start_date&&x.end_date).map(s=>({s,pos:position({start_date:s.start_date,due_date:s.end_date})})).filter(x=>x.pos).sort((a,b)=>String(a.s.start_date).localeCompare(String(b.s.start_date)))
-  const shiftMonth=dir=>{const d=new Date(start);d.setMonth(d.getMonth()+dir);setCursor(dateKey(new Date(d.getFullYear(),d.getMonth(),1)))}
-  const today=()=>{const d=new Date();setCursor(dateKey(new Date(d.getFullYear(),d.getMonth(),1)))}
-  const jumpSprint=id=>{const sprint=sprints.find(x=>x.id===id);if(!sprint?.start_date)return;const d=new Date(`${sprint.start_date}T12:00:00`);setCursor(dateKey(new Date(d.getFullYear(),d.getMonth(),1)))}
+  const shiftPeriod=dir=>{const d=new Date(start);if(range.endsWith('w'))d.setDate(d.getDate()+dir*Number(range.slice(0,-1))*7);else d.setMonth(d.getMonth()+dir*Number(range.slice(0,-1)));setCursor(dateKey(d))}
+  const today=()=>setCursor(yesterday())
+  const jumpSprint=id=>{const sprint=sprints.find(x=>x.id===id);if(sprint?.start_date)setCursor(sprint.start_date)}
   const monthGroups=[]
   days.forEach((d,i)=>{const key=`${d.getFullYear()}-${d.getMonth()}`;const last=monthGroups[monthGroups.length-1];if(last?.key===key)last.count++;else monthGroups.push({key,label:new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(d),start:i+1,count:1})})
   const assignee=t=>members.find(m=>m.user_id===(t.qa_owner_id||t.dev_owner_id))?.profile?.full_name||''
+  const rangeLabel={ '1w':'1 semana','4w':'4 semanas','6w':'6 semanas','8w':'8 semanas','1m':'1 mes','2m':'2 meses','3m':'3 meses','6m':'6 meses' }[range]
   const content=<>
-    <div className="gantt-toolbar jira-timeline-toolbar"><div><h3>Timeline / Gantt</h3><p>{formatDate(cursor)} → {formatDate(dateKey(end))} · histórico, proyección y progreso del trabajo</p></div><div className="gantt-controls"><select value="" onChange={e=>{if(e.target.value)jumpSprint(e.target.value)}} aria-label="Ir a sprint"><option value="">Ir a sprint…</option>{[...sprints].sort((a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||''))).map(s=><option key={s.id} value={s.id}>{s.status==='completed'?'✓ ':s.status==='active'?'● ':'○ '}{s.name} · {formatDate(s.start_date)}</option>)}</select><select value={months} onChange={e=>setMonths(Number(e.target.value))}><option value="1">1 mes</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option></select><button type="button" className="secondary-button compact" onClick={()=>shiftMonth(-1)} title="Mes anterior"><Icon name="lucide:chevron-left"/></button><button type="button" className="secondary-button compact" onClick={today}>Hoy</button><button type="button" className="secondary-button compact" onClick={()=>shiftMonth(1)} title="Mes siguiente"><Icon name="lucide:chevron-right"/></button></div></div>
+    <div className="gantt-toolbar jira-timeline-toolbar"><div><h3>Timeline / Gantt</h3><p>{formatDate(cursor)} → {formatDate(dateKey(end))} · {rangeLabel} · histórico, proyección y progreso</p></div><div className="gantt-controls gantt-controls-v14">
+      <label className="gantt-date-control"><span>Desde</span><input type="date" value={cursor} onChange={e=>e.target.value&&setCursor(e.target.value)} aria-label="Fecha inicial del Gantt"/></label>
+      <select value={range} onChange={e=>setRange(e.target.value)} aria-label="Periodo visible"><optgroup label="Semanas"><option value="1w">1 semana</option><option value="4w">4 semanas</option><option value="6w">6 semanas</option><option value="8w">8 semanas</option></optgroup><optgroup label="Meses"><option value="1m">1 mes</option><option value="2m">2 meses</option><option value="3m">3 meses</option><option value="6m">6 meses</option></optgroup></select>
+      <select value="" onChange={e=>{if(e.target.value)jumpSprint(e.target.value)}} aria-label="Ir a sprint"><option value="">Ir a sprint…</option>{[...sprints].sort((a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||''))).map(s=><option key={s.id} value={s.id}>{s.status==='completed'?'✓ ':s.status==='active'?'● ':'○ '}{s.name} · {formatDate(s.start_date)}</option>)}</select>
+      <button type="button" className="secondary-button compact" onClick={()=>shiftPeriod(-1)} title="Periodo anterior"><Icon name="lucide:chevron-left"/></button><button type="button" className="secondary-button compact" onClick={today}>Hoy</button><button type="button" className="secondary-button compact" onClick={()=>shiftPeriod(1)} title="Periodo siguiente"><Icon name="lucide:chevron-right"/></button>
+    </div></div>
     <div className="gantt-kpis"><span><b>{scheduled.length}</b> planificados</span><span><b>{unscheduled.length}</b> en Backlog / sin fechas</span><span className={overdue?'danger-text':''}><b>{overdue}</b> vencidos</span><span><b>{sprints.filter(s=>s.status==='completed').length}</b> sprints históricos</span><span><b>{tickets.filter(t=>t.status==='closed').length}</b> tickets cerrados</span></div>
     <div className="gantt-scroll jira-timeline-scroll"><div className="gantt-canvas jira-timeline-canvas" style={{'--gantt-days':span,'--gantt-day-width':`${dayWidth}px`}}>
       <div className="gantt-month-header"><div className="gantt-label gantt-label-head">Actividad</div><div className="gantt-days gantt-month-grid" style={cellStyle}>{monthGroups.map(g=><span key={g.key} style={{gridColumn:`${g.start}/span ${g.count}`}}>{g.label}</span>)}</div></div>
       <div className="gantt-header"><div className="gantt-label gantt-label-head"><span>Tarea</span><small>{visibleTickets.length} visibles</small></div><div className="gantt-days gantt-days-head" style={cellStyle}>{days.map(d=><span key={dateKey(d)} className={`${[0,6].includes(d.getDay())?'weekend':''} ${dateKey(d)===todayKey?'today':''}`}><b>{d.getDate()}</b><small>{new Intl.DateTimeFormat('es-MX',{weekday:'narrow'}).format(d)}</small></span>)}</div></div>
       {sprintRows.length>0&&<div className="gantt-sprints"><div className="gantt-group-title"><Icon name="lucide:calendar-range"/> Sprints · activos, planeados e históricos</div>{sprintRows.map(({s,pos})=>{const rows=tickets.filter(t=>t.sprint_id===s.id),pct=rows.length?Math.round(rows.reduce((a,t)=>a+ticketProgress(t.status),0)/rows.length):0;return <div className={`gantt-row sprint-row sprint-${s.status}`} key={s.id}><button type="button" className="gantt-label sprint-label-button" onClick={()=>onSprint?.(s)}><span className={`sprint-status ${s.status}`}>{s.status==='active'?'Activo':s.status==='completed'?'Cerrado':'Planeado'}</span><b>{s.name}</b><small>{formatDate(s.start_date)} → {formatDate(s.end_date)} · {rows.length} tickets · {pct}%</small></button><div className="gantt-days gantt-track" style={cellStyle}>{days.map(d=><i key={dateKey(d)} className={`${[0,6].includes(d.getDay())?'weekend':''} ${dateKey(d)===todayKey?'today':''}`}></i>)}<button type="button" className={`gantt-sprint-bar ${s.status}`} style={{gridColumn:`${pos.start}/${pos.end}`}} onClick={()=>onSprint?.(s)} title={`${s.name} · ${pct}%`}><b>{s.name}</b><em style={{width:`${pct}%`}}></em></button></div></div>})}</div>}
       <div className="gantt-group-title"><Icon name="lucide:ticket"/> Actividades</div>
-      {visibleTickets.length===0&&<div className="gantt-empty"><Icon name="lucide:calendar-off"/><span>No hay tickets programados dentro del periodo visible. Navega a otro mes o elige un sprint histórico.</span></div>}
+      {visibleTickets.length===0&&<div className="gantt-empty"><Icon name="lucide:calendar-off"/><span>No hay tickets programados dentro del periodo visible. Cambia la fecha, el periodo o selecciona un sprint histórico.</span></div>}
       {visibleTickets.map(t=>{const pos=position(t),product=products.find(p=>p.id===t.product_id),pct=ticketProgress(t.status),owner=assignee(t);return <div className={`gantt-row ticket-timeline-row ${t.status==='closed'?'historical':''}`} key={t.id}><div className="gantt-label gantt-ticket-label jira-task-label"><button type="button" className="gantt-task-main" onClick={()=>onOpen(t)}><span><Icon name={statusIcon(t.status)} size={13}/><b>{t.ticket_key}</b><em>{product?.key||'—'}</em></span><strong>{t.title}</strong><small>{statusLabel(t.status)} · {pct}%{owner?` · ${owner}`:''}</small></button><div className="gantt-row-actions"><button type="button" title="Ver detalle" onClick={()=>onOpen(t)}><Icon name="lucide:eye"/></button>{canWork&&<button type="button" title="Editar" onClick={()=>onEdit?.(t)}><Icon name="lucide:pencil"/></button>}{canPlan&&t.sprint_id&&<button type="button" title="Mover a Backlog" onClick={()=>onBacklog?.(t)}><Icon name="lucide:inbox"/></button>}{canDelete&&<button type="button" className="danger-text" title="Eliminar" onClick={()=>onDelete?.(t)}><Icon name="lucide:trash-2"/></button>}</div></div><div className="gantt-days gantt-track" style={cellStyle}>{days.map(d=><i key={dateKey(d)} className={`${[0,6].includes(d.getDay())?'weekend':''} ${dateKey(d)===todayKey?'today':''}`}></i>)}{pos&&<button type="button" className={`gantt-bar status-${t.status} ${pos.leftCut?'cut-left':''} ${pos.rightCut?'cut-right':''}`} style={{gridColumn:`${pos.start}/${pos.end}`}} onClick={()=>onOpen(t)} title={`${t.ticket_key} · ${t.title} · ${pct}%`}><span style={{width:`${pct}%`}}></span><b>{pct}%</b></button>}</div></div>})}
     </div></div>
     {unscheduled.length>0&&<div className="gantt-unscheduled"><div><Icon name="lucide:inbox"/><span><b>{unscheduled.length} actividades en Backlog / sin programar</b><small>Asigna sprint y fechas para incorporarlas al Timeline.</small></span></div><div>{unscheduled.slice(0,8).map(t=><button type="button" key={t.id} onClick={()=>onOpen(t)}>{t.ticket_key} · {t.title}</button>)}</div></div>}
   </>
   if(embedded)return <div className="gantt-embedded">{content}</div>
-  return <div className="page"><PageHeader eyebrow="Planificación" title="Timeline / Gantt" subtitle="Cronograma estilo Jira para navegar trabajo futuro e histórico por meses y sprints." icon="lucide:gantt-chart"/>
-    <section className="workspace-panel gantt-panel">{content}</section>
-  </div>
+  return <div className="page"><PageHeader eyebrow="Planificación" title="Timeline / Gantt" subtitle="Cronograma estilo Jira con fecha inicial configurable, ventanas semanales/mensuales e histórico de sprints." icon="lucide:gantt-chart"/><section className="workspace-panel gantt-panel">{content}</section></div>
 }
-
 function BacklogView({workspace,tickets,products,sprints,members,canPlan,onTicket,onPlan,onSprint,onCloseSprint,onCreateSprint}){
   const backlog=tickets.filter(t=>!t.sprint_id&&t.status!=='closed')
   const ordered=[...sprints].sort((a,b)=>String(a.start_date||'9999').localeCompare(String(b.start_date||'9999')))
@@ -677,32 +737,39 @@ function ReporterTicketsView({tickets,products,onCreate,onOpen}){
   return <div className="page"><PageHeader eyebrow="Portal de tickets" title="Mis tickets enviados" subtitle="Crea solicitudes de desarrollo y consulta su avance sin acceder a la administración del tablero." icon="lucide:ticket-check" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Enviar ticket</button>}/><div className="metric-grid four"><Metric label="Enviados" value={tickets.length} icon="lucide:send" tone="blue"/><Metric label="En backlog" value={tickets.filter(t=>t.status==='backlog').length} icon="lucide:inbox" tone="navy"/><Metric label="En seguimiento" value={open} icon="lucide:loader-circle" tone="orange"/><Metric label="Completados" value={done} icon="lucide:circle-check" tone="green"/></div><section className="workspace-panel"><div className="requester-ticket-list">{tickets.length===0&&<TableEmpty text="Todavía no has enviado tickets en este workspace."/>}{tickets.map(t=>{const product=products.find(p=>p.id===t.product_id);return <button type="button" key={t.id} onClick={()=>onOpen(t)}><span className="requester-ticket-icon"><Icon name="lucide:ticket"/></span><span><small>{t.ticket_key} · {product?.name||'Producto'}</small><b>{t.title}</b><em>Actualizado {formatDateTime(t.updated_at)}</em></span><StatusBadge status={t.status}/><Icon name="lucide:chevron-right"/></button>})}</div></section></div>
 }
 
+function RequirementBadge({status}){const value=status||'pending';const icon=value==='accepted_backlog'?'lucide:circle-check-big':value==='rejected'?'lucide:circle-x':'lucide:clock-3';return <span className={`requirement-badge requirement-${value}`}><Icon name={icon} size={13}/>{requirementStatusLabel(value)}</span>}
 function HelpdeskPortal({items,departments,onCreate,onOpen}){
   const order=['created','review','attended','resolved','closed']
-  const active=items.filter(x=>!['resolved','closed'].includes(x.status)).length
-  return <div className="page"><PageHeader eyebrow="Portal de servicio" title="Mis solicitudes" subtitle="Crea solicitudes para la mesa de atención y consulta su seguimiento de principio a fin." icon="lucide:life-buoy" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nueva solicitud</button>}/><div className="metric-grid four"><Metric label="Solicitudes" value={items.length} icon="lucide:inbox" tone="blue"/><Metric label="En seguimiento" value={active} icon="lucide:loader-circle" tone="orange"/><Metric label="Resueltas" value={items.filter(x=>x.status==='resolved').length} icon="lucide:circle-check" tone="green"/><Metric label="Cerradas" value={items.filter(x=>x.status==='closed').length} icon="lucide:badge-check" tone="navy"/></div><div className="portal-info"><Icon name="lucide:shield-check"/><div><b>Solo ves tus propias solicitudes.</b><p>El equipo interno administra responsable, SLA y cambios de estado. Puedes abrir el detalle para consultar comentarios y actividad.</p></div></div><section className="request-list">{items.length===0&&<div className="empty-state-inline"><Icon name="lucide:life-buoy" size={34}/><h3>No tienes solicitudes</h3><p>Cuando necesites apoyo, crea una solicitud y podrás seguirla desde aquí.</p><button className="primary compact" onClick={onCreate}>Crear solicitud</button></div>}{items.map(item=>{const dept=departments.find(d=>d.id===item.department_id),idx=Math.max(0,order.indexOf(item.status));return <article className="request-card" key={item.id}><button type="button" className="request-card-main" onClick={()=>onOpen(item)}><div className="request-card-title"><span className="request-icon"><Icon name="lucide:headphones"/></span><div><small>{item.ticket_key} · {dept?.name||'Sin área'}</small><h3>{item.subject}</h3><p>{item.description||'Sin descripción.'}</p></div><HelpStatusBadge status={item.status}/></div><div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<idx?'done':''} ${i===idx?'current':''}`}><i>{i<idx?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div><div className="request-meta"><span><Icon name="lucide:calendar"/> Creado {formatDateTime(item.created_at)}</span>{item.due_at&&<span><Icon name="lucide:clock"/> Objetivo {formatDateTime(item.due_at)}</span>}<span><Icon name="lucide:refresh-cw"/> Actualizado {formatDateTime(item.updated_at)}</span></div></button></article>})}</section></div>
-}
-
-function HelpdeskView({items,allItems,departments,members,filters,onFilter,onCreate,onActions,onOpen}){
-  const open=allItems.filter(h=>['created','review','attended'].includes(h.status)).length
-  const resolved=allItems.filter(h=>h.status==='resolved').length
-  const closed=allItems.filter(h=>h.status==='closed').length
-  const overdue=allItems.filter(h=>h.due_at && !['resolved','closed'].includes(h.status) && new Date(h.due_at)<new Date()).length
-  const withResponse=allItems.filter(h=>h.first_response_at)
-  const avgFirst=withResponse.length?Math.round(withResponse.reduce((a,h)=>a+(new Date(h.first_response_at)-new Date(h.created_at))/36e5,0)/withResponse.length*10)/10:null
-  const resolvedRows=allItems.filter(h=>h.resolved_at)
-  const avgResolution=resolvedRows.length?Math.round(resolvedRows.reduce((a,h)=>a+(new Date(h.resolved_at)-new Date(h.created_at))/36e5,0)/resolvedRows.length*10)/10:null
-  const slaRows=resolvedRows.filter(h=>h.due_at)
-  const slaPct=slaRows.length?Math.round(slaRows.filter(h=>new Date(h.resolved_at)<=new Date(h.due_at)).length/slaRows.length*100):100
-  const active=Object.values(filters).filter(v=>v!=='all').length
-  return <div className="page"><PageHeader eyebrow="Servicio interno" title="Helpdesk" subtitle="Recibe solicitudes de otras áreas y gestiona su atención con el mismo equipo." icon="lucide:life-buoy" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nueva solicitud</button>}/>
-    <div className="metric-grid six"><Metric label="Solicitudes" value={allItems.length} icon="lucide:inbox" tone="blue"/><Metric label="Abiertas" value={open} icon="lucide:loader-circle" tone="orange"/><Metric label="Vencidas" value={overdue} icon="lucide:alarm-clock" tone="red"/><Metric label="Resueltas" value={resolved} icon="lucide:circle-check" tone="green"/><Metric label="SLA cumplido" value={`${slaPct}%`} icon="lucide:gauge" tone="navy"/><Metric label="1ª respuesta" value={avgFirst==null?'—':`${avgFirst}h`} icon="lucide:timer" tone="purple"/></div>
-    <div className="dashboard-grid helpdesk-insights"><section className="panel"><div className="panel-heading"><div><h3>Solicitudes por área</h3><p>Volumen y carga de atención.</p></div></div>{departments.map(d=>{const rows=allItems.filter(h=>h.department_id===d.id);const activeRows=rows.filter(h=>!['resolved','closed'].includes(h.status)).length;return <div className="dept-stat" key={d.id}><span className="dept-dot" style={{background:d.color||'#D4DCE0'}}></span><b>{d.name}</b><span>{activeRows} abiertas</span><strong>{rows.length}</strong></div>})}</section><section className="panel"><div className="panel-heading"><div><h3>Tiempos de servicio</h3><p>Indicadores de respuesta y resolución.</p></div></div><div className="service-kpi"><span>Promedio primera respuesta</span><b>{avgFirst==null?'Sin datos':`${avgFirst} horas`}</b></div><div className="service-kpi"><span>Promedio resolución</span><b>{avgResolution==null?'Sin datos':`${avgResolution} horas`}</b></div><div className="service-kpi"><span>Casos cerrados</span><b>{closed}</b></div></section></div>
-    <section className="workspace-panel"><div className="panel-toolbar"><div><h3>Solicitudes internas</h3><p className="muted">Reservaciones, Recepción, Gerencia, Administración, Aperturas, Marketing, Callcenter, Plataforma, Atención a clientes y Atención a socios.</p></div><div className="toolbar-actions"><button className={`filter-button ${active?'active':''}`} onClick={onFilter}><Icon name="lucide:list-filter"/> Filtros {active>0&&<em>{active}</em>}</button><button className="primary compact" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button></div></div>
-    <div className="table-wrap"><div className="table help-table"><div className="tr th"><span>SOLICITUD</span><span>ÁREA</span><span>ASIGNADO</span><span>PRIORIDAD</span><span>ESTADO</span><span></span></div>{items.length===0&&<TableEmpty text="No hay solicitudes con estos filtros."/>}{items.map(h=>{const dep=departments.find(d=>d.id===h.department_id),owner=members.find(m=>m.user_id===h.assigned_to)?.profile?.full_name||'Sin asignar';return <div className="tr" key={h.id}><span className="task-cell"><button className="task-link" onClick={()=>onOpen(h)}><b>{h.subject}</b><small>{h.ticket_key} · {h.category}</small></button></span><span><span className="dept-dot" style={{background:dep?.color||'#D4DCE0'}}></span>{dep?.name||'Sin área'}</span><span className="assignee-cell"><span className="mini-avatar">{initials(owner)}</span>{owner}</span><span><span className={`priority-badge priority-${h.priority}`}>{PRIORITY_LABELS[h.priority]}</span></span><span><HelpStatusBadge status={h.status}/></span><span><button className="icon-button" onClick={()=>onActions(h)} title="Acciones"><Icon name="lucide:ellipsis-vertical"/></button></span></div>})}</div></div></section>
+  const normal=items.filter(x=>!isProposalCategory(x.category))
+  const requirements=items.filter(x=>isProposalCategory(x.category))
+  const active=normal.filter(x=>!['resolved','closed'].includes(x.status)).length
+  const categoryCounts=Object.entries(HELP_CATEGORY_LABELS).map(([key,label])=>({key,label,count:items.filter(x=>x.category===key).length})).filter(x=>x.count)
+  return <div className="page"><PageHeader eyebrow="Portal administrativo" title="Mis solicitudes" subtitle="Crea solicitudes, consulta únicamente las tuyas y sigue su resolución o decisión." icon="lucide:life-buoy" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nueva solicitud</button>}/>
+    <div className="metric-grid six portal-metrics"><Metric label="Solicitudes" value={items.length} icon="lucide:inbox" tone="blue"/><Metric label="En seguimiento" value={active} icon="lucide:loader-circle" tone="orange"/><Metric label="Resueltas / cerradas" value={normal.filter(x=>['resolved','closed'].includes(x.status)).length} icon="lucide:circle-check" tone="green"/><Metric label="Requerimientos pendientes" value={requirements.filter(x=>(x.proposal_status||'pending')==='pending').length} icon="lucide:lightbulb" tone="purple"/><Metric label="Aceptados a Backlog" value={requirements.filter(x=>x.proposal_status==='accepted_backlog').length} icon="lucide:list-plus" tone="navy"/><Metric label="Sugerencias rechazadas" value={requirements.filter(x=>x.proposal_status==='rejected').length} icon="lucide:circle-x" tone="red"/></div>
+    <div className="portal-info"><Icon name="lucide:shield-check"/><div><b>Portal privado de solicitudes.</b><p>No tienes acceso a productos, tableros ni Gantt. Aquí solo ves lo que tú creaste, sus comentarios y su seguimiento.</p></div></div>
+    {categoryCounts.length>0&&<section className="panel portal-category-stats"><div className="panel-heading"><div><h3>Solicitudes por tipo</h3><p>Distribución personal de lo que has solicitado.</p></div></div><div>{categoryCounts.map(c=><span key={c.key}><b>{c.count}</b><small>{c.label}</small></span>)}</div></section>}
+    <section className="request-list">{items.length===0&&<div className="empty-state-inline"><Icon name="lucide:life-buoy" size={34}/><h3>No tienes solicitudes</h3><p>Cuando necesites acceso, reportar un error o proponer un requerimiento, créalo desde aquí.</p><button className="primary compact" onClick={onCreate}>Crear solicitud</button></div>}{items.map(item=>{const dept=departments.find(d=>d.id===item.department_id),isRequirement=isProposalCategory(item.category),idx=Math.max(0,order.indexOf(item.status));return <article className={`request-card ${isRequirement?'requirement-card':''}`} key={item.id}><button type="button" className="request-card-main" onClick={()=>onOpen(item)}><div className="request-card-title"><span className="request-icon"><Icon name={isRequirement?'lucide:lightbulb':'lucide:headphones'}/></span><div><small>{item.ticket_key} · {dept?.name||'Sin área'} · {helpCategoryLabel(item.category)}</small><h3>{item.subject}</h3><p>{item.description||'Sin descripción.'}</p></div>{isRequirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</div>{isRequirement?<div className="requirement-flow"><span className="requirement-flow-node done"><i><Icon name="lucide:send" size={12}/></i><b>Solicitado</b></span><span className={`requirement-flow-line ${(item.proposal_status||'pending')!=='pending'?'done':''}`}></span><span className={`requirement-flow-node ${(item.proposal_status||'pending')==='pending'?'current':'done'}`}><i><Icon name={(item.proposal_status||'pending')==='pending'?'lucide:clock-3':item.proposal_status==='accepted_backlog'?'lucide:list-plus':'lucide:circle-x'} size={12}/></i><b>{requirementStatusLabel(item.proposal_status)}</b></span>{item.converted_ticket_key&&<span className="converted-ticket-chip"><Icon name="lucide:ticket-check"/>{item.converted_ticket_key}</span>}</div>:<div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<idx?'done':''} ${i===idx?'current':''}`}><i>{i<idx?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div>}<div className="request-meta"><span><Icon name="lucide:calendar"/> Creado {formatDateTime(item.created_at)}</span>{!isRequirement&&item.due_at&&<span><Icon name="lucide:clock"/> Objetivo {formatDateTime(item.due_at)}</span>}{isRequirement&&item.decision_at&&<span><Icon name="lucide:gavel"/> Decisión {formatDateTime(item.decision_at)}</span>}<span><Icon name="lucide:refresh-cw"/> Actualizado {formatDateTime(item.updated_at)}</span></div></button></article>})}</section>
   </div>
 }
-
+function HelpdeskView({items,allItems,departments,members,canPlan,filters,onFilter,onCreate,onActions,onOpen,onDecision}){
+  const normal=allItems.filter(h=>!isProposalCategory(h.category))
+  const requirements=allItems.filter(h=>isProposalCategory(h.category))
+  const open=normal.filter(h=>['created','review','attended'].includes(h.status)).length
+  const resolved=normal.filter(h=>h.status==='resolved').length
+  const closed=normal.filter(h=>h.status==='closed').length
+  const pendingRequirements=requirements.filter(h=>(h.proposal_status||'pending')==='pending').length
+  const overdue=normal.filter(h=>h.due_at && !['resolved','closed'].includes(h.status) && new Date(h.due_at)<new Date()).length
+  const withResponse=normal.filter(h=>h.first_response_at)
+  const avgFirst=withResponse.length?Math.round(withResponse.reduce((a,h)=>a+(new Date(h.first_response_at)-new Date(h.created_at))/36e5,0)/withResponse.length*10)/10:null
+  const resolvedRows=normal.filter(h=>h.resolved_at),slaRows=resolvedRows.filter(h=>h.due_at)
+  const slaPct=slaRows.length?Math.round(slaRows.filter(h=>new Date(h.resolved_at)<=new Date(h.due_at)).length/slaRows.length*100):100
+  const active=Object.values(filters).filter(v=>v!=='all').length
+  return <div className="page"><PageHeader eyebrow="Servicio interno" title="Helpdesk" subtitle="Atiende solicitudes operativas y decide qué nuevos requerimientos pasan al Backlog." icon="lucide:life-buoy" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nueva solicitud</button>}/>
+    <div className="metric-grid six"><Metric label="Solicitudes" value={allItems.length} icon="lucide:inbox" tone="blue"/><Metric label="Abiertas" value={open} icon="lucide:loader-circle" tone="orange"/><Metric label="Requerimientos por decidir" value={pendingRequirements} icon="lucide:lightbulb" tone="purple"/><Metric label="Vencidas" value={overdue} icon="lucide:alarm-clock" tone="red"/><Metric label="Resueltas / cerradas" value={resolved+closed} icon="lucide:circle-check" tone="green"/><Metric label="SLA cumplido" value={`${slaPct}%`} icon="lucide:gauge" tone="navy"/></div>
+    <section className="workspace-panel"><div className="panel-toolbar"><div><h3>Solicitudes internas</h3><p className="muted">Los nuevos requerimientos no usan SLA: PM/Admin/Superadmin decide si se aceptan a Backlog o se rechazan.</p></div><div className="toolbar-actions"><button className={`filter-button ${active?'active':''}`} onClick={onFilter}><Icon name="lucide:list-filter"/> Filtros {active>0&&<em>{active}</em>}</button><button className="primary compact" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button></div></div>
+    <div className="table-wrap"><div className="table help-table"><div className="tr th"><span>SOLICITUD</span><span>ÁREA</span><span>ASIGNADO</span><span>PRIORIDAD</span><span>ESTADO / DECISIÓN</span><span></span></div>{items.length===0&&<TableEmpty text="No hay solicitudes con estos filtros."/>}{items.map(h=>{const dep=departments.find(d=>d.id===h.department_id),owner=members.find(m=>m.user_id===h.assigned_to)?.profile?.full_name||'Sin asignar',req=isProposalCategory(h.category);return <div className={`tr ${req?'requirement-row':''}`} key={h.id}><span className="task-cell"><button className="task-link" onClick={()=>onOpen(h)}><b>{h.subject}</b><small>{h.ticket_key} · {helpCategoryLabel(h.category)}</small></button></span><span><span className="dept-dot" style={{background:dep?.color||'#D4DCE0'}}></span>{dep?.name||'Sin área'}</span><span className="assignee-cell">{req?<span className="muted"><Icon name="lucide:gavel" size={14}/> Decisión PM</span>:<><span className="mini-avatar">{initials(owner)}</span>{owner}</>}</span><span><span className={`priority-badge priority-${h.priority}`}>{PRIORITY_LABELS[h.priority]}</span></span><span>{req?<RequirementBadge status={h.proposal_status}/>:<HelpStatusBadge status={h.status}/>}</span><span><div className="inline-actions">{req&&canPlan&&(h.proposal_status||'pending')==='pending'&&<button type="button" className="decision-button" onClick={()=>onDecision(h)} title="Evaluar requerimiento"><Icon name="lucide:gavel"/></button>}<button className="icon-button" onClick={()=>onActions(h)} title="Acciones"><Icon name="lucide:ellipsis-vertical"/></button></div></span></div>})}</div></div></section>
+  </div>
+}
 function StaffRolesView({workspace,members,products,memberProductAccess,roleTemplates,canManage,isSuperadmin,session,onInvite,onMember,onRoleCreate,onRoleEdit,onRoleDelete}){
   const [tab,setTab]=useState('staff')
   const accessFor=m=>m.role==='superadmin'||m.all_products ? products : products.filter(p=>memberProductAccess.some(x=>x.user_id===m.user_id&&x.product_id===p.id))
@@ -711,7 +778,7 @@ function StaffRolesView({workspace,members,products,memberProductAccess,roleTemp
   return <div className="page"><PageHeader title="Staff y Roles" subtitle={`Control de acceso de ${workspace.name}: rol, permisos y productos autorizados.`} icon="lucide:users-round" action={canManage?<button className="primary" onClick={onInvite}><Icon name="lucide:user-plus"/> Agregar Staff</button>:null}/>
     <div className="workspace-scope-strip"><Icon name="lucide:layers-3"/><span><b>Workspace activo: {workspace.name}</b><small>Cada colaborador, rol y producto de esta vista pertenece únicamente a este workspace.</small></span></div>
     <div className="staff-tabs"><button type="button" className={tab==='staff'?'active':''} onClick={()=>setTab('staff')}><Icon name="lucide:users"/> Staff <em>{members.length}</em></button><button type="button" className={tab==='roles'?'active':''} onClick={()=>setTab('roles')}><Icon name="lucide:shield-check"/> Roles <em>{roleTemplates.length}</em></button></div>
-    {tab==='staff'&&<section className="workspace-panel staff-panel"><div className="staff-table-head"><span>COLABORADOR</span><span>ROL</span><span>PRODUCTOS</span><span>ESTADO</span><span></span></div><div className="staff-list">{members.map(m=>{const editable=canManage&&(isSuperadmin||m.role!=='superadmin'||m.user_id===session.user.id),scope=accessFor(m);return <div className={`staff-row ${m.active?'':'inactive'}`} key={m.user_id}><div className="staff-person"><span className="avatar">{initials(m.profile?.full_name)}</span><span><b>{m.profile?.full_name||'Usuario'}{m.user_id===session.user.id&&<small> Tú</small>}</b><small>{m.profile?.job_title||m.profile?.email||'Colaborador del workspace'}</small></span></div><span><em className={`role-pill role-${m.role}`}>{roleDisplayName(m)}</em></span><div className="staff-products">{m.role==='superadmin'||m.all_products?<span className="scope-all"><Icon name="lucide:boxes"/> Todos los productos</span>:scope.length?<>{scope.slice(0,2).map(p=><span key={p.id}>{p.name}</span>)}{scope.length>2&&<em>+{scope.length-2}</em>}</>:<span className="scope-none">Sin productos</span>}</div><span className={`staff-status ${m.active?'active':'off'}`}><i></i>{m.active?'Activo':'Desactivado'}</span><span>{editable&&<button type="button" className="secondary-button compact" onClick={()=>onMember(m)}><Icon name="lucide:sliders-horizontal"/> Accesos</button>}</span></div>})}</div></section>}
+    {tab==='staff'&&<section className="workspace-panel staff-panel"><div className="staff-table-head"><span>COLABORADOR</span><span>ROL</span><span>PRODUCTOS</span><span>ESTADO</span><span></span></div><div className="staff-list">{members.map(m=>{const editable=canManage&&(isSuperadmin||m.role!=='superadmin'||m.user_id===session.user.id),scope=accessFor(m);return <div className={`staff-row ${m.active?'':'inactive'}`} key={m.user_id}><div className="staff-person"><span className="avatar">{initials(m.profile?.full_name)}</span><span><b>{m.profile?.full_name||'Usuario'}{m.user_id===session.user.id&&<small> Tú</small>}</b><small>{m.profile?.job_title||m.profile?.email||'Colaborador del workspace'}</small></span></div><span><em className={`role-pill role-${m.role}`}>{roleDisplayName(m)}</em></span><div className="staff-products">{roleIsHelpdeskRequester(m.role_template)?<span className="scope-portal"><Icon name="lucide:life-buoy"/> Portal Helpdesk · sin productos</span>:m.role==='superadmin'||m.all_products?<span className="scope-all"><Icon name="lucide:boxes"/> Todos los productos</span>:scope.length?<>{scope.slice(0,2).map(p=><span key={p.id}>{p.name}</span>)}{scope.length>2&&<em>+{scope.length-2}</em>}</>:<span className="scope-none">Sin productos</span>}</div><span className={`staff-status ${m.active?'active':'off'}`}><i></i>{m.active?'Activo':'Desactivado'}</span><span>{editable&&<button type="button" className="secondary-button compact" onClick={()=>onMember(m)}><Icon name="lucide:sliders-horizontal"/> Accesos</button>}</span></div>})}</div></section>}
     {tab==='roles'&&<><section className="workspace-panel roles-admin-panel"><div className="settings-list-head"><div><h3>Roles del workspace</h3><p>Edita permisos base, crea roles personalizados o elimina roles que ya no estén asignados.</p></div>{canManage&&<button type="button" className="primary compact" onClick={onRoleCreate}><Icon name="lucide:plus"/> Nuevo rol</button>}</div><div className="roles-card-grid">{orderedRoles.map(role=>{const perms=roleDefinitionPermissions(role),count=PERMISSION_DEFS.filter(([k])=>perms[k]).length,assigned=members.filter(m=>m.role_id===role.id).length;return <article className={`role-admin-card ${role.protected?'protected':''}`} key={role.id}><div className="role-admin-head"><span className={`role-admin-icon role-${role.base_role}`}><Icon name={role.protected?'lucide:crown':'lucide:shield-check'}/></span><div><b>{role.name}</b><small>{role.is_system?'Rol base':'Rol personalizado'} · {assigned} asignado{assigned===1?'':'s'}</small></div>{role.protected&&<span className="readonly-chip"><Icon name="lucide:lock"/> Protegido</span>}</div><p>{role.description||'Sin descripción.'}</p><div className="role-admin-meta"><span><b>{count}</b> permisos activos</span><span>Base: <b>{ROLE_LABELS[role.base_role]||role.base_role}</b></span></div>{canManage&&<div className="row-actions"><button type="button" onClick={()=>onRoleEdit(role)} disabled={role.protected}><Icon name="lucide:pencil"/> Editar</button><button type="button" className="danger-text" onClick={()=>onRoleDelete(role)} disabled={role.protected}><Icon name="lucide:trash-2"/> Eliminar</button></div>}</article>})}</div></section>
       <section className="workspace-panel role-matrix-wrap"><div className="panel-heading"><div><h3>Matriz de roles base</h3><p>Comparación rápida de las seis plantillas estándar del workspace.</p></div></div><div className="role-matrix"><div className="role-matrix-head"><span>Permiso</span>{systemRoles.map(r=><b key={r.id}>{r.name}</b>)}</div>{PERMISSION_DEFS.map(([key,label,icon])=><div className="role-matrix-row" key={key}><span><Icon name={icon} size={15}/>{label}</span>{systemRoles.map(r=>{const yes=!!roleDefinitionPermissions(r)[key];return <i key={r.id} className={yes?'yes':'no'}><Icon name={yes?'lucide:check':'lucide:minus'} size={14}/></i>})}</div>)}</div><div className="role-note"><Icon name="lucide:info"/><span><b>Superadmin</b> siempre conserva todos los accesos y no puede eliminarse. Los demás roles pueden ajustarse en este workspace.</span></div></section></>}
   </div>
@@ -798,14 +865,16 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
 
   if(modal.type==='help-create') return <HelpdeskModal title="Nueva solicitud de Helpdesk" departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f);close()}}/>
   if(modal.type==='help-edit') return <HelpdeskModal title={`Editar ${modal.item.ticket_key}`} item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f,modal.item);close()}}/>
-  if(modal.type==='help-detail') return <HelpdeskDetailModal item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} canManage={props.canManage} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
+  if(modal.type==='help-detail') return <HelpdeskDetailModal item={modal.item} departments={props.departments} members={props.members} session={props.session} canWork={props.canManageHelpdesk} canManage={props.canPlan} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onDecision={()=>setModal({type:'help-requirement-decision',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='help-actions'){
-    const mayEdit=props.canManageHelpdesk
+    const requirement=isProposalCategory(modal.item.category)
     const actions=[['lucide:eye','Ver solicitud',()=>setModal({type:'help-detail',item:modal.item})]]
-    if(mayEdit) actions.push(['lucide:pencil','Editar solicitud',()=>setModal({type:'help-edit',item:modal.item})])
+    if(requirement&&props.canPlan&&(modal.item.proposal_status||'pending')==='pending') actions.push(['lucide:gavel','Evaluar requerimiento',()=>setModal({type:'help-requirement-decision',item:modal.item})])
+    if(props.canManageHelpdesk&&!requirement) actions.push(['lucide:pencil','Editar solicitud',()=>setModal({type:'help-edit',item:modal.item})])
     if(props.canManageHelpdesk) actions.push(['lucide:trash-2','Eliminar solicitud',()=>setModal({type:'help-delete',item:modal.item}),'danger'])
     return <ActionSheet title={modal.item.ticket_key} subtitle={modal.item.subject} onClose={close} actions={actions}/>
   }
+  if(modal.type==='help-requirement-decision') return <RequirementDecisionModal item={modal.item} products={props.products} onClose={close} onSave={async(decision,productId,note)=>{await props.decideRequirement(modal.item,decision,productId,note);close()}}/>
   if(modal.type==='help-delete') return <ConfirmModal title={`Eliminar ${modal.item.ticket_key}`} message={`¿Deseas eliminar “${modal.item.subject}”?`} danger onClose={close} onConfirm={async()=>{await props.deleteHelpdesk(modal.item);close()}}/>
   if(modal.type==='help-filters') return <HelpFilterModal filters={props.helpFilters} departments={props.departments} members={props.members} onClose={close} onApply={f=>{props.setHelpFilters(f);close()}}/>
 
@@ -993,48 +1062,48 @@ function HelpdeskModal({title,item,departments,members,session,canWork,onClose,o
   const [f,setF]=useState({department_id:item?.department_id||departments.find(d=>d.active)?.id||'',subject:item?.subject||'',description:item?.description||'',requester_name:item?.requester_name||session.user.user_metadata?.full_name||'',requester_email:item?.requester_email||session.user.email||'',category:item?.category||'general',priority:item?.priority||'medium',status:item?.status||'created',assigned_to:item?.assigned_to||'',source:item?.source||(canWork?'internal':'portal'),due_at:toLocalDateTimeInput(item?.due_at)})
   const activeDepartments=departments.filter(d=>d.active||d.id===item?.department_id)
   const assignees=members.filter(m=>m.active&&effectivePermissions(m,m.role_template).manage_helpdesk)
-  return <Modal title={title} subtitle={canWork?'Registra y administra una solicitud interna de servicio.':'Describe tu solicitud y consulta después su seguimiento desde Mis solicitudes.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave({...f,source:canWork?f.source:'portal'})} submitLabel={item?'Guardar cambios':'Crear solicitud'}>
-    <div className="form-section"><h4>Solicitud</h4><label>Asunto<input value={f.subject} onChange={e=>setF({...f,subject:e.target.value})} required placeholder="¿Qué apoyo necesitas?"/></label><label>Descripción<textarea rows="5" value={f.description} onChange={e=>setF({...f,description:e.target.value})} placeholder="Contexto, impacto, evidencia y resultado esperado…"/></label><div className="form-grid"><label>Departamento solicitante<select value={f.department_id} onChange={e=>setF({...f,department_id:e.target.value})} required><option value="" disabled>Selecciona un departamento</option>{activeDepartments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Categoría<select value={f.category} onChange={e=>setF({...f,category:e.target.value})}><option value="general">General</option><option value="access">Accesos</option><option value="incident">Incidente</option><option value="request">Solicitud</option><option value="data">Datos / Reporte</option><option value="configuration">Configuración</option></select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}</select></label>{canWork&&<label>Origen<select value={f.source} onChange={e=>setF({...f,source:e.target.value})}><option value="internal">Interno</option><option value="portal">Portal</option><option value="email">Correo</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>}</div></div>
+  const isRequirement=isProposalCategory(f.category)
+  const categoryOptions=['access','incident','module','feature','new_requirement','data','configuration','general']
+  return <Modal title={title} subtitle={canWork?'Registra una solicitud operativa o un nuevo requerimiento.':'Solicita accesos, reporta errores o propone mejoras sin entrar a los tableros de desarrollo.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave({...f,source:canWork?f.source:'portal',status:isRequirement?'created':f.status,assigned_to:isRequirement?'':f.assigned_to,due_at:isRequirement?'':f.due_at})} submitLabel={item?'Guardar cambios':'Crear solicitud'}>
+    <div className="form-section"><h4>Solicitud</h4><label>Asunto<input value={f.subject} onChange={e=>setF({...f,subject:e.target.value})} required placeholder="¿Qué necesitas o qué quieres proponer?"/></label><label>Descripción<textarea rows="5" value={f.description} onChange={e=>setF({...f,description:e.target.value})} required placeholder="Contexto, impacto, pasos, evidencia y resultado esperado…"/></label><div className="form-grid"><label>Departamento solicitante<select value={f.department_id} onChange={e=>setF({...f,department_id:e.target.value})} required><option value="" disabled>Selecciona un departamento</option>{activeDepartments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Tipo de solicitud<select value={f.category} onChange={e=>setF({...f,category:e.target.value})} disabled={!!item}>{categoryOptions.map(k=><option value={k} key={k}>{helpCategoryLabel(k)}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}</select></label>{canWork&&<label>Origen<select value={f.source} onChange={e=>setF({...f,source:e.target.value})}><option value="internal">Interno</option><option value="portal">Portal</option><option value="email">Correo</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>}</div></div>
     <div className="form-section"><h4>Solicitante</h4><div className="form-grid"><label>Solicitante<input value={f.requester_name} onChange={e=>setF({...f,requester_name:e.target.value})}/></label><label>Correo<input type="email" value={f.requester_email} onChange={e=>setF({...f,requester_email:e.target.value})}/></label></div></div>
-    {canWork&&<div className="form-section internal-section"><h4>Atención interna</h4><div className="form-grid"><label>Asignado a<select value={f.assigned_to} onChange={e=>setF({...f,assigned_to:e.target.value})}><option value="">Sin asignar</option>{assignees.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Fecha objetivo<input type="datetime-local" value={f.due_at} onChange={e=>setF({...f,due_at:e.target.value})}/></label></div></div>}
-    {!canWork&&<div className="notice"><Icon name="lucide:shield-check"/><span>Tu solicitud seguirá el flujo <b>Creado → En revisión → Atendido → Resuelto → Cerrado</b>. El equipo de atención administra responsable y SLA.</span></div>}
+    {isRequirement?<div className="requirement-notice"><Icon name="lucide:lightbulb"/><span><b>Nuevo requerimiento · sin SLA operativo.</b><small>Se registra como propuesta. PM/Admin/Superadmin decidirá si pasa a Backlog de un producto o si se devuelve como sugerencia rechazada.</small></span></div>:canWork?<div className="form-section internal-section"><h4>Atención interna</h4><div className="form-grid"><label>Asignado a<select value={f.assigned_to} onChange={e=>setF({...f,assigned_to:e.target.value})}><option value="">Sin asignar</option>{assignees.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Fecha objetivo<input type="datetime-local" value={f.due_at} onChange={e=>setF({...f,due_at:e.target.value})}/></label></div></div>:<div className="notice"><Icon name="lucide:shield-check"/><span>La solicitud seguirá <b>Creado → En revisión → Atendido → Resuelto → Cerrado</b>. Solo la mesa de atención administra responsable y SLA.</span></div>}
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
-
-function HelpdeskDetailModal({item,departments,members,session,canWork,canManage,onClose,onEdit,onRefresh,toast}){
-  const [comments,setComments]=useState([])
-  const [activity,setActivity]=useState([])
-  const [tab,setTab]=useState('comments')
-  const [commentModal,setCommentModal]=useState(null)
-  const load=async()=>{
-    const [c,a]=await Promise.all([
-      db.from('helpdesk_comments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),
-      db.from('helpdesk_activity').select('*').eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false})
-    ])
-    if(c.error) toast('error',c.error.message); else setComments(c.data||[])
-    if(a.error) toast('error',a.error.message); else setActivity(a.data||[])
-  }
+function HelpdeskDetailModal({item,departments,members,session,canWork,canManage,onClose,onEdit,onDecision,onRefresh,toast}){
+  const [comments,setComments]=useState([]),[activity,setActivity]=useState([]),[tab,setTab]=useState('comments'),[commentModal,setCommentModal]=useState(null)
+  const requirement=isProposalCategory(item.category)
+  const load=async()=>{const [c,a]=await Promise.all([db.from('helpdesk_comments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*').eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false})]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[])}
   useEffect(()=>{load()},[item.id])
   const addComment=async text=>{const body=String(text||'').trim();if(!body)throw new Error('Escribe un comentario.');const {error}=await db.from('helpdesk_comments').insert({helpdesk_ticket_id:item.id,author_id:session.user.id,body});if(error)throw error;await load();toast('success','Comentario agregado.')}
   const editComment=async(comment,text)=>{const {error}=await db.from('helpdesk_comments').update({body:String(text||'').trim()}).eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario actualizado.')}
   const deleteComment=async comment=>{const {error}=await db.from('helpdesk_comments').delete().eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario eliminado.')}
-  const dep=departments.find(d=>d.id===item.department_id)
-  const owner=members.find(m=>m.user_id===item.assigned_to)?.profile?.full_name||'Sin asignar'
-  const mayEdit=canWork
-  const order=['created','review','attended','resolved','closed']
-  const current=Math.max(0,order.indexOf(item.status))
-  return <><Modal title={`${item.ticket_key} · ${item.subject}`} subtitle={dep?.name||'Helpdesk'} onClose={onClose} size="xl"><div className="detail-grid"><div className="detail-main">
-    <div className="helpdesk-detail-progress"><div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<current?'done':''} ${i===current?'current':''}`}><i>{i<current?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div></div>
+  const dep=departments.find(d=>d.id===item.department_id),owner=members.find(m=>m.user_id===item.assigned_to)?.profile?.full_name||'Sin asignar'
+  const mayEdit=canWork&&!requirement
+  const order=['created','review','attended','resolved','closed'],current=Math.max(0,order.indexOf(item.status))
+  const activityTitle=a=>a.action==='created'?'Solicitud creada':a.action==='status_changed'?'Cambio de estado':a.action==='assigned'?'Asignación':a.action==='requirement_decision'?'Decisión del requerimiento':'Actividad'
+  return <><Modal title={`${item.ticket_key} · ${item.subject}`} subtitle={`${dep?.name||'Helpdesk'} · ${helpCategoryLabel(item.category)}`} onClose={onClose} size="xl"><div className="detail-grid"><div className="detail-main">
+    {requirement?<div className="requirement-detail-hero"><div><span className="eyebrow">NUEVO REQUERIMIENTO</span><h3>{requirementStatusLabel(item.proposal_status)}</h3><p>{item.proposal_status==='pending'?'Pendiente de evaluación por PM/Admin/Superadmin.':item.proposal_status==='accepted_backlog'?`Aceptado para desarrollo futuro${item.converted_ticket_key?` como ${item.converted_ticket_key}`:''}.`:'La sugerencia fue descartada y devuelta al solicitante.'}</p></div><RequirementBadge status={item.proposal_status}/>{item.decision_note&&<div className="decision-note"><b>Nota de decisión</b><p>{item.decision_note}</p></div>}</div>:<div className="helpdesk-detail-progress"><div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<current?'done':''} ${i===current?'current':''}`}><i>{i<current?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div></div>}
     <div className="detail-description"><h4>Descripción de la solicitud</h4><p>{item.description||'Sin descripción.'}</p></div>
     <div className="detail-tabs"><button type="button" className={tab==='comments'?'active':''} onClick={()=>setTab('comments')}>Comentarios <em>{comments.length}</em></button><button type="button" className={tab==='activity'?'active':''} onClick={()=>setTab('activity')}>Seguimiento <em>{activity.length}</em></button></div>
-    {tab==='comments'?<><div className="comment-list">{comments.length===0&&<p className="muted">Todavía no hay comentarios.</p>}{comments.map(c=>{const author=members.find(m=>m.user_id===c.author_id)?.profile?.full_name||'Usuario',own=c.author_id===session.user.id;return <div className="comment" key={c.id}><span className="mini-avatar">{initials(author)}</span><div className="comment-body"><div className="comment-head"><div><b>{author}</b><small>{formatDateTime(c.created_at)}</small></div>{own&&<button type="button" className="icon-button" onClick={()=>setCommentModal({type:'actions',comment:c})}><Icon name="lucide:ellipsis" size={16}/></button>}</div><p>{c.body}</p></div></div>})}</div><div className="comment-create-row"><button type="button" className="primary compact" onClick={()=>setCommentModal({type:'create'})}><Icon name="lucide:message-square-plus"/> Agregar comentario</button></div></>:<div className="activity-list">{activity.length===0&&<p className="muted">Sin movimientos registrados.</p>}{activity.map(a=><div className="activity-item" key={a.id}><span className="activity-dot"></span><div><b>{a.action==='created'?'Solicitud creada':a.action==='status_changed'?'Cambio de estado':a.action==='assigned'?'Asignación':'Actividad'}</b><p>{a.from_value&&`${helpStatusLabel(a.from_value)} → `}{a.action==='status_changed'?helpStatusLabel(a.to_value):a.to_value}</p><small>{formatDateTime(a.created_at)}</small></div></div>)}</div>}
-  </div><aside className="detail-aside">{mayEdit&&<button type="button" className="primary full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar solicitud</button>}<DetailRow label="Estado"><HelpStatusBadge status={item.status}/></DetailRow><DetailRow label="Prioridad"><span className={`priority-badge priority-${item.priority}`}>{PRIORITY_LABELS[item.priority]}</span></DetailRow><DetailRow label="Departamento">{dep?.name||'—'}</DetailRow><DetailRow label="Asignado">{owner}</DetailRow><DetailRow label="Solicitante">{item.requester_name||'—'}</DetailRow><DetailRow label="Correo">{item.requester_email||'—'}</DetailRow><DetailRow label="Creado">{formatDateTime(item.created_at)}</DetailRow><DetailRow label="En revisión">{formatDateTime(item.reviewed_at)}</DetailRow><DetailRow label="Atendido">{formatDateTime(item.attended_at)}</DetailRow><DetailRow label="Objetivo SLA">{formatDateTime(item.due_at)}</DetailRow><DetailRow label="Resuelto">{formatDateTime(item.resolved_at)}</DetailRow><DetailRow label="Cerrado">{formatDateTime(item.closed_at)}</DetailRow></aside></div></Modal>
+    {tab==='comments'?<><div className="comment-list">{comments.length===0&&<p className="muted">Todavía no hay comentarios.</p>}{comments.map(c=>{const author=members.find(m=>m.user_id===c.author_id)?.profile?.full_name||(c.author_id===session.user.id?session.user.user_metadata?.full_name||'Tú':'Usuario'),own=c.author_id===session.user.id;return <div className="comment" key={c.id}><span className="mini-avatar">{initials(author)}</span><div className="comment-body"><div className="comment-head"><div><b>{author}</b><small>{formatDateTime(c.created_at)}</small></div>{own&&<button type="button" className="icon-button" onClick={()=>setCommentModal({type:'actions',comment:c})}><Icon name="lucide:ellipsis" size={16}/></button>}</div><p>{c.body}</p></div></div>})}</div><div className="comment-create-row"><button type="button" className="primary compact" onClick={()=>setCommentModal({type:'create'})}><Icon name="lucide:message-square-plus"/> Agregar comentario</button></div></>:<div className="activity-list">{activity.length===0&&<p className="muted">Sin movimientos registrados.</p>}{activity.map(a=><div className="activity-item" key={a.id}><span className="activity-dot"></span><div><b>{activityTitle(a)}</b><p>{a.action==='status_changed'?`${helpStatusLabel(a.from_value)} → ${helpStatusLabel(a.to_value)}`:a.action==='requirement_decision'?(a.to_value?.startsWith('accepted_backlog')?'Aceptado a Backlog':'Sugerencia rechazada'):a.to_value}</p><small>{formatDateTime(a.created_at)}</small></div></div>)}</div>}
+  </div><aside className="detail-aside">{mayEdit&&<button type="button" className="primary full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar solicitud</button>}{requirement&&canManage&&(item.proposal_status||'pending')==='pending'&&<button type="button" className="primary full" onClick={onDecision}><Icon name="lucide:gavel"/> Evaluar requerimiento</button>}<DetailRow label={requirement?'Decisión':'Estado'}>{requirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</DetailRow><DetailRow label="Tipo">{helpCategoryLabel(item.category)}</DetailRow><DetailRow label="Prioridad"><span className={`priority-badge priority-${item.priority}`}>{PRIORITY_LABELS[item.priority]}</span></DetailRow><DetailRow label="Departamento">{dep?.name||'—'}</DetailRow>{!requirement&&<DetailRow label="Asignado">{owner}</DetailRow>}<DetailRow label="Solicitante">{item.requester_name||'—'}</DetailRow><DetailRow label="Correo">{item.requester_email||'—'}</DetailRow><DetailRow label="Creado">{formatDateTime(item.created_at)}</DetailRow>{requirement?<><DetailRow label="Decisión">{formatDateTime(item.decision_at)}</DetailRow>{item.converted_ticket_key&&<DetailRow label="Ticket Backlog"><b>{item.converted_ticket_key}</b></DetailRow>}</>:<><DetailRow label="En revisión">{formatDateTime(item.reviewed_at)}</DetailRow><DetailRow label="Atendido">{formatDateTime(item.attended_at)}</DetailRow><DetailRow label="Objetivo SLA">{formatDateTime(item.due_at)}</DetailRow><DetailRow label="Resuelto">{formatDateTime(item.resolved_at)}</DetailRow><DetailRow label="Cerrado">{formatDateTime(item.closed_at)}</DetailRow></>}</aside></div></Modal>
     {commentModal?.type==='create'&&<CommentEditModal title="Agregar comentario" initial="" onClose={()=>setCommentModal(null)} onSave={async text=>{await addComment(text);setCommentModal(null)}}/>}
-    {commentModal?.type==='actions'&&<ActionSheet title="Comentario" subtitle="Selecciona una acción" onClose={()=>setCommentModal(null)} actions={[['lucide:pencil','Editar comentario',()=>setCommentModal({type:'edit',comment:commentModal.comment})],['lucide:trash-2','Eliminar comentario',()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>} 
+    {commentModal?.type==='actions'&&<ActionSheet title="Comentario" subtitle="Selecciona una acción" onClose={()=>setCommentModal(null)} actions={[["lucide:pencil","Editar comentario",()=>setCommentModal({type:'edit',comment:commentModal.comment})],["lucide:trash-2","Eliminar comentario",()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>} 
     {commentModal?.type==='edit'&&<CommentEditModal title="Editar comentario" initial={commentModal.comment.body} onClose={()=>setCommentModal(null)} onSave={async text=>{await editComment(commentModal.comment,text);setCommentModal(null)}}/>}
     {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="Este comentario se eliminará definitivamente." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteComment(commentModal.comment);setCommentModal(null)}}/>}
   </>
+}
+function RequirementDecisionModal({item,products,onClose,onSave}){
+  const [decision,setDecision]=useState('accepted_backlog'),[productId,setProductId]=useState(products[0]?.id||''),[note,setNote]=useState('')
+  const accepting=decision==='accepted_backlog'
+  return <Modal title={`Evaluar ${item.ticket_key}`} subtitle="Decide si el requerimiento entra al Backlog o se devuelve como sugerencia rechazada." onClose={onClose} size="md"><AsyncForm onSubmit={()=>{if(accepting&&!productId)throw new Error('Selecciona el producto.');if(!accepting&&!note.trim())throw new Error('Indica el motivo del rechazo.');return onSave(decision,productId,note.trim())}} submitLabel={accepting?'Aceptar a Backlog':'Rechazar sugerencia'} danger={!accepting}>
+    <div className="decision-choice"><button type="button" className={accepting?'active accept':''} onClick={()=>setDecision('accepted_backlog')}><Icon name="lucide:list-plus"/><span><b>Aceptar a Backlog</b><small>Crear un ticket de mejora para desarrollo futuro.</small></span></button><button type="button" className={!accepting?'active reject':''} onClick={()=>setDecision('rejected')}><Icon name="lucide:circle-x"/><span><b>Sugerencia rechazada</b><small>Descartar por alcance, prioridad o porque no corresponde al proyecto.</small></span></button></div>
+    {accepting&&<label>Producto destino<select value={productId} onChange={e=>setProductId(e.target.value)} required><option value="" disabled>Selecciona un producto</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+    <label>{accepting?'Nota de decisión (opcional)':'Motivo del rechazo'}<textarea rows="4" value={note} onChange={e=>setNote(e.target.value)} required={!accepting} placeholder={accepting?'Contexto para el equipo de producto…':'Explica al solicitante por qué no se incorporará…'}/></label>
+    <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
+  </AsyncForm></Modal>
 }
 
 function HelpFilterModal({filters,departments,members,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de Helpdesk" onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Área<select value={f.department} onChange={e=>setF({...f,department:e.target.value})}><option value="all">Todas</option>{departments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Asignado<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
@@ -1059,36 +1128,38 @@ function WorkspaceAccessSummary({workspace}){return <div className="form-section
 
 function InviteModal({workspace,products,roleTemplates,isSuperadmin,onClose,onSaved}){
   const available=roleTemplates.filter(r=>r.active&&(isSuperadmin||r.code!=='superadmin'))
-  const defaultRole=available.find(r=>r.code==='consulta')||available[0]
-  const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(defaultRole?.id||'')
+  const portalRole=available.find(r=>r.code==='helpdesk_requester')
+  const defaultTeamRole=available.find(r=>r.code==='consulta')||available.find(r=>r.code!=='helpdesk_requester')||available[0]
+  const [accessMode,setAccessMode]=useState('team')
+  const [email,setEmail]=useState(''),[name,setName]=useState(''),[roleId,setRoleId]=useState(defaultTeamRole?.id||'')
   const [allProducts,setAllProducts]=useState(true),[productIds,setProductIds]=useState(products.map(p=>p.id)),[permissions,setPermissions]=useState({})
-  const selectedRole=available.find(r=>r.id===roleId)||defaultRole
+  const selectedRole=accessMode==='portal'&&portalRole?portalRole:available.find(r=>r.id===roleId)||defaultTeamRole
+  const needsProducts=roleNeedsProducts(selectedRole,permissions)
+  const changeMode=mode=>{setAccessMode(mode);setPermissions({});if(mode==='portal'&&portalRole){setRoleId(portalRole.id);setAllProducts(false);setProductIds([])}else{setRoleId(defaultTeamRole?.id||'');setAllProducts(true);setProductIds(products.map(p=>p.id))}}
   const changeRole=value=>{setRoleId(value);setPermissions({});const next=available.find(r=>r.id===value);if(next?.code==='superadmin')setAllProducts(true)}
-  return <Modal title="Agregar Staff" subtitle="Crea o invita un colaborador y define sus accesos dentro de este workspace." onClose={onClose} size="lg"><AsyncForm onSubmit={async()=>{if(!selectedRole)throw new Error('Selecciona un rol.');if(!allProducts&&selectedRole.code!=='superadmin'&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');const {data,error}=await db.functions.invoke('invite-member',{body:{email,full_name:name.trim()||null,role_id:selectedRole.id,role:selectedRole.code,workspace_id:workspace.id,redirect_to:getAppUrl(),all_products:selectedRole.code==='superadmin'?true:allProducts,product_ids:productIds,permissions}});if(error||data?.error)throw new Error(await functionErrorMessage(error,data));await onSaved({...data,email})}} submitLabel="Crear / invitar usuario">
+  return <Modal title="Agregar Staff" subtitle="Elige si colaborará en productos o únicamente utilizará el Portal Helpdesk." onClose={onClose} size="lg"><AsyncForm onSubmit={async()=>{if(!selectedRole)throw new Error('Selecciona un rol.');if(needsProducts&&!allProducts&&selectedRole.code!=='superadmin'&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');const finalAll=needsProducts?(selectedRole.code==='superadmin'?true:allProducts):false;const finalProducts=needsProducts?productIds:[];const {data,error}=await db.functions.invoke('invite-member',{body:{email,full_name:name.trim()||null,role_id:selectedRole.id,role:selectedRole.code,workspace_id:workspace.id,redirect_to:getAppUrl(),all_products:finalAll,product_ids:finalProducts,permissions:accessMode==='portal'?{}:permissions}});if(error||data?.error)throw new Error(await functionErrorMessage(error,data));await onSaved({...data,email})}} submitLabel="Crear / invitar usuario">
     <WorkspaceAccessSummary workspace={workspace}/>
-    <div className="form-section"><h4>Colaborador</h4><div className="form-grid"><label>Nombre <span className="optional">Opcional</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido"/></label><label>Correo<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="colaborador@trobbu.com"/></label><label>Rol<select value={roleId} onChange={e=>changeRole(e.target.value)} required>{available.map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select><small className="field-help">{selectedRole?.description||ROLE_DESCRIPTIONS[selectedRole?.base_role]}</small></label></div></div>
-    <ProductScopeEditor products={products} role={selectedRole?.code||selectedRole?.base_role} allProducts={allProducts} setAllProducts={setAllProducts} selected={productIds} setSelected={setProductIds}/>
-    <PermissionEditor role={selectedRole?.base_role} roleDef={selectedRole} permissions={permissions} setPermissions={setPermissions}/>
+    {portalRole&&<div className="form-section"><h4>Tipo de acceso</h4><div className="staff-access-mode"><button type="button" className={accessMode==='team'?'active':''} onClick={()=>changeMode('team')}><Icon name="lucide:panels-top-left"/><span><b>Equipo de producto</b><small>Tableros, tickets, QA, sprints o administración según rol.</small></span></button><button type="button" className={accessMode==='portal'?'active portal':''} onClick={()=>changeMode('portal')}><Icon name="lucide:life-buoy"/><span><b>Portal administrativo Helpdesk</b><small>Solo crea y consulta sus solicitudes. Sin productos ni tableros.</small></span></button></div></div>}
+    <div className="form-section"><h4>Colaborador</h4><div className="form-grid"><label>Nombre <span className="optional">Opcional</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre y apellido"/></label><label>Correo<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="colaborador@trobbu.com"/></label>{accessMode==='team'&&<label>Rol<select value={roleId} onChange={e=>changeRole(e.target.value)} required>{available.filter(r=>r.code!=='helpdesk_requester').map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select><small className="field-help">{selectedRole?.description||ROLE_DESCRIPTIONS[selectedRole?.base_role]}</small></label>}</div></div>
+    {accessMode==='portal'?<div className="portal-access-summary"><Icon name="lucide:shield-check"/><div><b>Acceso sin productos</b><p>Podrá crear accesos, incidentes, nuevos módulos, funcionalidades y requerimientos; consultar solo sus propias solicitudes, comentarios, decisiones y estadísticas personales.</p><div><span><Icon name="lucide:life-buoy"/> Mis solicitudes</span><span><Icon name="lucide:chart-no-axes-combined"/> Mis estadísticas</span><span><Icon name="lucide:message-square"/> Comentarios</span><span><Icon name="lucide:ban"/> Sin tableros/productos</span></div></div></div>:<>{needsProducts&&<ProductScopeEditor products={products} role={selectedRole?.code||selectedRole?.base_role} allProducts={allProducts} setAllProducts={setAllProducts} selected={productIds} setSelected={setProductIds}/>}<PermissionEditor role={selectedRole?.base_role} roleDef={selectedRole} permissions={permissions} setPermissions={setPermissions}/></>}
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
-
 function MemberModal({workspace,member,products,roleTemplates,session,isSuperadmin,onClose,onSave,onRemove}){
   const available=roleTemplates.filter(r=>r.active&&(isSuperadmin||r.code!=='superadmin'))
   const initialRole=roleTemplates.find(r=>r.id===member.role_id)||roleTemplates.find(r=>r.code===member.role)||available[0]
   const [roleId,setRoleId]=useState(initialRole?.id||''),[active,setActive]=useState(member.active),[allProducts,setAllProducts]=useState(member.role==='superadmin'||!!member.all_products),[productIds,setProductIds]=useState(member.product_ids||[]),[permissions,setPermissions]=useState(member.permissions||{})
   const self=member.user_id===session.user.id
   const selectedRole=roleTemplates.find(r=>r.id===roleId)||initialRole
-  const changeRole=value=>{setRoleId(value);setPermissions({});const next=roleTemplates.find(r=>r.id===value);if(next?.code==='superadmin')setAllProducts(true)}
-  return <Modal title="Accesos del colaborador" subtitle={member.profile?.full_name||'Usuario'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>{if(!selectedRole)throw new Error('Selecciona un rol.');if(!allProducts&&selectedRole.code!=='superadmin'&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');return onSave({role_id:selectedRole.id,role:selectedRole.base_role,active,all_products:selectedRole.code==='superadmin'?true:allProducts,product_ids:productIds,permissions:selectedRole.code==='superadmin'?{}:permissions})}} submitLabel="Guardar accesos">
+  const portal=roleIsHelpdeskRequester(selectedRole),needsProducts=roleNeedsProducts(selectedRole,permissions)
+  const changeRole=value=>{setRoleId(value);setPermissions({});const next=roleTemplates.find(r=>r.id===value);if(next?.code==='superadmin')setAllProducts(true);if(roleIsHelpdeskRequester(next)){setAllProducts(false);setProductIds([])}}
+  return <Modal title="Accesos del colaborador" subtitle={member.profile?.full_name||'Usuario'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>{if(!selectedRole)throw new Error('Selecciona un rol.');if(needsProducts&&!allProducts&&selectedRole.code!=='superadmin'&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');return onSave({role_id:selectedRole.id,role:selectedRole.base_role,active,all_products:needsProducts?(selectedRole.code==='superadmin'?true:allProducts):false,product_ids:needsProducts?productIds:[],permissions:selectedRole.code==='superadmin'||portal?{}:permissions})}} submitLabel="Guardar accesos">
     <WorkspaceAccessSummary workspace={workspace}/>
-    <div className="form-section"><h4>Rol y estado</h4><div className="form-grid"><label>Rol<select value={roleId} onChange={e=>changeRole(e.target.value)} disabled={self&&member.role==='superadmin'}>{available.map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select><small className="field-help">{selectedRole?.description||ROLE_DESCRIPTIONS[selectedRole?.base_role]}</small></label><div><Toggle label="Acceso activo" checked={active} onChange={setActive} disabled={self}/></div></div>{self&&member.role==='superadmin'&&<div className="notice"><Icon name="lucide:crown"/><span>Tu Superadmin conserva siempre acceso total. Puedes administrar a todos los demás colaboradores y roles desde este módulo.</span></div>}</div>
-    <ProductScopeEditor products={products} role={selectedRole?.code||selectedRole?.base_role} allProducts={allProducts} setAllProducts={setAllProducts} selected={productIds} setSelected={setProductIds} disabled={self&&member.role==='superadmin'}/>
-    <PermissionEditor role={selectedRole?.base_role} roleDef={selectedRole} permissions={permissions} setPermissions={setPermissions} disabled={self&&member.role==='superadmin'}/>
+    <div className="form-section"><h4>Rol y estado</h4><div className="form-grid"><label>Rol<select value={roleId} onChange={e=>changeRole(e.target.value)} disabled={self&&member.role==='superadmin'}>{available.map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select><small className="field-help">{selectedRole?.description||ROLE_DESCRIPTIONS[selectedRole?.base_role]}</small></label><div><Toggle label="Acceso activo" checked={active} onChange={setActive} disabled={self}/></div></div>{self&&member.role==='superadmin'&&<div className="notice"><Icon name="lucide:crown"/><span>Tu Superadmin conserva siempre acceso total.</span></div>}</div>
+    {portal?<div className="portal-access-summary"><Icon name="lucide:life-buoy"/><div><b>Portal administrativo Helpdesk</b><p>Este colaborador no requiere productos. Solo verá sus propias solicitudes y estadísticas personales.</p></div></div>:<>{needsProducts&&<ProductScopeEditor products={products} role={selectedRole?.code||selectedRole?.base_role} allProducts={allProducts} setAllProducts={setAllProducts} selected={productIds} setSelected={setProductIds} disabled={self&&member.role==='superadmin'}/>}<PermissionEditor role={selectedRole?.base_role} roleDef={selectedRole} permissions={permissions} setPermissions={setPermissions} disabled={self&&member.role==='superadmin'}/></>}
     <div className="modal-secondary">{!self&&<button type="button" className="danger-text-button" onClick={onRemove}><Icon name="lucide:user-minus"/> Retirar del workspace</button>}<button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
-
 function TemporaryCredentialsModal({credentials,onClose}){
   const [copied,setCopied]=useState(false)
   const copy=async()=>{await navigator.clipboard.writeText(`Correo: ${credentials.email}\nContraseña temporal: ${credentials.temporary_password}`);setCopied(true);setTimeout(()=>setCopied(false),1600)}

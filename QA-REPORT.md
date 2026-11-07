@@ -95,7 +95,7 @@ Se identificó una incompatibilidad: la UI anterior enviaba el valor legado `rep
 - valida productos y permisos antes de crear la membresía;
 - devuelve mensajes de error específicos.
 
-No fue posible crear desde las herramientas de administración de esta sesión un usuario Auth caller con JWT para invocar la función como navegador, porque el conector bloqueó la escritura directa sobre `auth.users`. Por ello no se declara una prueba JWT artificial. La función desplegada está `ACTIVE`, `verify_jwt=true`, y sus componentes de BD/RLS fueron probados separadamente. El siguiente intento desde una sesión real utilizará la versión 11 corregida.
+No fue posible crear desde las herramientas de administración de esta sesión un usuario Auth caller con JWT para invocar la función como navegador, porque el conector bloqueó la escritura directa sobre `auth.users`. Por ello no se declara una prueba JWT artificial. La función desplegada está `ACTIVE`, `verify_jwt=true`, y sus componentes de BD/RLS fueron probados separadamente. El siguiente intento desde una sesión real utilizará la versión 13 de `invite-member`, compatible con perfiles sin producto.
 
 ## QA frontend estático
 
@@ -105,10 +105,10 @@ Resultado final:
 - `alert()`: **0**.
 - `prompt()`: **0**.
 - `confirm()`: **0**.
-- `AsyncForm`: **18/18** con footer común y botón Cancelar.
-- Botones auditados: **140**, **0** sin handler o `type=submit`.
-- Aperturas de modal: **37**.
-- Rutas de modal: **37**.
+- `AsyncForm`: **19/19** con footer común y botón Cancelar.
+- Botones auditados: **149**, **0** sin handler o `type=submit`.
+- Aperturas de modal: **38**.
+- Rutas de modal: **38**.
 - Rutas de modal faltantes: **0**.
 - Balance de llaves CSS: **0**.
 - Etiquetas UI legadas `Solo carga de tickets` / `Solo dashboards`: **0**.
@@ -147,3 +147,14 @@ Se revisaron los layouts finales mediante Chromium/Playwright con CSS real de la
 Health Advisor: **0 incidencias** en la última revisión previa a empaquetado.
 
 Security Advisor: permanece la recomendación externa `Leaked Password Protection Disabled` de Supabase Auth. No afecta el RLS ni las funcionalidades de Jira Interno, pero se recomienda activarla desde la configuración de Auth.
+
+## QA v14.0
+
+- Backend Helpdesk/propuestas: **10/10 PASS** en aislamiento, SLA, conversión a Backlog y visibilidad de notificaciones.
+- QA visual: **15/15 PASS** en desktop/tablet/móvil para Login, Registro, Gantt, Staff Portal y Mis solicitudes; sin overflow general.
+- JSX parser: **0 errores**.
+- Rutas de modal: **38/38** implementadas.
+- Formularios con footer común: **19/19**.
+- Diálogos nativos (`alert`, `prompt`, `confirm`): **0**.
+- `invite-member` desplegada en Supabase como versión **13 ACTIVE** con soporte a perfiles sin producto.
+

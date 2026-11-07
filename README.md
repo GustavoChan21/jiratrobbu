@@ -128,3 +128,13 @@ Copiar el contenido del ZIP directamente a la raíz de `main`. `index.html` refe
 ## Seguridad
 
 La publishable key de Supabase incluida en `config.js` es una clave pública de cliente y todas las operaciones sensibles se protegen con RLS. No incluir `service_role`, contraseñas, API keys privadas ni secretos de correo en el repositorio.
+
+## v14.0 — Auth Luxury, Gantt flexible y Portal Helpdesk administrativo
+
+- Login y registro con fondo TROBBU, panel luxury y responsive.
+- Timeline/Gantt anclado por fecha: inicia por defecto un día antes de hoy y permite 1/4/6/8 semanas o 1/2/3/6 meses.
+- Nuevo rol de sistema **Solicitante Helpdesk** sin productos, tableros, Backlog ni Gantt. Solo consulta sus propias solicitudes y estadísticas.
+- Nuevos módulos/funcionalidades/requerimientos se manejan como propuestas sin SLA: PM/Admin/Superadmin decide **Aceptar a Backlog** o **Sugerencia rechazada**.
+- Al aceptar, el producto se elige en la decisión y se crea un ticket `improvement` en Backlog sin exponerlo al solicitante.
+- Edge Function `invite-member` v13 permite roles sin productos y conserva validación estricta para roles de producto.
+

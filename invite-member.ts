@@ -90,17 +90,21 @@ Deno.serve(async(req:Request)=>{
       return new Response(JSON.stringify({error:"Solo un Superadmin puede otorgar Superadmin."}),{status:403,headers:{...cors,"Content-Type":"application/json"}});
     }
 
-    const forcedAll=role.code==="superadmin";
-    const allProducts=forcedAll||Boolean(body.all_products);
-    const productIds=Array.isArray(body.product_ids)?[...new Set(body.product_ids.map(String))]:[];
-    if(!allProducts){
-      if(!productIds.length)throw new Error("Selecciona al menos un producto.");
+    const overrides=role.code==="superadmin"?{}:cleanOverrides((body.permissions??{}) as Record<string,unknown>,normalized.extra);
+    const roleDefaults:Record<string,boolean>={};
+    for(const key of PERMISSIONS)roleDefaults[key]=memberPermission({role:role.base_role,permissions:{}},role,key);
+    const effective={...roleDefaults,...overrides};
+    const productPermissionKeys=["view_dashboard","view_tickets","create_tickets","edit_tickets","delete_tickets","manage_sprints","qa_review","manage_products"];
+    const needsProducts=role.code==="superadmin"||productPermissionKeys.some(key=>Boolean(effective[key]));
+    const requestedProductIds=Array.isArray(body.product_ids)?[...new Set(body.product_ids.map(String))]:[];
+    const allProducts=role.code==="superadmin"?true:needsProducts?Boolean(body.all_products):false;
+    const productIds=needsProducts?requestedProductIds:[];
+    if(needsProducts&&!allProducts){
+      if(!productIds.length)throw new Error("Selecciona al menos un producto para este rol.");
       const {data,error}=await admin.from("products").select("id").eq("workspace_id",workspaceId).in("id",productIds);
       if(error)throw error;
       if((data?.length??0)!==productIds.length)throw new Error("Uno o más productos no pertenecen a este workspace.");
     }
-
-    const overrides=role.code==="superadmin"?{}:cleanOverrides((body.permissions??{}) as Record<string,unknown>,normalized.extra);
     const redirectTo=safeRedirect(body.redirect_to);
     let user=await findUserByEmail(admin,email);
     let invitationSent=false;
