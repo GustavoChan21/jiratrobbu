@@ -466,3 +466,20 @@ Fecha: 2026-11-09.
 Se intentó una comprobación visual automática con Chromium headless para medir scroll y compresión en navegador, pero el binario agotó el timeout del entorno. Ese intento **no se contabiliza como PASS**. Las reglas de scroll/responsive fueron validadas por código/CSS y la compresión por revisión del flujo del navegador; la capa de permisos y persistencia sí fue probada directamente contra Supabase con rollback.
 
 No se creó ningún ticket de soporte ni actividad QA dentro del Jira para esta versión.
+
+## QA v15.9 · Evidencia inicial Helpdesk
+
+- Alta de solicitud con evidencia sin comentario (`comment_id = null`): PASS en transacción.
+- RLS solicitante → propia solicitud: PASS.
+- Rollback de solicitud nueva, `created`, sin asignar, portal y <10 min: PASS.
+- Solicitud existente/atendida fuera de ventana no puede ser borrada por el solicitante: PASS.
+- Cascade de metadatos `helpdesk_attachments` al rollback: PASS.
+- Suite CSV/XLS/XLSM heredada: 16/16 PASS.
+- `qa-import-v15.6.js` corregido para usar ruta relativa portable.
+- `app.js` transpilado por TypeScript con JSX: PASS, 0 errores.
+- `csv-import-v15.2.js`, `config.js`, `speed-insights.js`: sintaxis PASS.
+- CSS: balance de llaves PASS.
+- Sin `alert()`, `confirm()` ni `prompt()` nativos.
+- Supabase Health Advisor: 0 lints.
+- Security Advisor: solo permanece el aviso global preexistente `Leaked Password Protection Disabled`.
+- Performance Advisor: sin nuevas alertas atribuibles a v15.9; continúan recomendaciones heredadas del proyecto.

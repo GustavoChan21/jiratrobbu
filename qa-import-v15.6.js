@@ -1,6 +1,6 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const ctx={globalThis:{}};ctx.window=ctx.globalThis;vm.createContext(ctx);
-vm.runInContext(fs.readFileSync('/mnt/data/jira156/csv-import-v15.2.js','utf8'),ctx);
+vm.runInContext(fs.readFileSync(require('path').join(__dirname,'csv-import-v15.2.js'),'utf8'),ctx);
 const P=ctx.globalThis.TrobbuCsvImport;
 const tests=[]; const t=(name,fn)=>tests.push([name,fn]);
 

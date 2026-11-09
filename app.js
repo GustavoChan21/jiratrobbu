@@ -584,9 +584,25 @@ function WorkspaceApp({session}){
           ? (isRequirement?base:{...base,status:form.status,assigned_to:form.assigned_to||null,due_at:localDateTimeToIso(form.due_at)})
           : base)
       : {...base,source:'portal',workspace_id:workspace.id,requester_user_id:session.user.id,status:'created',assigned_to:null,due_at:null}
-    const result=item ? await db.from('helpdesk_tickets').update(payload).eq('id',item.id) : await db.from('helpdesk_tickets').insert(payload)
-    if(result.error) throw result.error
-    await refresh(); showToast('success',item?'Solicitud actualizada.':isRequirement?'Nuevo requerimiento enviado para decisión.':'Solicitud de soporte creada.')
+    if(item){
+      const {error}=await db.from('helpdesk_tickets').update(payload).eq('id',item.id)
+      if(error)throw error
+      await refresh();showToast('success','Solicitud actualizada.')
+      return item
+    }
+    const {data:created,error:createError}=await db.from('helpdesk_tickets').insert(payload).select('*').single()
+    if(createError)throw createError
+    try{
+      if(form.evidence_files?.length){
+        await uploadEvidenceFiles({workspaceId:workspace.id,scope:'helpdesk',parentId:created.id,commentId:null,files:form.evidence_files,evidenceType:'general',userId:session.user.id,compress:true})
+      }
+    }catch(err){
+      const {error:rollbackError}=await db.from('helpdesk_tickets').delete().eq('id',created.id)
+      if(rollbackError)throw new Error(`${err.message||String(err)} La solicitud se creó, pero no pudo revertirse automáticamente: ${rollbackError.message}`)
+      throw new Error(`${err.message||String(err)} No se creó la solicitud para evitar guardar un reporte sin su evidencia.`)
+    }
+    await refresh();showToast('success',form.evidence_files?.length?(isRequirement?'Requerimiento y evidencias enviados.':'Solicitud y evidencias enviadas.'):(isRequirement?'Nuevo requerimiento enviado para decisión.':'Solicitud de soporte creada.'))
+    return created
   }
 
   const decideRequirement=async(item,decision,productId,note)=>{
@@ -1391,15 +1407,28 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
 function HelpdeskModal({title,item,departments,requestTypes=[],members,session,canWork,onClose,onSave}){
   const isCreate=!item
   const [f,setF]=useState({department_id:item?.department_id||departments.find(d=>d.active)?.id||'',request_type_id:item?.request_type_id||requestTypes.find(x=>x.active)?.id||'',subject:item?.subject||'',description:item?.description||'',requester_name:item?.requester_name||session.user.user_metadata?.full_name||'',requester_email:item?.requester_email||session.user.email||'',category:item?.category||'general',priority:item?.priority||'medium',status:item?.status||'created',assigned_to:item?.assigned_to||'',source:item?.source||'portal',due_at:toLocalDateTimeInput(item?.due_at)})
+  const [evidenceFiles,setEvidenceFiles]=useState([]),[evidenceError,setEvidenceError]=useState('')
+  const evidenceBytes=evidenceFiles.reduce((sum,file)=>sum+Number(file.size||0),0)
+  const selectEvidence=files=>{
+    const list=Array.from(files||[])
+    if(list.length>5)throw new Error('Puedes adjuntar máximo 5 imágenes de evidencia por solicitud.')
+    const allowed=new Set(['image/jpeg','image/png','image/webp'])
+    const invalid=list.find(file=>!allowed.has(file.type))
+    if(invalid)throw new Error(`“${invalid.name}” no es JPG, PNG o WebP.`)
+    const oversized=list.find(file=>file.size>15*1024*1024)
+    if(oversized)throw new Error(`“${oversized.name}” supera el máximo de 15 MB antes de compresión.`)
+    setEvidenceFiles(list);setEvidenceError('')
+  }
   const activeDepartments=departments.filter(d=>d.active||d.id===item?.department_id)
   const assignees=members.filter(m=>m.active&&effectivePermissions(m,m.role_template).manage_helpdesk)
   const activeRequestTypes=requestTypes.filter(x=>x.active||x.id===item?.request_type_id)
   const selectedRequestType=requestTypes.find(x=>x.id===f.request_type_id)
   const isRequirement=selectedRequestType?.code==='requirement'||(!selectedRequestType&&isProposalCategory(f.category))
   const internalMode=!isCreate&&canWork&&!isRequirement
-  return <Modal title={title} subtitle={isCreate?'Registra únicamente la información de la solicitud. La canalización, responsable, estado y SLA se definen después por PM/Admin/Superadmin.':isRequirement?'Revisa la propuesta; su decisión se gestiona desde Evaluar requerimiento.':'Canaliza la solicitud y actualiza su atención interna.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave({...f,source:isCreate?'portal':f.source,status:isCreate||isRequirement?'created':f.status,assigned_to:isCreate||isRequirement?'':f.assigned_to,due_at:isCreate||isRequirement?'':f.due_at})} submitLabel={item?'Guardar cambios':'Crear solicitud'}>
+  return <Modal title={title} subtitle={isCreate?'Registra la solicitud y, si aplica, adjunta fotos de evidencia. Las imágenes se optimizan antes de almacenarse.':isRequirement?'Revisa la propuesta; su decisión se gestiona desde Evaluar requerimiento.':'Canaliza la solicitud y actualiza su atención interna.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave({...f,source:isCreate?'portal':f.source,status:isCreate||isRequirement?'created':f.status,assigned_to:isCreate||isRequirement?'':f.assigned_to,due_at:isCreate||isRequirement?'':f.due_at,evidence_files:isCreate?evidenceFiles:[]})} submitLabel={item?'Guardar cambios':'Crear solicitud'}>
     <div className="form-section"><h4>Solicitud</h4><label>Asunto<input value={f.subject} onChange={e=>setF({...f,subject:e.target.value})} required placeholder="¿Qué necesitas o qué quieres proponer?"/></label><label>Descripción<textarea rows="5" value={f.description} onChange={e=>setF({...f,description:e.target.value})} required placeholder="Contexto, impacto, pasos, evidencia y resultado esperado…"/></label><div className="form-grid"><label>Departamento solicitante<select value={f.department_id} onChange={e=>setF({...f,department_id:e.target.value})} required><option value="" disabled>Selecciona un departamento</option>{activeDepartments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Tipo de solicitud<select value={f.request_type_id} onChange={e=>setF({...f,request_type_id:e.target.value})} required disabled={!!item&&isProposalCategory(item.category)}><option value="" disabled>Selecciona un tipo</option>{activeRequestTypes.map(type=><option value={type.id} key={type.id}>{type.name}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}</select></label>{!isCreate&&canWork&&<label>Origen<select value={f.source} onChange={e=>setF({...f,source:e.target.value})}><option value="internal">Interno</option><option value="portal">Portal</option><option value="email">Correo</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>}</div></div>
     <div className="form-section"><h4>Solicitante</h4><div className="form-grid"><label>Solicitante<input value={f.requester_name} onChange={e=>setF({...f,requester_name:e.target.value})} readOnly={isCreate}/></label><label>Correo<input type="email" value={f.requester_email} onChange={e=>setF({...f,requester_email:e.target.value})} readOnly={isCreate}/></label></div>{isCreate&&<small className="section-help">Se toma de la sesión actual para conservar la trazabilidad de quién realizó la solicitud.</small>}</div>
+    {isCreate&&<div className="form-section helpdesk-create-evidence"><div className="section-heading compact-heading"><div><h4>Evidencia fotográfica</h4><p>Opcional · agrega hasta 5 fotos que ayuden a documentar el reporte desde su creación.</p></div><span className="evidence-counter">{evidenceFiles.length}/5</span></div><label className="helpdesk-evidence-picker"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{try{selectEvidence(e.target.files)}catch(err){e.target.value='';setEvidenceFiles([]);setEvidenceError(err.message||String(err))}}}/><span className="helpdesk-evidence-picker-icon"><Icon name="lucide:image-plus" size={24}/></span><span><b>{evidenceFiles.length?'Cambiar imágenes':'Seleccionar fotos de evidencia'}</b><small>JPG, PNG o WebP · máximo 15 MB por original · se comprimen antes de subir.</small></span></label>{evidenceError&&<div className="error compact-error"><Icon name="lucide:triangle-alert"/>{evidenceError}</div>}{evidenceFiles.length>0&&<div className="helpdesk-evidence-selection">{evidenceFiles.map((file,index)=><div key={`${file.name}-${file.size}-${index}`}><span><Icon name="lucide:image"/><b title={file.name}>{file.name}</b><small>{fileSizeLabel(file.size)}</small></span><button type="button" className="icon-button" title="Quitar imagen" onClick={()=>setEvidenceFiles(files=>files.filter((_,i)=>i!==index))}><Icon name="lucide:x"/></button></div>)}<small className="field-help">{fileSizeLabel(evidenceBytes)} antes de compresión. El sistema redimensiona hasta 1920 px y utiliza WebP cuando realmente reduce el peso.</small></div>}<div className="compression-notice"><Icon name="lucide:shrink"/><div><b>Optimización automática antes de guardar</b><span>La base de datos almacena solo metadatos; el archivo optimizado se guarda en Storage privado y se consulta mediante URL firmada.</span></div></div></div>}
     {isRequirement?<div className="requirement-notice"><Icon name="lucide:lightbulb"/><span><b>Propuesta de producto · sin SLA operativo.</b><small>PM/Admin/Superadmin decidirá posteriormente si pasa a Backlog o si se rechaza con una nota para el solicitante.</small></span></div>:internalMode?<div className="form-section internal-section"><h4>Atención interna</h4><div className="form-grid"><label>Asignado a<select value={f.assigned_to} onChange={e=>setF({...f,assigned_to:e.target.value})}><option value="">Sin asignar</option>{assignees.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Fecha objetivo<input type="datetime-local" value={f.due_at} onChange={e=>setF({...f,due_at:e.target.value})}/></label></div></div>:<div className="notice routing-notice"><Icon name="lucide:route"/><span><b>{isCreate?'Se enviará sin asignar para canalización.':'Canalización administrada por la mesa.'}</b><small>PM/Admin/Superadmin define responsable, estado y fecha objetivo después de revisar la solicitud.</small></span></div>}
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>

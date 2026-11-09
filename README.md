@@ -252,3 +252,7 @@ El importador de Backlog acepta XLSX, XLS, XLSM y CSV. Para CSV/Google Sheets de
 Helpdesk permite adjuntar fotos comprimidas a comentarios usando el bucket privado `jira-evidence`. El archivo se optimiza en el navegador antes de Storage; PostgreSQL conserva únicamente metadatos del archivo. La asignación rápida permite elegir responsable y agregar comentario opcional en una sola operación protegida por RLS.
 
 En el detalle de Sprint, el listado de actividades tiene scroll interno y cada ticket de un sprint no completado puede regresar directamente a Backlog.
+
+## v15.9 · Evidencia inicial en Helpdesk
+
+Al crear una solicitud de Helpdesk se pueden adjuntar hasta 5 fotografías. El navegador valida formato/tamaño, redimensiona hasta 1920 px y convierte a WebP solo cuando reduce el peso. Las imágenes quedan en el bucket privado `jira-evidence`; la base conserva únicamente metadatos. Si una carga falla, la solicitud recién creada se revierte para evitar reportes incompletos.

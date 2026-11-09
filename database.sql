@@ -6095,3 +6095,23 @@ $$;
 revoke all on function public.assign_helpdesk_ticket(uuid,uuid,text) from public,anon;
 grant execute on function public.assign_helpdesk_ticket(uuid,uuid,text) to authenticated;
 
+
+-- ============================================================
+-- v15.9 · Helpdesk initial evidence rollback hardening
+-- ============================================================
+drop policy if exists helpdesk_tickets_requester_recent_rollback_delete on public.helpdesk_tickets;
+drop policy if exists helpdesk_tickets_delete on public.helpdesk_tickets;
+create policy helpdesk_tickets_delete
+on public.helpdesk_tickets
+for delete
+to authenticated
+using (
+  private.has_workspace_permission(workspace_id,'manage_helpdesk')
+  or (
+    requester_user_id=(select auth.uid())
+    and source='portal'
+    and status='created'
+    and assigned_to is null
+    and created_at >= now() - interval '10 minutes'
+  )
+);
