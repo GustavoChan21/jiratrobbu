@@ -185,55 +185,12 @@ Como Jira Interno es actualmente un frontend estático sin bundler, `speed-insig
 Para recibir métricas, **Speed Insights debe estar habilitado para el proyecto `jiratrobbu` en Vercel**. Después de un deploy de producción, las métricas empiezan a poblarse conforme existan visitas reales.
 
 
-# v15 · Dependencias, módulos y TROBBU AI
+## v15.1 · Estabilización responsive y UX
 
-## Relaciones entre tickets
-
-- `Bloquea / Está bloqueado por`: dependencia real. El ticket dependiente no puede avanzar mientras el bloqueador no esté en QA aprobado o Cerrado.
-- `Relacionado con`: referencia informativa.
-- `Da seguimiento a / Es seguido por`: continuidad funcional entre tickets.
-- Se impiden relaciones consigo mismo y ciclos de bloqueo.
-- Admin/Superadmin puede forzar avance con motivo; el override queda en actividad.
-
-## Módulos / Grupos
-
-Entidad controlada tipo Epic ligero. Un ticket puede pertenecer a un módulo principal, incluso si los tickets del módulo pertenecen a productos distintos del mismo workspace. Incluye CRUD, color, métricas de tickets, Story Points y avance.
-
-## Tags y campos personalizados
-
-- Tags múltiples con CRUD, color y filtros.
-- Campos personalizados: texto, texto largo, número, fecha, Sí/No, selección, multiselección y URL.
-- Pueden aplicar a todos los productos o a productos seleccionados.
-- Pueden marcarse obligatorios y aparecen en creación/edición/detalle del ticket.
-
-## Story Points
-
-Escala cerrada `1, 2, 3, 4, 5`. La base de datos, formulario e importación Excel validan la misma escala.
-
-## Reportes / TROBBU AI
-
-`get_workspace_progress_report()` calcula KPIs determinísticos por producto, sprint y módulo. La Edge Function `trobbu-ai-report` utiliza esos datos para responder consultas, generar resumen ejecutivo o contenido de infografía.
-
-La capa generativa es opcional. Busca en secretos de Supabase:
-
-- `AI_GATEWAY_API_KEY` + opcional `TROBBU_AI_MODEL`, o
-- `OPENAI_API_KEY` + opcional `TROBBU_OPENAI_MODEL`.
-
-Sin estas claves, el reporte continúa funcionando mediante el motor determinístico. Las métricas nunca son inventadas por el modelo.
-
-## Guardado atómico de tickets documentados
-
-`save_ticket_documented()` guarda ticket, Módulo, Tags y campos personalizados en una sola transacción. Si un campo obligatorio o metadata es inválido, no queda un ticket incompleto.
-
-## Proyección de Sprint
-
-Reportes muestra por Sprint activo: porcentaje, tickets completados/pendientes, Story Points completados/total, bloqueados y actividades con fecha objetivo antes del cierre.
-
-## Configuración de TROBBU AI
-
-El dashboard y los KPIs funcionan sin IA. Para habilitar narrativa generativa en `trobbu-ai-report`, agrega **uno** de estos secretos al runtime de Supabase Edge Functions:
-
-- `AI_GATEWAY_API_KEY` y opcional `TROBBU_AI_MODEL`; o
-- `OPENAI_API_KEY` y opcional `TROBBU_OPENAI_MODEL`.
-
-No coloques estas claves en `config.js`, `app.js` ni en Vercel como variables públicas. La Edge Function mantiene el secreto del lado servidor.
+- Reportes / TROBBU AI y Campos/Módulos/Tags ahora usan el mismo contenedor `.page` del resto del sistema.
+- Se definió `content-card` como superficie compartida para evitar paneles sin borde/padding.
+- Se homologaron paddings, gaps, cards, tabs, tablas, filtros, formularios y acciones a los componentes existentes.
+- Timeline/Gantt mantiene alineadas las filas de Módulo con las filas de tickets en desktop, tablet y móvil.
+- En móvil, los controles de Gantt se distribuyen en tres filas estables: Sprint, rango/agrupación y navegación `← / Hoy / →`.
+- Tabs de Configuración, detalle y módulos tienen scroll horizontal contenido cuando el ancho no alcanza.
+- QA responsive ejecutado en 1440×1000, 1180×900, 820×1050 y 390×844.

@@ -260,3 +260,181 @@
 
 /* v15 backlog module/tag filters */
 .backlog-filterbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px;border:1px solid var(--border);border-radius:12px;background:#fff}.backlog-filterbar>div{display:flex;align-items:center;gap:8px;margin-right:auto;color:var(--ink)}.backlog-filterbar label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--muted)}.backlog-filterbar select{min-width:190px}@media(max-width:700px){.backlog-filterbar{align-items:stretch}.backlog-filterbar>div{width:100%}.backlog-filterbar label{width:100%}.backlog-filterbar select{width:100%;min-width:0}}
+
+/* === v15.1 · Responsive stabilization / spacing normalization === */
+:root{
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;
+  --surface-radius:11px;--section-gap:18px;
+}
+
+/* Shared surfaces used by newer modules. */
+.content-card{background:#fff;border:1px solid var(--border);border-radius:var(--surface-radius);box-shadow:0 1px 2px rgba(9,30,66,.04);min-width:0;overflow:hidden}
+.content-card>.section-heading:first-child{margin-top:0}
+.page>*{min-width:0}.page>.workspace-panel+.workspace-panel,.page>.content-card+.content-card{margin-top:var(--section-gap)}
+.page-header>*,.panel-toolbar>*,.settings-list-head>*,.settings-card-head>*{min-width:0}
+.page-header h1,.page-header p,.panel-toolbar h3,.panel-toolbar p,.settings-list-head h3,.settings-list-head p{overflow-wrap:anywhere}
+
+/* Tabs should behave the same everywhere instead of squeezing or overflowing the page. */
+.tabs,.settings-tabs,.detail-tabs,.staff-tabs{max-width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-inline:contain}
+.tabs button,.settings-tabs button,.detail-tabs button,.staff-tabs button{flex:0 0 auto;white-space:nowrap}
+.settings-tabs{scroll-padding-inline:14px}
+
+/* Consistent section/header rhythm. */
+.panel-heading,.settings-list-head,.settings-card-head,.section-heading{min-width:0}
+.panel-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-4)}
+.settings-list-head,.settings-card-head{align-items:flex-start}
+.settings-content,.catalog-content{padding:var(--space-5)}
+.settings-list-head{margin-bottom:var(--space-5)}
+.entity-list,.catalog-grid,.module-report-list,.sprint-report-grid{min-width:0}
+.entity-row,.catalog-card,.product-report-card,.sprint-report-card{min-width:0}
+.row-actions{flex-wrap:wrap;justify-content:flex-end}
+
+/* v15 catalog / metadata surfaces aligned with existing workspace panels. */
+.catalog-shell{border-radius:var(--surface-radius)}
+.catalog-grid{gap:var(--space-4)}
+.catalog-card{padding:var(--space-4);gap:var(--space-3);border-radius:10px}
+.catalog-title{min-width:0}.catalog-title>div{min-width:0}.catalog-title p{overflow-wrap:anywhere}
+.catalog-metrics{gap:var(--space-4)}
+.ticket-metadata-panel{gap:var(--space-4);padding:var(--space-4);margin-top:var(--space-4);border-radius:var(--radius)}
+.custom-values-panel,.relations-panel{padding:var(--space-4);margin-top:var(--space-4);border-radius:var(--radius)}
+.custom-value-grid{gap:var(--space-3);margin-top:var(--space-3)}
+.custom-value-grid>div{padding:var(--space-3)}
+.blocked-banner,.warning-panel,.relation-explainer{margin-top:var(--space-4);padding:var(--space-3) var(--space-4)}
+.relation-row{grid-template-columns:minmax(120px,140px) minmax(0,1fr) auto;padding:var(--space-3);gap:var(--space-3)}
+.relation-ticket{min-width:0}.relation-ticket span{min-width:0}
+.tag-chip-grid,.check-chip-grid{max-width:100%}
+.tag-choice,.tag-display,.module-chip{max-width:100%}
+.tag-display,.module-chip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Reports: same outer spacing and card density as the stable dashboard. */
+.report-layout{gap:var(--section-gap);align-items:start}
+.report-main{gap:var(--section-gap)}
+.report-summary-grid{gap:var(--space-3)}
+.report-kpi{padding:var(--space-4);min-height:118px;border-radius:10px}
+.report-products,.report-sprints,.report-modules{padding:var(--space-5)}
+.product-report-grid,.sprint-report-grid{gap:var(--space-3)}
+.product-report-card,.sprint-report-card{padding:var(--space-4);border-radius:10px}
+.product-report-head{min-width:0}.product-report-head>div{min-width:0}.product-report-head b{overflow-wrap:anywhere}
+.product-report-metrics{gap:var(--space-2)}
+.module-report-list>div{min-width:0}
+.ai-panel{padding:var(--space-5);gap:var(--space-4);border-radius:var(--surface-radius)}
+.ai-panel label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#44546F}
+.ai-panel textarea{width:100%;min-width:0;border:1px solid #B6C2CF;border-radius:7px;padding:10px;resize:vertical;outline:0}
+.ai-panel textarea:focus{border-color:#579DFF;box-shadow:0 0 0 2px rgba(87,157,255,.18)}
+.ai-quick{gap:var(--space-2)}
+.ai-quick button{min-height:34px}
+.ai-answer pre{padding:var(--space-4)}
+
+/* Backlog filters: match filter bars/panels elsewhere. */
+.backlog-filterbar{gap:var(--space-3);padding:var(--space-3) var(--space-4);margin:0 0 var(--space-4);border-radius:10px}
+.backlog-filterbar>div{min-height:38px}
+.backlog-filterbar label{min-width:0}
+
+/* Timeline alignment: module separator must use the same sticky label width as rows/header. */
+.gantt-module-group-row{grid-template-columns:330px auto;min-width:0}
+.gantt-module-group-row .gantt-label{min-width:0}
+.gantt-module-group-row .module-chip{min-width:0}
+.gantt-module-group-row .gantt-label small{flex:none}
+.gantt-controls{min-width:0}
+.gantt-controls>*{min-width:0}
+
+/* Tables and list rows: preserve gutters and avoid edge collisions on narrow screens. */
+.table-wrap{border-radius:inherit;overscroll-behavior-inline:contain}
+.entity-row>div:first-child{min-width:0}.entity-row>div:first-child b,.entity-row>div:first-child span{overflow-wrap:anywhere}
+.settings-status{flex:none}
+
+/* Form controls/new CRUD fields follow the existing form system. */
+.form-section>.form-grid,.form-section>.toggle-list,.form-section>.product-checkbox-grid{min-width:0}
+.product-checkbox-grid button{min-width:0}
+.product-checkbox-grid button span{min-width:0}
+.product-checkbox-grid button b,.product-checkbox-grid button small{overflow-wrap:anywhere}
+.check-chip-grid button,.tag-choice{min-height:36px}
+input[type="color"]{min-height:38px;padding:4px!important}
+
+@media(max-width:1100px){
+  .gantt-module-group-row{grid-template-columns:260px auto}
+  .report-layout{gap:var(--space-4)}
+}
+
+@media(max-width:820px){
+  .page{padding:20px 16px 36px}
+  .page-header{gap:var(--space-4);margin-bottom:var(--space-5)}
+  .page-header>button,.page-header>.primary,.page-header>.secondary-button{align-self:stretch;justify-content:center}
+  .settings-content,.catalog-content,.report-products,.report-sprints,.report-modules,.ai-panel{padding:var(--space-4)}
+  .settings-tabs{padding:9px 10px}
+  .settings-list-head,.settings-card-head{gap:var(--space-3)}
+  .entity-row{align-items:flex-start}
+  .catalog-grid{grid-template-columns:1fr}
+  .report-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .product-report-grid{grid-template-columns:1fr}
+  .gantt-module-group-row{grid-template-columns:220px auto}
+  .backlog-filterbar{padding:var(--space-3)}
+}
+
+@media(max-width:600px){
+  .page{padding:16px 12px 30px}
+  .page-header{margin-bottom:16px}
+  .page-title-row{align-items:flex-start;gap:10px}
+  .page-icon{width:40px;height:40px;flex:none}
+  .page-title-row h1{font-size:22px;line-height:1.15}
+  .page-title-row p{font-size:12px;line-height:1.45}
+  .breadcrumbs{margin-bottom:7px}
+  .settings-content,.catalog-content,.report-products,.report-sprints,.report-modules,.ai-panel{padding:12px}
+  .settings-list-head,.settings-card-head,.section-heading,.panel-heading{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:12px}
+  .settings-list-head>.primary,.settings-list-head>.secondary-button,.section-heading>.primary,.section-heading>.secondary-button{width:100%;justify-content:center}
+  .settings-card{padding:14px}
+  .entity-row{display:grid;grid-template-columns:1fr;gap:10px;padding:12px}
+  .entity-row .row-actions{width:100%;justify-content:flex-start}
+  .entity-row .row-actions button{flex:1;justify-content:center;min-width:110px}
+  .catalog-card{padding:13px}
+  .catalog-card .row-actions{justify-content:stretch}
+  .catalog-card .row-actions button{flex:1;justify-content:center}
+  .catalog-metrics{gap:10px}
+  .ticket-metadata-panel,.custom-value-grid,.product-checkbox-grid,.report-summary-grid{grid-template-columns:1fr}
+  .ticket-metadata-panel,.custom-values-panel,.relations-panel{padding:12px;margin-top:12px}
+  .relation-row{grid-template-columns:1fr;gap:8px;padding:10px}
+  .relation-type{font-size:10px}
+  .relation-row>.icon-button,.relation-row>.danger-text{justify-self:end}
+  .tag-chip-grid,.check-chip-grid{gap:6px}
+  .tag-choice,.tag-display,.module-chip{font-size:11px;padding:6px 9px}
+  .report-summary-grid{gap:10px}
+  .report-kpi{min-height:auto;padding:13px}
+  .report-kpi strong{font-size:24px}
+  .product-report-card,.sprint-report-card{padding:12px}
+  .product-report-head{align-items:flex-start}
+  .product-report-head strong{font-size:18px}
+  .product-report-metrics{grid-template-columns:1fr 1fr}
+  .module-report-list>div{grid-template-columns:1fr;gap:8px;padding:10px 0;border-bottom:1px solid var(--gray-100)}
+  .module-report-list>div:last-child{border-bottom:0}
+  .ai-quick{display:grid;grid-template-columns:1fr}
+  .ai-quick button{width:100%;justify-content:center}
+  .ai-answer-meta{gap:8px;flex-wrap:wrap}
+  .gantt-module-group-row{grid-template-columns:185px auto}
+  .gantt-module-group-row .gantt-label{padding:7px 8px;gap:6px}
+  .gantt-module-group-row .gantt-label small{display:none}
+  .backlog-filterbar{padding:10px;margin-bottom:12px}
+  .backlog-filterbar>div{width:100%;margin-right:0}
+  .backlog-filterbar label{width:100%}
+  .backlog-filterbar select{width:100%;min-width:0}
+  .form-section{padding:12px}
+  .form-section h4{font-size:13px}
+}
+
+@media(max-width:390px){
+  .page{padding-inline:10px}
+  .settings-content,.catalog-content,.report-products,.report-sprints,.report-modules,.ai-panel{padding:10px}
+  .product-report-metrics{grid-template-columns:1fr}
+  .sprint-report-stats{grid-template-columns:1fr 1fr}
+  .row-actions button{min-width:0}
+}
+
+/* v15.1 · Timeline mobile control grid fix */
+@media(max-width:520px){
+  .jira-timeline-toolbar .gantt-controls{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;width:100%}
+  .jira-timeline-toolbar .gantt-controls select:first-child{grid-column:1/-1;min-width:0;width:100%}
+  .jira-timeline-toolbar .gantt-controls select:nth-child(2){grid-column:1/4;width:100%}
+  .jira-timeline-toolbar .gantt-controls select:nth-child(3){grid-column:4/7;width:100%}
+  .jira-timeline-toolbar .gantt-controls button:nth-of-type(1){grid-column:1/3;width:100%}
+  .jira-timeline-toolbar .gantt-controls button:nth-of-type(2){grid-column:3/5;width:100%}
+  .jira-timeline-toolbar .gantt-controls button:nth-of-type(3){grid-column:5/7;width:100%}
+}

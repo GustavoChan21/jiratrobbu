@@ -40,7 +40,7 @@ La fila que comienza con `EJEMPLO -` sirve únicamente como referencia y el impo
 | `Descripcion` | No | Texto | Contexto, alcance o criterios |
 | `Tipo` | No | Tarea, Bug, Historia, Mejora | Si está vacío usa Tarea |
 | `Prioridad` | No | Muy baja, Baja, Media, Alta, Muy alta, Bloqueante | Si está vacío usa Media |
-| `Story Points` | No | Entero de 1 a 5 | Estimación de esfuerzo |
+| `Story Points` | No | Entero de 0 a 100 | Estimación de esfuerzo |
 | `Responsable Dev` | No | Nombre exacto del Staff o UUID | Debe tener acceso al producto |
 | `Responsable QA` | No | Nombre exacto del Staff o UUID | Debe tener acceso al producto |
 | `Fecha inicio` | No | `AAAA-MM-DD` | Fecha planeada de inicio |
@@ -81,7 +81,7 @@ La importación se bloquea si detecta, entre otros casos:
 - título vacío;
 - producto inexistente o no autorizado;
 - tipo o prioridad inválidos;
-- Story Points fuera de la escala 1–5;
+- Story Points fuera de rango;
 - responsable que no pertenece al Workspace;
 - responsable sin acceso al producto;
 - responsable con rol incompatible;
@@ -114,14 +114,3 @@ La importación **no inicia automáticamente el desarrollo** ni modifica Sprints
 - Si no conoces el responsable, déjalo vacío y asígnalo después desde Jira Interno.
 - Para una carga inicial grande, prueba primero con 2 o 3 filas y valida el resultado.
 - Conserva una copia del archivo importado como referencia de la carga.
-
-
-## Escala de Story Points 1–5
-
-- **1 · Muy simple:** ajustes puntuales, texto, CSS o hotfix trivial.
-- **2 · Simple:** fix o cambio sencillo sobre lógica existente.
-- **3 · Intermedio:** funcionalidad estándar o pequeño CRUD.
-- **4 · Complejo:** funcionalidad con varias reglas, permisos o integración.
-- **5 · Muy complejo:** módulo o funcionalidad crítica bien delimitada.
-
-Story Points mide complejidad relativa, riesgo, incertidumbre y QA; **no representa horas ni prioridad**.
