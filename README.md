@@ -246,3 +246,9 @@ Para actualizar desde v15.4.1 no se requiere una nueva migración de base de dat
 ## v15.6 · XLSM + CSV robusto
 
 El importador de Backlog acepta XLSX, XLS, XLSM y CSV. Para CSV/Google Sheets detecta automáticamente la fila de encabezados dentro de las primeras 30 filas y normaliza variantes seguras de `Titulo*` y `Producto*`. Los XLSM se leen como hojas de cálculo; las macros no se ejecutan. No se modificó el esquema de base de datos para esta versión.
+
+## v15.8 · Evidencias Helpdesk y operación rápida
+
+Helpdesk permite adjuntar fotos comprimidas a comentarios usando el bucket privado `jira-evidence`. El archivo se optimiza en el navegador antes de Storage; PostgreSQL conserva únicamente metadatos del archivo. La asignación rápida permite elegir responsable y agregar comentario opcional en una sola operación protegida por RLS.
+
+En el detalle de Sprint, el listado de actividades tiene scroll interno y cada ticket de un sprint no completado puede regresar directamente a Backlog.

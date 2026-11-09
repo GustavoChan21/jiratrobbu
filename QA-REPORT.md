@@ -420,3 +420,49 @@ Validación realizada únicamente sobre código/artefactos. **No se creó ningú
 - Copiar credenciales incluye: nombre de plataforma, URL, correo y contraseña inicial/temporal.
 - Se conserva el footer responsive del modal; en móvil las acciones permanecen apiladas a ancho completo.
 - Regresión de alcance: no se modificó `database.sql`, migraciones SQL, Edge Functions, plantillas ni esquema de Supabase.
+
+## QA v15.8 · Helpdesk evidencias, asignación rápida y Sprint detalle
+
+Fecha: 2026-11-09.
+
+### Frontend / código
+- `app.js` transpila como JSX/ES2020 con TypeScript `transpileModule`: **0 errores sintácticos**.
+- `csv-import-v15.2.js`, `speed-insights.js` y `config.js`: sintaxis Node válida.
+- Importación XLSX/XLS/XLSM/CSV: **16/16 casos PASS** (regresión v15.6).
+- CSS: **1521 aperturas / 1521 cierres**, balance correcto.
+- Sin `alert()`, `confirm()` ni `prompt()` nativos.
+- Referencias verificadas: compresión de evidencia, `helpdesk_attachments`, modal de asignación, RPC atómico, scroll de Sprint y botón rápido Backlog.
+- Cache bust: `v=15.8.0`.
+
+### Helpdesk · evidencias
+- Tabla `helpdesk_attachments` con RLS activa y permisos explícitos para `authenticated`.
+- Solicitante puede registrar metadatos de evidencia únicamente sobre su propia solicitud: **PASS con rollback**.
+- Usuario Consulta ajeno no puede ver/subir evidencia de otra solicitud: **PASS**.
+- No se puede asociar una evidencia a un comentario perteneciente a otra solicitud: **PASS**.
+- `jira-evidence` continúa privado; acceso por URL firmada y RLS.
+- Frontend comprime fotos antes de Storage: máximo 1920 px, WebP cuando reduce tamaño, hasta 5 imágenes; metadatos guardan tamaño optimizado y tamaño original.
+- Si una carga múltiple falla a mitad, el frontend limpia objetos y registros ya creados en ese intento.
+
+### Helpdesk · asignación rápida
+- `assign_helpdesk_ticket` opera como `SECURITY INVOKER` y respeta RLS.
+- Superadmin/Staff con `manage_helpdesk` puede asignar + comentario opcional de forma atómica: **PASS con rollback**.
+- La asignación genera la actividad/notificación existente mediante el trigger actual: **PASS**.
+- Usuario sin `manage_helpdesk` no puede ejecutar una asignación válida: **PASS**.
+- Los requerimientos (`module`, `feature`, `new_requirement`) no pueden asignarse por este flujo; conservan su proceso de decisión: **PASS**.
+- El advisor de seguridad ya no reporta el RPC como `SECURITY DEFINER` expuesto.
+
+### Sprint detalle
+- Listado de actividades cuenta con `max-height` y `overflow-y:auto`; no expande indefinidamente el modal.
+- Cada ticket de un sprint no completado incluye acción rápida `Backlog`.
+- La acción reutiliza `planTicket(ticket,'')`: limpia `sprint_id`, `start_date`, `due_date` y devuelve estado a `backlog`, conservando el flujo existente.
+- En móvil, la fila se reorganiza y la acción Backlog pasa a una franja propia sin solapamiento.
+
+### Supabase Advisors
+- Health Advisor: **0 incidencias**.
+- Security Advisor: únicamente continúa el aviso global preexistente `Leaked Password Protection Disabled`.
+- La advertencia temporal por el RPC `SECURITY DEFINER` fue corregida antes de cerrar la versión.
+
+### Limitación del entorno de QA
+Se intentó una comprobación visual automática con Chromium headless para medir scroll y compresión en navegador, pero el binario agotó el timeout del entorno. Ese intento **no se contabiliza como PASS**. Las reglas de scroll/responsive fueron validadas por código/CSS y la compresión por revisión del flujo del navegador; la capa de permisos y persistencia sí fue probada directamente contra Supabase con rollback.
+
+No se creó ningún ticket de soporte ni actividad QA dentro del Jira para esta versión.
