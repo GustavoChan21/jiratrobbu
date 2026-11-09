@@ -303,3 +303,45 @@ La navegación gráfica automatizada del runtime actual está bloqueada por la p
 - Histórico con tipo desactivado: edición conservada **PASS** con rollback.
 - Health Advisor final: **0 incidencias**.
 - Security Advisor final: solo `Leaked Password Protection Disabled`.
+
+# QA v15.5 · CSV + Tipos de solicitud Helpdesk
+
+Fecha: 2026-11-09
+Base: v15.4.1 hotfix estable (runtime v15.1) + integración incremental.
+
+## Alcance validado
+
+- Backlog: importación XLSX/XLS y CSV exportado desde Google Sheets.
+- CSV: BOM UTF-8, CRLF/LF, comas, punto y coma, tabuladores, campos entre comillas, comillas escapadas y campos multilínea.
+- Productos permitidos en plantilla: ADM, SOC, APP, AUT, FIN.
+- Configuración > Helpdesk con dos tabs internas: Departamentos / Tipos de solicitudes.
+- CRUD Tipos de solicitudes: crear, editar, activar/desactivar, validación de duplicados y eliminación segura.
+- Nueva solicitud Helpdesk: request_type_id obligatorio y solo tipos activos.
+- Histórico: tipos desactivados siguen visibles en tickets existentes y estadísticas.
+- Filtro y segmentación por Tipo de solicitud.
+- Estadísticas de Helpdesk por Tipo de solicitud.
+- Regresión de lógica especial de Requerimientos basada en category interno.
+
+## Resultados
+
+- JSX/JavaScript de app.js: 0 errores de parseo (TypeScript JSX transpile).
+- csv-import-v15.2.js: 11/11 pruebas PASS.
+- config.js / speed-insights.js / parser CSV: sintaxis JavaScript PASS.
+- Supabase CRUD de helpdesk_request_types como Superadmin: PASS con rollback.
+- Lectura de tipos y creación de solicitud con request_type_id como usuario Consulta/Portal: PASS con rollback.
+- Catálogo actual: 7 tipos de solicitud.
+- Productos actuales: 5.
+- Solicitudes Helpdesk sin request_type_id: 0.
+- import_backlog_tickets con payload equivalente a CSV: PASS con rollback.
+- Supabase Health Advisor: 0 findings.
+- Security Advisor: únicamente aviso global existente `Leaked Password Protection Disabled`.
+
+## Actividad QA creada
+
+- Ticket: ADM-1
+- Título: QA v15.5 · CSV + Tipos de solicitud Helpdesk
+- Producto: Web Administrativa
+- Estado: Backlog
+- Story Points: 3
+
+El ticket contiene la matriz de validación funcional y responsive para ejecución manual/regresión en el entorno desplegado.

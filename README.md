@@ -215,3 +215,18 @@ Esta versión parte directamente de `jiratrobbu-v15.1-final.zip` y conserva sus 
 Para el frontend, reemplaza el contenido completo de la raíz por los archivos de este ZIP. `index.html` usa cache-busting `v=15.4.0`.
 
 En el proyecto Supabase actual de Jira Interno TROBBU, la estructura de Tipos de solicitud ya fue aplicada durante la preparación de esta versión. `upgrade-v15.4.sql` se incluye para otros entornos o para una actualización controlada; evita ejecutar migraciones repetidamente sin revisar el estado del entorno.
+
+## v15.5 · CSV + Tipos de solicitud Helpdesk
+
+Esta versión parte del hotfix estable v15.4.1 e integra de forma incremental:
+
+- Importación de Backlog desde Excel o CSV exportado desde Google Sheets.
+- Descarga de plantillas XLSX y CSV desde el modal de importación.
+- Productos ADM, SOC, APP, AUT y FIN compatibles con la plantilla.
+- Configuración > Helpdesk segmentada en las tabs **Departamentos** y **Tipos de solicitudes**.
+- CRUD escalable de tipos con nombre, código, descripción, icono, color, orden y estado.
+- Tipos usados se desactivan en vez de eliminarse para conservar histórico.
+- Selector de tipo en nuevas solicitudes, filtro por tipo y estadísticas por tipo.
+- La columna interna `category` se conserva para la lógica especial de propuestas/requerimientos; `request_type_id` se usa para clasificación configurable y reporting.
+
+Para actualizar desde v15.4.1 no se requiere una nueva migración de base de datos: el esquema de Tipos de solicitud ya está incluido en `upgrade-v15.4.sql` y aplicado en el proyecto actual.
