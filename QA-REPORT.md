@@ -219,3 +219,53 @@ Sanity estático:
 - Loader raíz `speed-insights.js`.
 - `index.html` carga Speed Insights una sola vez y omite local/GitHub Pages.
 - Todos los archivos de implementación continúan en la raíz.
+
+
+## v15 · Dependencias / campos / reportes
+
+### Backend
+- 12/12: CRUD Módulo/Tag/Campo, asignación de metadata, bloqueo, ciclos, override, SP 1–5 y métricas de reporte.
+- 5/5: usuario de solo carga usa metadata sin obtener edición; Dev recibe notificación de bloqueo y no puede avanzar.
+
+### Frontend
+- TypeScript/JSX transpile: 0 errores.
+- 50/50 tipos de modal con ruta.
+- 188 botones auditados, 0 sospechosos sin acción.
+- 24/24 AsyncForm con Cancelar.
+- 0 `alert()`, `prompt()` o `confirm()`.
+- Responsive: 12/12 escenarios sin overflow general (Campos/Módulos, Reportes, Ticket documentado y Gantt; desktop/tablet/móvil).
+
+### IA
+- `trobbu-ai-report` ACTIVE, JWT requerido.
+- KPIs calculados en Supabase.
+- Fallback determinístico cuando no existe secreto de AI Gateway/OpenAI.
+
+## v15 final — dependencias, metadata y reportes
+
+### Backend
+- **12/12 PASS**: CRUD Módulo/Tag/Campo, metadata, bloqueo real, ciclos, override, SP 1–5 y métricas.
+- **5/5 PASS**: solo carga puede documentar ticket sin obtener edición; Dev recibe bloqueo y no puede avanzar.
+- **4/4 PASS**: dependencia liberada/rebloqueada notifica; proyección de Sprint expone pendientes/SP/bloqueos; importación rechaza SP=6.
+- **3/3 PASS**: guardado atómico; campo obligatorio ausente no deja ticket residual; Módulo+Tag+Campo se guardan juntos.
+
+### Frontend
+- TypeScript/JSX: **0 errores**.
+- Rutas de modal: **50/50**.
+- Diálogos nativos: **0**.
+- Botones auditados: **189**.
+- AsyncForm: **24**; todos conservan acción Cancelar/footer.
+- Story Points antiguo 0–100: **0 referencias**.
+- Backlog, Tablero y Gantt: filtros/agrupación por Módulo; Tag disponible en filtros de Backlog/Tablero.
+- Reportes: avance por producto, Sprint y Módulo + proyección semanal.
+
+### IA
+- `trobbu-ai-report` desplegada como **v2 ACTIVE**, JWT requerido.
+- KPIs calculados en Supabase; la capa generativa nunca calcula porcentajes.
+- Sin clave de AI Gateway/OpenAI, continúa el reporte determinístico.
+
+### Ajustes finales v15
+- Backlog: filtro por Módulo y Tag, además de Tablero/Gantt.
+- Dependencias: notificación automática al liberarse por QA aprobado/Cerrado y al volver a bloquearse.
+- Guardado documentado: RPC atómico `save_ticket_documented()`; **3/3 PASS** y 0 tickets residuales ante campo obligatorio faltante.
+- Proyección Sprint: **4/4 PASS** para liberación/rebloqueo, métricas del cierre e importación SP 1–5.
+- El PDF `Story_Points_1_a_5_TROBBU.pdf` queda en raíz y enlazado desde el formulario del ticket.
