@@ -1,0 +1,2 @@
+﻿Titulo*,Producto*,Descripcion,Tipo,Prioridad,Story Points,Responsable Dev,Responsable QA,Fecha inicio,Fecha limite
+EJEMPLO - Corregir validación de pago,ADM,Validar el flujo y corregir el error indicado.,Bug,Alta,5,,,2026-11-10,2026-11-14

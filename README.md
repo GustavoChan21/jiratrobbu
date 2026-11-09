@@ -194,3 +194,24 @@ Para recibir métricas, **Speed Insights debe estar habilitado para el proyecto 
 - En móvil, los controles de Gantt se distribuyen en tres filas estables: Sprint, rango/agrupación y navegación `← / Hoy / →`.
 - Tabs de Configuración, detalle y módulos tienen scroll horizontal contenido cuando el ancho no alcanza.
 - QA responsive ejecutado en 1440×1000, 1180×900, 820×1050 y 390×844.
+
+## v15.4 · Paquete completo sobre v15.1
+
+Esta versión parte directamente de `jiratrobbu-v15.1-final.zip` y conserva sus correcciones responsive/UI/UX. Integra además:
+
+- importación Backlog por XLSX/XLS y CSV de Google Sheets;
+- SheetJS cargado explícitamente desde `index.html`;
+- productos `AUT` (Automatizaciones) y `FIN` (Panel Financiero);
+- plantillas XLSX/CSV actualizadas con los cinco códigos de producto;
+- catálogo CRUD de Tipos de solicitud de Helpdesk por workspace;
+- tipos iniciales: Soporte, Incidencia, Requerimiento, Mejora, Acceso / permisos, Configuración y Otro;
+- filtro y estadísticas de Helpdesk por tipo;
+- compatibilidad con solicitudes anteriores mediante fallback de Soporte/Requerimiento;
+- bootstrap actualizado para que workspaces nuevos nazcan con ADM/SOC/APP/AUT/FIN y los siete tipos de solicitud;
+- `database.sql` consolidado y `upgrade-v15.4.sql` para actualización controlada.
+
+### Despliegue
+
+Para el frontend, reemplaza el contenido completo de la raíz por los archivos de este ZIP. `index.html` usa cache-busting `v=15.4.0`.
+
+En el proyecto Supabase actual de Jira Interno TROBBU, la estructura de Tipos de solicitud ya fue aplicada durante la preparación de esta versión. `upgrade-v15.4.sql` se incluye para otros entornos o para una actualización controlada; evita ejecutar migraciones repetidamente sin revisar el estado del entorno.

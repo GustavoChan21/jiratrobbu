@@ -235,3 +235,71 @@ Sanity estático:
 - Gantt móvil corregido: navegación `← / Hoy / →` ya no se parte en filas inconsistentes.
 - Health Advisor Supabase: 0 incidencias. Security Advisor: solo Leaked Password Protection Disabled.
 - 0 registros QA persistidos.
+
+## v15.4 · CSV + Productos AUT/FIN + Tipos de solicitud Helpdesk
+
+### Base
+
+- Fuente: `jiratrobbu-v15.1-final.zip` exacto, preservando la estabilización responsive 15.1.
+- `index.html`, `app.js`, `styles.css`, SQL y plantillas actualizados sobre esa base.
+
+### Frontend / sintaxis
+
+- JSX/JavaScript validado con TypeScript parser sobre copia `.jsx`: 0 errores de sintaxis.
+- Paréntesis, llaves y corchetes: balance 0/0/0.
+- Cache-busting actualizado a `15.4.0`.
+- SheetJS agregado explícitamente al loader.
+- Parser CSV incluido antes de `app.js`.
+- Sin nuevos `alert()`, `prompt()` o `confirm()` nativos.
+
+### Importación
+
+- XLSX/XLS conserva el flujo v15.1.
+- CSV usa el mismo modelo intermedio y las mismas validaciones del Excel.
+- CSV soporta BOM, CRLF/LF, comillas, comillas escapadas, campos multilínea y separadores coma/punto y coma/tab.
+- Productos válidos en plantilla: ADM, SOC, APP, AUT, FIN.
+- Story Points: 1–5.
+- Máximo: 250 tickets por lote.
+- Importación atómica mediante RPC existente.
+
+### Helpdesk Tipos de solicitud
+
+- Tabla relacional por workspace con RLS.
+- 7 tipos iniciales.
+- CRUD disponible desde Configuración → Helpdesk → Tipos de solicitud.
+- Usuarios con `manage_helpdesk` también pueden acceder al apartado de configuración de Helpdesk sin recibir permisos de edición global del workspace.
+- Alta de solicitud exige tipo activo.
+- Filtro por tipo agregado a Mesa de atención.
+- Estadística por tipo agregada a Mesa y Portal.
+- Tipo visible en cards, tabla y detalle.
+- Un tipo utilizado no se elimina desde UI; se desactiva para preservar histórico.
+
+### Backend validado previamente durante v15.3
+
+- Usuario Consulta: lectura de catálogo PASS; escritura bloqueada PASS.
+- Superadmin: crear/editar/desactivar/eliminar tipo no usado PASS.
+- Workspace temporal: 5 productos + 7 tipos PASS.
+- Ticket general sin tipo: fallback Soporte PASS.
+- Requerimiento sin tipo: fallback Requerimiento PASS.
+- Backfill de solicitud existente PASS.
+- Pruebas transaccionales con rollback; 0 residuos QA.
+- Supabase Health Advisor: 0 incidencias.
+- Security Advisor: solo `Leaked Password Protection Disabled`, aviso global preexistente de Auth.
+
+### Responsive / regresión
+
+Se preservan los estilos y componentes v15.1. Los componentes nuevos reutilizan `page`, `workspace-panel`, `settings-content`, `entity-list`, `form-grid`, `AsyncForm`, `Modal` y footers existentes. Se añadieron reglas móviles específicas para descargas, resumen por tipo, tabs de Helpdesk y filas CRUD.
+
+La navegación gráfica automatizada del runtime actual está bloqueada por la política del navegador del entorno, por lo que la comprobación de esta integración se realizó mediante parser JSX, revisión estática, backend real y preservación de los componentes responsive ya validados en v15.1.
+
+### Cierre QA v15.4
+
+- Parser CSV automatizado: **11/11 PASS**.
+- Plantilla XLSX: códigos `ADM`, `SOC`, `APP`, `AUT`, `FIN` verificados.
+- JSX/JS parse: **PASS**, 0 errores de sintaxis.
+- Archivos obligatorios de despliegue: **PASS**.
+- Referencias de `index.html`: SheetJS + CSV helper + cache `15.4.0`: **PASS**.
+- Backend post-ajuste: 5 productos, 7 tipos, 0 solicitudes sin `request_type_id`.
+- Histórico con tipo desactivado: edición conservada **PASS** con rollback.
+- Health Advisor final: **0 incidencias**.
+- Security Advisor final: solo `Leaked Password Protection Disabled`.
