@@ -345,3 +345,57 @@ Base: v15.4.1 hotfix estable (runtime v15.1) + integración incremental.
 - Story Points: 3
 
 El ticket contiene la matriz de validación funcional y responsive para ejecución manual/regresión en el entorno desplegado.
+
+# QA v15.6 · XLSM + encabezados robustos CSV/Google Sheets
+
+Fecha: 2026-11-09
+Base: v15.5 final estable.
+
+## Cambios validados
+
+- Se agrega lectura de `.xlsm` usando el mismo flujo de SheetJS que XLSX/XLS; no se ejecutan macros, únicamente se leen celdas.
+- Se agrega `.xlsm` al selector de archivos y una plantilla XLSM descargable.
+- XLSX/XLS/XLSM y CSV usan el mismo normalizador de encabezados.
+- Ya no se asume que el encabezado está en la primera fila: se buscan `Titulo*` y `Producto*` dentro de las primeras 30 filas.
+- Se toleran `Título*`, `Titulo *`, `Producto *`, encabezados sin asterisco, BOM UTF-8, NBSP y caracteres zero-width.
+- Se preservan campos CSV multilínea entre comillas.
+- La tabla y el RPC de destino no cambian; no se requiere migración SQL.
+
+## QA automatizado
+
+- Parser CSV/Google Sheets: **16/16 PASS**.
+- Caso exacto Google Sheets con título + instrucciones + fila vacía antes de encabezados: **PASS**, header detectado en fila 4.
+- Matriz equivalente XLSM: **PASS**, encabezado fila 4 y número de fila real conservado.
+- Plantilla `plantilla-importacion-backlog-trobbu.xlsm`: content-type macro-enabled válido y estructura legible: **PASS**.
+- Plantilla XLSM inspeccionada: mismas 10 columnas y mismos valores de la plantilla XLSX; no se alteró la tabla: **PASS**.
+- TypeScript/JSX parse de `app.js` + helper CSV: **PASS**, 0 errores.
+- Backend `import_backlog_tickets`: inserción temporal **PASS** y rollback confirmado con 0 residuos.
+- Backend post-QA: 5 productos, 7 tipos de solicitud y 0 solicitudes Helpdesk sin `request_type_id`.
+- Supabase Health Advisor: **0 findings**.
+
+## Casos del parser cubiertos
+
+1. CSV oficial.
+2. BOM UTF-8.
+3. Exportación desde Google Sheets preservando 3 filas previas.
+4. `Título*` con acento.
+5. Asterisco separado por espacio.
+6. Encabezados sin asterisco.
+7. NBSP y zero-width.
+8. Separador punto y coma.
+9. Separador tabulador.
+10. Comas dentro de campos entre comillas.
+11. Campos multilínea.
+12. Comillas escapadas.
+13. Filas vacías.
+14. Encabezados inválidos.
+15. Encabezado ubicado después de más de 10 filas.
+16. Alias de fechas (`Fecha de inicio` / `Fecha de entrega`).
+
+### Actividad QA v15.6 creada
+
+- Ticket: **ADM-2**
+- Título: **QA v15.6 · XLSM + CSV Google Sheets**
+- Producto: Web Administrativa
+- Estado: Backlog
+- Story Points: 3

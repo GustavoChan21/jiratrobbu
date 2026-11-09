@@ -230,3 +230,8 @@ Esta versión parte del hotfix estable v15.4.1 e integra de forma incremental:
 - La columna interna `category` se conserva para la lógica especial de propuestas/requerimientos; `request_type_id` se usa para clasificación configurable y reporting.
 
 Para actualizar desde v15.4.1 no se requiere una nueva migración de base de datos: el esquema de Tipos de solicitud ya está incluido en `upgrade-v15.4.sql` y aplicado en el proyecto actual.
+
+
+## v15.6 · XLSM + CSV robusto
+
+El importador de Backlog acepta XLSX, XLS, XLSM y CSV. Para CSV/Google Sheets detecta automáticamente la fila de encabezados dentro de las primeras 30 filas y normaliza variantes seguras de `Titulo*` y `Producto*`. Los XLSM se leen como hojas de cálculo; las macros no se ejecutan. No se modificó el esquema de base de datos para esta versión.

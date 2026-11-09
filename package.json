@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "15.5.0",
-  "description": "Jira Interno TROBBU v15.4.1 hotfix - runtime frontend estable v15.1 + backend/migraciones v15.4",
+  "version": "15.6.0",
+  "description": "Jira Interno TROBBU v15.6 - importación XLSX/XLS/XLSM/CSV + Helpdesk escalable",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },

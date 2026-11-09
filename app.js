@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v15.5 · CSV + Helpdesk Request Types */
+/* Jira Interno TROBBU v15.6 · CSV/XLSM + Helpdesk Request Types */
 const { useEffect, useMemo, useState } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -804,7 +804,7 @@ function BacklogView({workspace,tickets,products,sprints,members,modules=[],tags
   const active=ordered.filter(s=>s.status!=='completed')
   const completed=ordered.filter(s=>s.status==='completed').slice(-4).reverse()
   const today=dateKey(new Date())
-  return <div className="page"><PageHeader eyebrow="Planificación" title="Backlog y Sprints" subtitle="Prioriza el trabajo pendiente, organiza ciclos y arrastra lo no resuelto al siguiente sprint." icon="lucide:list-todo" action={canPlan?<div className="page-header-actions"><button className="secondary-button" onClick={onImport}><Icon name="lucide:file-spreadsheet"/> Importar Excel / CSV</button><button className="primary" onClick={onCreateSprint}><Icon name="lucide:plus"/> Nuevo sprint</button></div>:<span className="readonly-chip"><Icon name="lucide:eye"/> Consulta</span>}/>
+  return <div className="page"><PageHeader eyebrow="Planificación" title="Backlog y Sprints" subtitle="Prioriza el trabajo pendiente, organiza ciclos y arrastra lo no resuelto al siguiente sprint." icon="lucide:list-todo" action={canPlan?<div className="page-header-actions"><button className="secondary-button" onClick={onImport}><Icon name="lucide:file-spreadsheet"/> Importar Excel / CSV / XLSM</button><button className="primary" onClick={onCreateSprint}><Icon name="lucide:plus"/> Nuevo sprint</button></div>:<span className="readonly-chip"><Icon name="lucide:eye"/> Consulta</span>}/>
     <div className="backlog-filterbar"><div><Icon name="lucide:filter"/><b>Agrupar / filtrar trabajo</b></div><label>Módulo<select value={moduleFilter} onChange={e=>setModuleFilter(e.target.value)}><option value="all">Todos los módulos</option><option value="">Sin módulo</option>{modules.map(m=><option value={m.id} key={m.id}>{m.module_key} · {m.name}</option>)}</select></label><label>Tag<select value={tagFilter} onChange={e=>setTagFilter(e.target.value)}><option value="all">Todas las tags</option>{tags.map(t=><option value={t.id} key={t.id}>{t.name}</option>)}</select></label>{(moduleFilter!=='all'||tagFilter!=='all')&&<button type="button" className="text-button" onClick={()=>{setModuleFilter('all');setTagFilter('all')}}>Limpiar</button>}</div>
     <div className="backlog-summary"><Metric label="Backlog" value={backlog.length} icon="lucide:inbox" tone="navy"/><Metric label="Sprints activos" value={active.filter(s=>s.status==='active').length} icon="lucide:zap" tone="orange"/><Metric label="Planeados" value={active.filter(s=>s.status==='planned').length} icon="lucide:calendar-clock" tone="blue"/><Metric label="Sin resolver en sprint" value={visibleTickets.filter(t=>t.sprint_id&&!['qa_passed','closed'].includes(t.status)).length} icon="lucide:circle-dashed" tone="red"/></div>
     <section className="backlog-board"><div className="backlog-column backlog-pool"><div className="backlog-head"><div><span className="eyebrow">COLA DE TRABAJO</span><h3>Backlog</h3><p>Tickets aún no comprometidos en un sprint.</p></div><b>{backlog.length}</b></div><div className="backlog-ticket-list">{backlog.length===0&&<div className="compact-empty"><Icon name="lucide:inbox"/><span>Backlog vacío para este filtro</span></div>}{backlog.map(t=>{const p=products.find(x=>x.id===t.product_id),m=modules.find(x=>x.id===t.module_id);return <article className="backlog-ticket" key={t.id}><button type="button" className="backlog-ticket-main" onClick={()=>onTicket(t)}><small>{t.ticket_key} · {p?.name||'Producto'}{m?` · ${m.module_key}`:''}</small><b>{t.title}</b><span><StatusBadge status={t.status}/><em className={`priority-badge priority-${t.priority}`}>{PRIORITY_LABELS[t.priority]}</em></span></button>{canPlan&&<button type="button" className="secondary-button compact" onClick={()=>onPlan(t)}><Icon name="lucide:calendar-plus"/> Planificar</button>}</article>})}</div></div>
@@ -870,13 +870,18 @@ function BacklogImportModal({workspace,products,members,session,onClose,onImport
         const result=await window.TrobbuCsvImport.readFile(file)
         if(!result.headerCheck.valid)throw new Error(result.headerCheck.errors.join(' '))
         source=result.records||[];rowOffset=2;setSourceType('CSV')
-      }else if(lower.endsWith('.xlsx')||lower.endsWith('.xls')){
+      }else if(lower.endsWith('.xlsx')||lower.endsWith('.xls')||lower.endsWith('.xlsm')){
         if(!window.XLSX)throw new Error('No se pudo cargar el lector de Excel. Recarga la página e intenta nuevamente.')
         const buffer=await file.arrayBuffer(),book=window.XLSX.read(buffer,{type:'array',cellDates:false})
         const sheet=book.Sheets['Tickets Backlog']||book.Sheets[book.SheetNames[0]]
         if(!sheet)throw new Error('El archivo no contiene una hoja válida.')
-        source=window.XLSX.utils.sheet_to_json(sheet,{range:3,defval:'',raw:false});rowOffset=5;setSourceType('Excel')
-      }else throw new Error('Formato no compatible. Usa XLSX, XLS o CSV exportado desde Google Sheets.')
+        const matrix=window.XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false,blankrows:false})
+        if(!window.TrobbuCsvImport)throw new Error('No se pudo cargar el normalizador de encabezados. Recarga la página e intenta nuevamente.')
+        const converted=window.TrobbuCsvImport.rowsToObjects(matrix)
+        const headerCheck=window.TrobbuCsvImport.validateHeaders(converted.headers)
+        if(!headerCheck.valid)throw new Error(headerCheck.errors.join(' '))
+        source=converted.records||[];rowOffset=(converted.headerRowIndex>=0?converted.headerRowIndex+2:2);setSourceType(lower.endsWith('.xlsm')?'XLSM':'Excel')
+      }else throw new Error('Formato no compatible. Usa XLSX, XLS, XLSM o CSV exportado desde Google Sheets.')
       const {parsed,errs}=normalizeRecords(source,rowOffset)
       setRows(parsed);setIssues(errs)
     }catch(err){setError(err.message||String(err))}finally{setParsing(false)}
@@ -892,10 +897,10 @@ function BacklogImportModal({workspace,products,members,session,onClose,onImport
       await onImported(data||{imported:rows.length})
     }catch(err){setError(err.message||String(err))}finally{setSaving(false)}
   }
-  return <Modal title="Importar tickets al Backlog" subtitle="Carga actividades desde Excel o CSV exportado desde Google Sheets. Todo el archivo se valida antes de crear tickets." onClose={onClose} size="xl">
+  return <Modal title="Importar tickets al Backlog" subtitle="Carga actividades desde Excel, XLSM o CSV exportado desde Google Sheets. Todo el archivo se valida antes de crear tickets." onClose={onClose} size="xl">
     <div className="form-body backlog-import-body">
-      <div className="import-intro"><span><Icon name="lucide:file-spreadsheet" size={26}/></span><div><b>Plantilla controlada para Backlog</b><p>Título y producto son obligatorios. Sprint siempre queda vacío; estado siempre será Backlog.</p></div><div className="import-template-actions"><a className="secondary-button compact" href="./plantilla-importacion-backlog-trobbu.xlsx" download><Icon name="lucide:download"/> Excel</a><a className="secondary-button compact" href="./plantilla-importacion-backlog-trobbu.csv" download><Icon name="lucide:download"/> CSV</a></div></div>
-      <label className="file-drop import-file-drop"><input type="file" accept=".xlsx,.xls,.csv,text/csv" onChange={e=>parseFile(e.target.files?.[0])}/><Icon name="lucide:upload-cloud" size={28}/><b>{fileName||'Seleccionar Excel o CSV'}</b><span>{parsing?'Validando archivo…':`${sourceType?sourceType+' · ':''}XLSX, XLS o CSV · máximo 250 tickets`}</span></label>
+      <div className="import-intro"><span><Icon name="lucide:file-spreadsheet" size={26}/></span><div><b>Plantilla controlada para Backlog</b><p>Título y producto son obligatorios. Sprint siempre queda vacío; estado siempre será Backlog.</p></div><div className="import-template-actions"><a className="secondary-button compact" href="./plantilla-importacion-backlog-trobbu.xlsx" download><Icon name="lucide:download"/> Excel</a><a className="secondary-button compact" href="./plantilla-importacion-backlog-trobbu.xlsm" download><Icon name="lucide:download"/> XLSM</a><a className="secondary-button compact" href="./plantilla-importacion-backlog-trobbu.csv" download><Icon name="lucide:download"/> CSV</a></div></div>
+      <label className="file-drop import-file-drop"><input type="file" accept=".xlsx,.xls,.xlsm,.csv,text/csv,application/vnd.ms-excel.sheet.macroEnabled.12" onChange={e=>parseFile(e.target.files?.[0])}/><Icon name="lucide:upload-cloud" size={28}/><b>{fileName||'Seleccionar Excel, CSV o XLSM'}</b><span>{parsing?'Validando archivo…':`${sourceType?sourceType+' · ':''}XLSX, XLS, XLSM o CSV · máximo 250 tickets`}</span></label>
       {(rows.length>0||issues.length>0)&&<div className="import-kpis"><span><b>{rows.length}</b> filas detectadas</span><span className={issues.length?'danger-text':'success-text'}><b>{issues.length}</b> errores</span><span><b>{valid?rows.length:0}</b> listos para importar</span></div>}
       {issues.length>0&&<div className="import-errors"><h4><Icon name="lucide:triangle-alert"/> Corrige antes de importar</h4>{issues.slice(0,20).map((x,i)=><p key={`${x.row}-${i}`}><b>Fila {x.row}</b>{x.message}</p>)}{issues.length>20&&<small>+{issues.length-20} errores adicionales</small>}</div>}
       {rows.length>0&&<div className="import-preview"><div className="panel-heading"><div><h4>Vista previa</h4><p>Se muestran hasta 20 tickets.</p></div></div><div className="table-wrap"><table><thead><tr><th>Fila</th><th>Producto</th><th>Título</th><th>Tipo</th><th>Prioridad</th><th>SP</th><th>Inicio</th><th>Límite</th></tr></thead><tbody>{rows.slice(0,20).map(r=><tr key={r.row}><td>{r.row}</td><td><b>{r.product_key}</b></td><td>{r.title}</td><td>{TYPE_LABELS[r.type]}</td><td>{PRIORITY_LABELS[r.priority]}</td><td>{r.story_points??'—'}</td><td>{r.start_date||'—'}</td><td>{r.due_date||'—'}</td></tr>)}</tbody></table></div></div>}
