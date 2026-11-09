@@ -1,5 +1,16 @@
 # Jira Interno TROBBU v13.0
 
+
+
+## v15.7 · Responsive y credenciales
+
+- Tablero y Mis tareas protegen las columnas contra títulos largos.
+- Títulos: 2 líneas + elipsis en desktop/tablet; cards de hasta 3 líneas en móvil.
+- Proyecto y responsable usan truncado seguro; el detalle conserva el título completo.
+- En <=820 px los tickets se muestran como cards para evitar solapamientos.
+- Al crear un usuario, “Copiar credenciales + enlace” incluye `https://jiratrobbu.vercel.app/`, correo y contraseña.
+- No requiere cambios de base de datos.
+
 Aplicación tipo Jira para gestión de desarrollo, QA, Backlog, Sprints, Helpdesk y planificación Timeline/Gantt. Está diseñada para funcionar desde GitHub Pages con todos los archivos en la carpeta raíz y persistencia en Supabase.
 
 ## Novedades v13.0

@@ -399,3 +399,24 @@ Base: v15.5 final estable.
 - Producto: Web Administrativa
 - Estado: Backlog
 - Story Points: 3
+
+
+## QA v15.7 · Responsive de tablas + credenciales
+
+Validación realizada únicamente sobre código/artefactos. **No se creó ningún ticket de QA ni soporte en Supabase.**
+
+- `app.js` compilado con TypeScript 5.8.3 (`allowJs`, JSX React, ES2020): **0 errores**.
+- Importador XLSX/XLS/XLSM/CSV: suite heredada v15.6 **16/16 PASS**.
+- `csv-import-v15.2.js`, `speed-insights.js` y `config.js`: `node --check` **PASS**.
+- No existen llamadas nativas `alert()`, `confirm()` o `prompt()` en `app.js`.
+- `TicketTable` aplica `minmax(0, …)` / mínimos controlados y `min-width:0` para impedir que contenido largo fuerce columnas vecinas.
+- Título: máximo 2 líneas + elipsis en desktop/tablet; 3 líneas en card móvil; `title` y `aria-label` conservan el texto completo y el detalle del ticket sigue siendo accesible al hacer clic.
+- Proyecto y responsable: truncado seguro con elipsis, sin invadir columnas.
+- <=1180 px: se oculta Fecha límite.
+- <=920 px: se oculta Responsable.
+- <=820 px: la tabla pasa a cards y recupera Proyecto, Responsable, Fecha límite y Estado con etiquetas contextuales.
+- Acciones y badges quedan fuera de los contenedores truncables para no cortarse.
+- Modal de usuario: muestra `https://jiratrobbu.vercel.app/`.
+- Copiar credenciales incluye: nombre de plataforma, URL, correo y contraseña inicial/temporal.
+- Se conserva el footer responsive del modal; en móvil las acciones permanecen apiladas a ancho completo.
+- Regresión de alcance: no se modificó `database.sql`, migraciones SQL, Edge Functions, plantillas ni esquema de Supabase.
