@@ -209,3 +209,13 @@ Sanity estático:
 - Security Advisor: únicamente `Leaked Password Protection Disabled` (configuración global de Auth ya existente).
 - `invite-member`: **v15 ACTIVE**, `verify_jwt=true`.
 - Residuos de QA: **0 workspaces** y **0 solicitudes** persistidas.
+
+
+## v14.3 · Manual Excel + Vercel Speed Insights
+
+- Plantilla Excel incluye hoja `Manual`.
+- Manual raíz: `MANUAL_IMPORTACION_EXCEL.md`.
+- `package.json` declara `@vercel/speed-insights ^2.1.0`.
+- Loader raíz `speed-insights.js`.
+- `index.html` carga Speed Insights una sola vez y omite local/GitHub Pages.
+- Todos los archivos de implementación continúan en la raíz.

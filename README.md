@@ -155,3 +155,31 @@ La publishable key de Supabase incluida en `config.js` es una clave pública de 
 3. Desplegar `invite-member.ts` (la versión activa correspondiente es v15).
 
 `database.sql` incluye al final los ajustes v14.1 para instalaciones nuevas.
+
+
+## Manual de importación Excel
+
+La raíz del proyecto incluye:
+
+- `plantilla-importacion-backlog-trobbu.xlsx`
+- `MANUAL_IMPORTACION_EXCEL.md`
+
+La plantilla contiene además una hoja `Manual` con instrucciones integradas. La importación se realiza desde **Backlog / Sprints → Importar Excel** y siempre crea tickets en Backlog, sin Sprint.
+
+## Vercel Speed Insights
+
+El proyecto declara en raíz:
+
+```bash
+npm i @vercel/speed-insights
+```
+
+Dependencia configurada:
+
+```json
+"@vercel/speed-insights": "^2.1.0"
+```
+
+Como Jira Interno es actualmente un frontend estático sin bundler, `speed-insights.js` carga el endpoint oficial de Speed Insights de Vercel: `/_vercel/speed-insights/script.js`. El loader se omite automáticamente en `localhost` y GitHub Pages para evitar solicitudes 404. En Vercel se carga una sola vez.
+
+Para recibir métricas, **Speed Insights debe estar habilitado para el proyecto `jiratrobbu` en Vercel**. Después de un deploy de producción, las métricas empiezan a poblarse conforme existan visitas reales.

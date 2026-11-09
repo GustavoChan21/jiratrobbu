@@ -1,9 +1,12 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "14.1.0",
-  "description": "Jira Interno TROBBU v14.1 - Staff/Roles por workspace y producto, Gantt y QA responsive",
+  "version": "14.3.0",
+  "description": "Jira Interno TROBBU v14.3 - Backlog Excel, Helpdesk, Gantt y Vercel Speed Insights",
   "scripts": {
     "serve": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^2.1.0"
   }
 }

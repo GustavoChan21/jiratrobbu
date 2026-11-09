@@ -142,6 +142,20 @@ const roleCanPlan = role => !!ROLE_DEFAULTS[role]?.manage_sprints
 const roleCanAdmin = role => ['superadmin','admin'].includes(role)
 const ticketProgress = status => ({backlog:0,todo:10,in_progress:45,dev_done:65,qa_review:78,qa_rejected:58,qa_passed:92,closed:100}[status]??0)
 const daysBetween=(a,b)=>Math.round((new Date(`${b}T12:00:00`)-new Date(`${a}T12:00:00`))/86400000)
+const importNorm = value => String(value??'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+const IMPORT_TYPE_MAP = {tarea:'task',task:'task',bug:'bug',historia:'story',story:'story',mejora:'improvement',improvement:'improvement'}
+const IMPORT_PRIORITY_MAP = {'muy baja':'lowest',lowest:'lowest',baja:'low',low:'low',media:'medium',medium:'medium',alta:'high',high:'high','muy alta':'highest',highest:'highest',bloqueante:'blocker',blocker:'blocker',critica:'blocker',critical:'blocker'}
+const importDateValue = value => {
+  const raw=String(value??'').trim(); if(!raw)return ''
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return raw
+  const slash=raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);if(slash)return `${slash[3]}-${String(slash[2]).padStart(2,'0')}-${String(slash[1]).padStart(2,'0')}`
+  const n=Number(raw);if(Number.isFinite(n)&&n>20000&&n<70000){const d=new Date(Date.UTC(1899,11,30)+n*86400000);return d.toISOString().slice(0,10)}
+  const d=new Date(raw);return Number.isNaN(d.getTime())?null:dateKey(d)
+}
+const importCell = (row,...names) => {
+  const entries=Object.entries(row||{});for(const name of names){const n=importNorm(name).replace(/\*/g,'');const hit=entries.find(([k])=>importNorm(k).replace(/\*/g,'')===n);if(hit)return hit[1]}
+  return ''
+}
 
 
 async function signedEvidenceRows(rows){
@@ -547,7 +561,7 @@ function WorkspaceApp({session}){
         {view==='overview' && canViewDashboard && <Overview workspace={workspace} tickets={tickets} helpdesk={helpdesk} products={products} sprints={sprints}/>} 
         {view==='board' && canViewDashboard && <TicketWorkspace workspace={workspace} title="Tablero" subtitle="Consulta, filtra y gestiona tickets del equipo." tickets={filteredTickets} allTickets={tickets} products={products} members={members} sprints={sprints} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})} canWork={canWork} canPlan={canPlan} canDelete={canDeleteTicket} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={ticket=>setModal({type:'ticket-edit',ticket})} onDelete={ticket=>setModal({type:'ticket-delete',ticket})} onBacklog={ticket=>planTicket(ticket,null)} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onMove={moveTicket}/>} 
         {view==='timeline' && canViewDashboard && <GanttView workspace={workspace} tickets={filteredTickets} products={products} sprints={sprints} members={members} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={ticket=>setModal({type:'ticket-edit',ticket})} onDelete={ticket=>setModal({type:'ticket-delete',ticket})} onBacklog={ticket=>planTicket(ticket,null)} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} canWork={canWork} canPlan={canPlan} canDelete={canDeleteTicket}/>}
-        {view==='backlog' && canViewDashboard && <BacklogView workspace={workspace} tickets={tickets} products={products} sprints={sprints} members={members} canPlan={canPlan} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onPlan={ticket=>setModal({type:'ticket-plan',ticket})} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onCloseSprint={sprint=>setModal({type:'sprint-rollover',sprint})} onCreateSprint={()=>setModal({type:'sprint-create'})}/>} 
+        {view==='backlog' && canViewDashboard && <BacklogView workspace={workspace} tickets={tickets} products={products} sprints={sprints} members={members} canPlan={canPlan} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onPlan={ticket=>setModal({type:'ticket-plan',ticket})} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onCloseSprint={sprint=>setModal({type:'sprint-rollover',sprint})} onCreateSprint={()=>setModal({type:'sprint-create'})} onImport={()=>setModal({type:'backlog-import'})}/>} 
         {view==='mytasks' && <TicketWorkspace workspace={workspace} title="Mis tareas" subtitle="Tickets que reportaste o que tienes asignados." tickets={myTickets} allTickets={myTickets} products={products} members={members} sprints={sprints} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all'})} canWork={canWork} canPlan={canPlan} canDelete={canDeleteTicket} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={ticket=>setModal({type:'ticket-edit',ticket})} onDelete={ticket=>setModal({type:'ticket-delete',ticket})} onBacklog={ticket=>planTicket(ticket,null)} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onMove={moveTicket}/>} 
         {view==='helpdesk' && helpdeskEnabled && (helpdeskStaff
           ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} members={members} canPlan={canPlan} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})} onDecision={item=>setModal({type:'help-requirement-decision',item})}/>
@@ -725,19 +739,98 @@ function GanttView({workspace,tickets,products,sprints,members=[],onOpen,onEdit,
   if(embedded)return <div className="gantt-embedded">{content}</div>
   return <div className="page"><PageHeader eyebrow="Planificación" title="Timeline / Gantt" subtitle="Cronograma estilo Jira con fecha inicial configurable, ventanas semanales/mensuales e histórico de sprints." icon="lucide:gantt-chart"/><section className="workspace-panel gantt-panel">{content}</section></div>
 }
-function BacklogView({workspace,tickets,products,sprints,members,canPlan,onTicket,onPlan,onSprint,onCloseSprint,onCreateSprint}){
+function BacklogView({workspace,tickets,products,sprints,members,canPlan,onTicket,onPlan,onSprint,onCloseSprint,onCreateSprint,onImport}){
   const backlog=tickets.filter(t=>!t.sprint_id&&t.status!=='closed')
   const ordered=[...sprints].sort((a,b)=>String(a.start_date||'9999').localeCompare(String(b.start_date||'9999')))
   const active=ordered.filter(s=>s.status!=='completed')
   const completed=ordered.filter(s=>s.status==='completed').slice(-4).reverse()
   const today=dateKey(new Date())
-  return <div className="page"><PageHeader eyebrow="Planificación" title="Backlog y Sprints" subtitle="Prioriza el trabajo pendiente, organiza ciclos y arrastra lo no resuelto al siguiente sprint." icon="lucide:list-todo" action={canPlan?<button className="primary" onClick={onCreateSprint}><Icon name="lucide:plus"/> Nuevo sprint</button>:<span className="readonly-chip"><Icon name="lucide:eye"/> Consulta</span>}/>
+  return <div className="page"><PageHeader eyebrow="Planificación" title="Backlog y Sprints" subtitle="Prioriza el trabajo pendiente, organiza ciclos y arrastra lo no resuelto al siguiente sprint." icon="lucide:list-todo" action={canPlan?<div className="page-header-actions"><button className="secondary-button" onClick={onImport}><Icon name="lucide:file-spreadsheet"/> Importar Excel</button><button className="primary" onClick={onCreateSprint}><Icon name="lucide:plus"/> Nuevo sprint</button></div>:<span className="readonly-chip"><Icon name="lucide:eye"/> Consulta</span>}/>
     <div className="backlog-summary"><Metric label="Backlog" value={backlog.length} icon="lucide:inbox" tone="navy"/><Metric label="Sprints activos" value={active.filter(s=>s.status==='active').length} icon="lucide:zap" tone="orange"/><Metric label="Planeados" value={active.filter(s=>s.status==='planned').length} icon="lucide:calendar-clock" tone="blue"/><Metric label="Sin resolver en sprint" value={tickets.filter(t=>t.sprint_id&&!['qa_passed','closed'].includes(t.status)).length} icon="lucide:circle-dashed" tone="red"/></div>
     <section className="backlog-board"><div className="backlog-column backlog-pool"><div className="backlog-head"><div><span className="eyebrow">COLA DE TRABAJO</span><h3>Backlog</h3><p>Tickets aún no comprometidos en un sprint.</p></div><b>{backlog.length}</b></div><div className="backlog-ticket-list">{backlog.length===0&&<div className="compact-empty"><Icon name="lucide:inbox"/><span>Backlog vacío</span></div>}{backlog.map(t=>{const p=products.find(x=>x.id===t.product_id);return <article className="backlog-ticket" key={t.id}><button type="button" className="backlog-ticket-main" onClick={()=>onTicket(t)}><small>{t.ticket_key} · {p?.name||'Producto'}</small><b>{t.title}</b><span><StatusBadge status={t.status}/><em className={`priority-badge priority-${t.priority}`}>{PRIORITY_LABELS[t.priority]}</em></span></button>{canPlan&&<button type="button" className="secondary-button compact" onClick={()=>onPlan(t)}><Icon name="lucide:calendar-plus"/> Planificar</button>}</article>})}</div></div>
       <div className="sprint-stack"><div className="backlog-head"><div><span className="eyebrow">CICLOS</span><h3>Sprints</h3><p>Trabajo comprometido y proyección de entregas.</p></div></div>{active.length===0&&<div className="compact-empty"><Icon name="lucide:calendar-off"/><span>No hay sprints planeados o activos.</span></div>}{active.map(s=>{const rows=tickets.filter(t=>t.sprint_id===s.id),done=rows.filter(t=>['qa_passed','closed'].includes(t.status)).length,pct=rows.length?Math.round(done/rows.length*100):0,unresolved=rows.length-done,expired=s.end_date&&s.end_date<today;return <article className={`sprint-card ${s.status} ${expired?'expired':''}`} key={s.id}><div className="sprint-card-head"><div><span className={`sprint-status ${s.status}`}>{s.status==='active'?'Activo':'Planeado'}</span>{expired&&<span className="expired-chip"><Icon name="lucide:alarm-clock"/> Vencido</span>}<h3>{s.name}</h3><p>{s.goal||'Sin objetivo definido.'}</p></div><button type="button" className="icon-button" onClick={()=>onSprint(s)}><Icon name="lucide:expand"/></button></div><div className="sprint-dates"><span><Icon name="lucide:calendar-range"/> {formatDate(s.start_date)} → {formatDate(s.end_date)}</span><span>{rows.length} tickets · {unresolved} no resueltos</span></div><div className="sprint-progress"><div><i style={{width:`${pct}%`}}></i></div><b>{pct}%</b></div><div className="sprint-preview">{rows.slice(0,4).map(t=><button type="button" key={t.id} onClick={()=>onTicket(t)}><span>{t.ticket_key}</span><b>{t.title}</b><StatusBadge status={t.status}/></button>)}{rows.length>4&&<small>+{rows.length-4} actividades</small>}</div><div className="sprint-card-actions"><button type="button" className="secondary-button compact" onClick={()=>onSprint(s)}><Icon name="lucide:file-text"/> Detalle</button>{canPlan&&<button type="button" className={expired?'primary compact':'secondary-button compact'} onClick={()=>onCloseSprint(s)}><Icon name="lucide:arrow-right-circle"/> Cerrar / trasladar</button>}</div></article>})}
       {completed.length>0&&<div className="completed-sprints"><h4>Sprints completados</h4>{completed.map(s=><button type="button" key={s.id} onClick={()=>onSprint(s)}><span><b>{s.name}</b><small>{formatDate(s.start_date)} → {formatDate(s.end_date)}</small></span><Icon name="lucide:chevron-right"/></button>)}</div>}</div>
     </section>
   </div>
+}
+
+function BacklogImportModal({workspace,products,members,session,onClose,onImported}){
+  const [fileName,setFileName]=useState('')
+  const [rows,setRows]=useState([])
+  const [issues,setIssues]=useState([])
+  const [parsing,setParsing]=useState(false)
+  const [saving,setSaving]=useState(false)
+  const [error,setError]=useState('')
+  const productMap=useMemo(()=>{const map={};products.forEach(p=>{map[importNorm(p.key)]=p;map[importNorm(p.name)]=p});return map},[products])
+  const memberCanProduct=(m,productId)=>m.role==='superadmin'||m.all_products||m.product_ids?.includes(productId)
+  const parseFile=async file=>{
+    setError('');setRows([]);setIssues([]);setFileName(file?.name||'')
+    if(!file)return
+    if(!window.XLSX){setError('No se pudo cargar el lector de Excel. Recarga la página e intenta nuevamente.');return}
+    setParsing(true)
+    try{
+      const buffer=await file.arrayBuffer(),book=window.XLSX.read(buffer,{type:'array',cellDates:false})
+      const sheet=book.Sheets['Tickets Backlog']||book.Sheets[book.SheetNames[0]]
+      if(!sheet)throw new Error('El archivo no contiene una hoja válida.')
+      const source=window.XLSX.utils.sheet_to_json(sheet,{range:3,defval:'',raw:false})
+      const parsed=[],errs=[]
+      const candidates=source.map((r,i)=>({r,excelRow:i+5,title:String(importCell(r,'Titulo','Titulo*','Título','Título*')||'').trim(),productValue:String(importCell(r,'Producto','Producto*')||'').trim()})).filter(x=>(x.title||x.productValue)&&!importNorm(x.title).startsWith('ejemplo -'))
+      if(candidates.length>250)errs.push({row:'—',message:'El archivo supera el máximo de 250 tickets por importación.'})
+      candidates.slice(0,250).forEach(({r,excelRow,title,productValue})=>{
+        const localIssues=[]
+        if(!title)localIssues.push('Falta Titulo.')
+        if(title.length>220)localIssues.push('Titulo supera 220 caracteres.')
+        const product=productMap[importNorm(productValue)]
+        if(!product)localIssues.push(`Producto “${productValue||'—'}” no existe o no está autorizado.`)
+        const typeText=importNorm(importCell(r,'Tipo')||'tarea'),type=IMPORT_TYPE_MAP[typeText]
+        if(!type)localIssues.push(`Tipo “${importCell(r,'Tipo')}” inválido.`)
+        const priorityText=importNorm(importCell(r,'Prioridad')||'media'),priority=IMPORT_PRIORITY_MAP[priorityText]
+        if(!priority)localIssues.push(`Prioridad “${importCell(r,'Prioridad')}” inválida.`)
+        const spRaw=String(importCell(r,'Story Points','Story points')||'').trim();const storyPoints=spRaw===''?null:Number(spRaw)
+        if(storyPoints!==null&&(!Number.isInteger(storyPoints)||storyPoints<0||storyPoints>100))localIssues.push('Story Points debe ser un entero entre 0 y 100.')
+        const startRaw=importCell(r,'Fecha inicio'),dueRaw=importCell(r,'Fecha limite','Fecha límite')
+        const startDate=importDateValue(startRaw),dueDate=importDateValue(dueRaw)
+        if(String(startRaw).trim()&&startDate===null)localIssues.push(`Fecha inicio “${startRaw}” inválida.`)
+        if(String(dueRaw).trim()&&dueDate===null)localIssues.push(`Fecha limite “${dueRaw}” inválida.`)
+        if(startDate&&dueDate&&dueDate<startDate)localIssues.push('Fecha límite no puede ser anterior a Fecha inicio.')
+        localIssues.forEach(message=>errs.push({row:excelRow,message}))
+        let devOwner=null,qaOwner=null
+        if(product&&localIssues.length===0){
+          const resolverIssues=[]
+          // resolver localmente sin mutar state; mismas reglas que el formulario de ticket.
+          const resolve=(value,permission,label)=>{const raw=String(value??'').trim();if(!raw)return null;const norm=importNorm(raw);const matches=members.filter(m=>m.active&&effectivePermissions(m,m.role_template)[permission]&&memberCanProduct(m,product.id)&&(m.user_id===raw||importNorm(m.profile?.full_name)===norm));if(matches.length===0){resolverIssues.push(`${label}: “${raw}” no coincide con Staff autorizado.`);return null}if(matches.length>1){resolverIssues.push(`${label}: “${raw}” es ambiguo; usa UUID.`);return null}return matches[0].user_id}
+          devOwner=resolve(importCell(r,'Responsable Dev'),'edit_tickets','Responsable Dev')
+          qaOwner=resolve(importCell(r,'Responsable QA'),'qa_review','Responsable QA')
+          resolverIssues.forEach(message=>errs.push({row:excelRow,message}))
+        }
+        parsed.push({row:excelRow,title,product_id:product?.id||'',product_key:product?.key||productValue,description:String(importCell(r,'Descripcion','Descripción')||'').trim(),type:type||'task',priority:priority||'medium',story_points:storyPoints,dev_owner_id:devOwner,qa_owner_id:qaOwner,start_date:startDate||'',due_date:dueDate||''})
+      })
+      if(parsed.length===0&&!errs.length)errs.push({row:'—',message:'No se encontraron tickets. Usa la hoja “Tickets Backlog” y completa filas debajo del ejemplo.'})
+      setRows(parsed);setIssues(errs)
+    }catch(err){setError(err.message||String(err))}finally{setParsing(false)}
+  }
+  const valid=rows.length>0&&issues.length===0
+  const save=async()=>{
+    if(!valid)throw new Error('Corrige los errores del archivo antes de importar.')
+    setSaving(true);setError('')
+    try{
+      const payload=rows.map(({row,product_key,...x})=>x)
+      const {data,error}=await db.rpc('import_backlog_tickets',{p_workspace:workspace.id,p_rows:payload})
+      if(error)throw error
+      await onImported(data||{imported:rows.length})
+    }catch(err){setError(err.message||String(err))}finally{setSaving(false)}
+  }
+  return <Modal title="Importar tickets al Backlog" subtitle="Carga actividades desde Excel. El archivo completo se valida antes de crear tickets." onClose={onClose} size="xl">
+    <div className="form-body backlog-import-body">
+      <div className="import-intro"><span><Icon name="lucide:file-spreadsheet" size={26}/></span><div><b>Plantilla controlada para Backlog</b><p>Título y producto son obligatorios. Sprint siempre queda vacío; estado siempre será Backlog.</p></div><a className="secondary-button compact" href="./plantilla-importacion-backlog-trobbu.xlsx" download><Icon name="lucide:download"/> Descargar plantilla</a></div>
+      <label className="file-drop import-file-drop"><input type="file" accept=".xlsx,.xls" onChange={e=>parseFile(e.target.files?.[0])}/><Icon name="lucide:upload-cloud" size={28}/><b>{fileName||'Seleccionar archivo Excel'}</b><span>{parsing?'Validando archivo…':'XLSX o XLS · máximo 250 tickets'}</span></label>
+      {(rows.length>0||issues.length>0)&&<div className="import-kpis"><span><b>{rows.length}</b> filas detectadas</span><span className={issues.length?'danger-text':'success-text'}><b>{issues.length}</b> errores</span><span><b>{valid?rows.length:0}</b> listos para importar</span></div>}
+      {issues.length>0&&<div className="import-errors"><h4><Icon name="lucide:triangle-alert"/> Corrige antes de importar</h4>{issues.slice(0,20).map((x,i)=><p key={`${x.row}-${i}`}><b>Fila {x.row}</b>{x.message}</p>)}{issues.length>20&&<small>+{issues.length-20} errores adicionales</small>}</div>}
+      {rows.length>0&&<div className="import-preview"><div className="panel-heading"><div><h4>Vista previa</h4><p>Se muestran hasta 20 tickets.</p></div></div><div className="table-wrap"><table><thead><tr><th>Fila</th><th>Producto</th><th>Título</th><th>Tipo</th><th>Prioridad</th><th>SP</th><th>Inicio</th><th>Límite</th></tr></thead><tbody>{rows.slice(0,20).map(r=><tr key={r.row}><td>{r.row}</td><td><b>{r.product_key}</b></td><td>{r.title}</td><td>{TYPE_LABELS[r.type]}</td><td>{PRIORITY_LABELS[r.priority]}</td><td>{r.story_points??'—'}</td><td>{r.start_date||'—'}</td><td>{r.due_date||'—'}</td></tr>)}</tbody></table></div></div>}
+      {error&&<div className="error"><Icon name="lucide:triangle-alert"/>{error}</div>}
+    </div>
+    <div className="form-footer static-footer"><div className="form-footer-left"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div><div className="modal-actions"><button type="button" className="primary" disabled={!valid||saving||parsing} onClick={save}>{saving?'Importando…':`Importar ${valid?rows.length:0} tickets`}</button></div></div>
+  </Modal>
 }
 
 function ReporterTicketsView({tickets,products,onCreate,onOpen}){
@@ -865,6 +958,7 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='ticket-filters') return <TicketFilterModal filters={props.filters} members={props.members} sprints={props.sprints} onClose={close} onApply={f=>{props.setFilters(f);close()}}/>
   if(modal.type==='ticket-plan') return <PlanTicketModal ticket={modal.ticket} sprints={props.sprints} onClose={close} onSave={async sprintId=>{await props.planTicket(modal.ticket,sprintId);close()}}/>
 
+  if(modal.type==='backlog-import') return <BacklogImportModal workspace={props.workspace} products={props.products} members={props.members} session={props.session} onClose={close} onImported={async result=>{await props.refresh();props.toast('success',`${result.imported} tickets importados al Backlog.`);close()}}/>
   if(modal.type==='sprint-create') return <SprintModal title="Nuevo sprint" onClose={close} onSave={async f=>{const {error}=await db.from('sprints').insert({...f,workspace_id:props.workspace.id,created_by:props.session.user.id,start_date:f.start_date||null,end_date:f.end_date||null});if(error)throw error;await props.refresh();props.toast('success','Sprint creado.');close()}}/>
   if(modal.type==='sprint-edit') return <SprintModal title="Editar sprint" initial={modal.sprint} onClose={close} onSave={async f=>{const {error}=await db.from('sprints').update({...f,start_date:f.start_date||null,end_date:f.end_date||null}).eq('id',modal.sprint.id);if(error)throw error;await props.refresh();props.toast('success','Sprint actualizado.');close()}}/>
   if(modal.type==='sprint-detail') return <SprintDetailModal workspace={props.workspace} sprint={modal.sprint} tickets={props.tickets} products={props.products} members={props.members} session={props.session} canWork={props.canWork} canPlan={props.canPlan} onClose={close} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={()=>setModal({type:'sprint-edit',sprint:modal.sprint})} onRollover={()=>setModal({type:'sprint-rollover',sprint:modal.sprint})} onRefresh={props.refresh} toast={props.toast}/>
@@ -927,7 +1021,7 @@ function TicketModal({title,ticket,products,sprints,members,reporterMode=false,o
     product_id:ticket?.product_id||products[0]?.id||'',sprint_id:ticket?.sprint_id||'',title:ticket?.title||'',description:ticket?.description||'',type:ticket?.type||'task',priority:ticket?.priority||'medium',status:ticket?.status||'backlog',dev_owner_id:ticket?.dev_owner_id||'',qa_owner_id:ticket?.qa_owner_id||'',story_points:ticket?.story_points??'',start_date:ticket?.start_date||'',due_date:ticket?.due_date||''
   })
   const set=(k,v)=>setF(x=>({...x,[k]:v}))
-  const memberHasProduct=m=>m.role==='superadmin'||m.role==='admin'||m.all_products||m.product_ids?.includes(f.product_id)
+  const memberHasProduct=m=>m.role==='superadmin'||m.all_products||m.product_ids?.includes(f.product_id)
   const devs=members.filter(m=>m.active&&effectivePermissions(m,m.role_template).edit_tickets&&memberHasProduct(m))
   const qas=members.filter(m=>m.active&&effectivePermissions(m,m.role_template).qa_review&&memberHasProduct(m))
   return <Modal title={title} subtitle={reporterMode?'Envía una solicitud al Backlog. El equipo definirá sprint, responsables y fechas.':'Define alcance, prioridad, responsables y ciclo de entrega.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave(f)} submitLabel={ticket?'Guardar cambios':reporterMode?'Enviar al Backlog':'Crear ticket'}>
