@@ -1,4 +1,4 @@
-# Jira Interno TROBBU v13.0
+# Jira Interno TROBBU v16.6
 
 
 
@@ -11,7 +11,7 @@
 - Al crear un usuario, “Copiar credenciales + enlace” incluye `https://jiratrobbu.vercel.app/`, correo y contraseña.
 - No requiere cambios de base de datos.
 
-Aplicación tipo Jira para gestión de desarrollo, QA, Backlog, Sprints, Helpdesk y planificación Timeline/Gantt. Está diseñada para funcionar desde GitHub Pages con todos los archivos en la carpeta raíz y persistencia en Supabase.
+Aplicación tipo Jira para gestión de desarrollo, QA, Backlog, Sprints, Helpdesk y planificación Timeline/Gantt. Está diseñada para funcionar en Vercel, GitHub Pages o un servidor HTTP equivalente con todos los archivos en la carpeta raíz y persistencia en Supabase.
 
 ## Novedades v13.0
 
@@ -276,3 +276,8 @@ La aplicación incluye selector ES/EN. La UI estática usa un diccionario local;
 
 ## Notification Center 360 · v16.5
 El centro de actividad cubre Tickets, Helpdesk, Sprints, Knowledge y Staff. Los eventos se guardan con metadata estructurada, se deduplican y se muestran en ES/EN según el idioma del usuario. Los correos se procesan con la Edge Function `process-notifications` y respetan `profiles.locale`. Los CTA pueden abrir directamente Ticket, Helpdesk, Sprint, Knowledge o Staff.
+
+
+## v16.6 · Deep links, ES/EN, Knowledge Preview y Producto Helpdesk
+
+La v16.6 corrige enlaces Knowledge para respetar el dominio actual, completa una auditoría ES/EN, agrega preview lector desde el listado de Knowledge y permite clasificar solicitudes Helpdesk por producto opcional con herencia automática al Backlog. Ver `RELEASE-v16.6.md` y `QA-V16.6.md`.

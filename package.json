@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.5.0",
-  "description": "Jira Interno TROBBU v16.5 - Notification Center 360 + ES/EN + Knowledge versioning",
+  "version": "16.6.0",
+  "description": "Jira Interno TROBBU v16.6 - environment-aware deep links + complete ES/EN pass + Knowledge reader preview + Helpdesk product profiling",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },

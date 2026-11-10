@@ -537,3 +537,8 @@ Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RL
 - `process-notifications`: ACTIVE v10; ES/EN por perfil.
 - Health Advisor: 0 incidencias.
 - Residuos QA: 0.
+
+
+## v16.6 · Deep links + ES/EN + Knowledge + Producto Helpdesk
+
+Ver `QA-V16.6.md`. Compilación JSX/TypeScript PASS, importación 16/16, auditoría estática i18n sin textos visibles pendientes, deep links Vercel/GitHub/local PASS y flujo Helpdesk Producto → Backlog PASS con rollback.

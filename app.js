@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v16.5 · Notification Center 360 + ES/EN + Knowledge versioning */
+/* Jira Interno TROBBU v16.6 · Environment-aware deep links + Helpdesk product profiling + Knowledge preview/i18n */
 const { useEffect, useMemo, useState } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -44,8 +44,489 @@ Object.assign(UI_TRANSLATIONS_EN,{
   'Versión':'Version','Versiones del artículo':'Article versions','Historial':'History','Motivo del cambio':'Change reason','Versión pública':'Public version','Publicar esta versión':'Publish this version','Descartar borrador':'Discard draft','Traducción':'Translation','Traducción guardada':'Cached translation','Idioma':'Language','Idioma del sistema':'System language','La interfaz se traduce localmente sin consumir API.':'The interface is translated locally without API usage.'
 })
 
+Object.assign(UI_TRANSLATIONS_EN,{
+  "Nueva solicitud de Helpdesk":"New Helpdesk request",
+  "Registra la solicitud y, si aplica, adjunta fotos de evidencia. Las imágenes se optimizan antes de almacenarse.":"Register the request and, if applicable, attach evidence photos. Images are optimized before storage.",
+  "Solicitud":"Request",
+  "Selecciona un departamento":"Select a department",
+  "Selecciona un tipo":"Select a type",
+  "Producto específico":"Specific product",
+  "Sin producto específico":"No specific product",
+  "Opcional":"Optional",
+  "Origen":"Source",
+  "Interno":"Internal",
+  "Portal":"Portal",
+  "Teléfono":"Phone",
+  "Solicitante":"Requester",
+  "Se toma de la sesión actual para conservar la trazabilidad de quién realizó la solicitud.":"Taken from the current session to preserve who submitted the request.",
+  "Evidencia fotográfica":"Photo evidence",
+  "Opcional · agrega hasta 5 fotos que ayuden a documentar el reporte desde su creación.":"Optional · attach up to 5 photos to document the report from creation.",
+  "Cambiar imágenes":"Change images",
+  "Seleccionar fotos de evidencia":"Select evidence photos",
+  "Quitar imagen":"Remove image",
+  "antes de compresión. El sistema redimensiona hasta 1920 px y utiliza WebP cuando realmente reduce el peso.":"before compression. The system resizes up to 1920 px and uses WebP when it actually reduces size.",
+  "Optimización automática antes de guardar":"Automatic optimization before saving",
+  "La base de datos almacena solo metadatos; el archivo optimizado se guarda en Storage privado y se consulta mediante URL firmada.":"The database stores metadata only; the optimized file is stored in private Storage and accessed through a signed URL.",
+  "Propuesta de producto · sin SLA operativo.":"Product proposal · no operational SLA.",
+  "PM/Admin/Superadmin decidirá posteriormente si pasa a Backlog o si se rechaza con una nota para el solicitante.":"PM/Admin/Superadmin will later decide whether it moves to Backlog or is rejected with a note to the requester.",
+  "Atención interna":"Internal handling",
+  "Asignado a":"Assigned to",
+  "Fecha objetivo":"Target date",
+  "Se enviará sin asignar para canalización.":"It will be submitted unassigned for routing.",
+  "Canalización administrada por la mesa.":"Routing is managed by the Helpdesk desk.",
+  "PM/Admin/Superadmin define responsable, estado y fecha objetivo después de revisar la solicitud.":"PM/Admin/Superadmin defines assignee, status, and target date after reviewing the request.",
+  "Portal administrativo":"Administrative portal",
+  "Mis solicitudes":"My requests",
+  "Crea solicitudes, consulta únicamente las tuyas y sigue su resolución o decisión.":"Create requests, view only your own, and follow their resolution or decision.",
+  "En seguimiento":"In progress",
+  "Resueltas / cerradas":"Resolved / closed",
+  "Requerimientos pendientes":"Pending requirements",
+  "Aceptados a Backlog":"Accepted to Backlog",
+  "Sugerencias rechazadas":"Rejected suggestions",
+  "Portal privado de solicitudes.":"Private request portal.",
+  "No tienes acceso operativo a tableros ni Gantt. El producto se usa solo para clasificar tu solicitud; aquí ves lo que tú creaste, sus comentarios y su seguimiento.":"You do not have operational access to boards or Gantt. Product is used only to classify your request; here you see what you created, its comments, and activity.",
+  "No tienes solicitudes":"You have no requests",
+  "Cuando necesites acceso, reportar un error o proponer un requerimiento, créalo desde aquí.":"When you need access, want to report an issue, or propose a requirement, create it here.",
+  "Solicitado":"Submitted",
+  "Objetivo":"Target",
+  "Actualizado":"Updated",
+  "Servicio interno":"Internal service",
+  "Atiende solicitudes operativas y decide qué nuevos requerimientos pasan al Backlog.":"Handle operational requests and decide which new requirements move to Backlog.",
+  "Abiertas":"Open",
+  "Requerimientos por decidir":"Requirements to decide",
+  "Vencidas":"Overdue",
+  "SLA cumplido":"SLA met",
+  "Los nuevos requerimientos no usan SLA: PM/Admin/Superadmin decide si se aceptan a Backlog o se rechazan.":"New requirements do not use SLA: PM/Admin/Superadmin decides whether they are accepted into Backlog or rejected.",
+  "No hay solicitudes con estos filtros.":"There are no requests matching these filters.",
+  "Decisión PM":"PM decision",
+  "Acciones":"Actions",
+  "Vista previa lector":"Reader preview",
+  "Vista previa POV lector":"Reader POV preview",
+  "Visualizando":"Previewing",
+  "No se modifica ningún contenido.":"No content is changed.",
+  "Recurso relacionado":"Related resource",
+  "Abre el artículo completo para revisar todos los detalles.":"Open the full article to review all details.",
+  "El artículo se abrirá en una nueva pestaña para conservar lo que ya escribiste en este ticket.":"The article opens in a new tab so what you already wrote in this ticket remains intact.",
+  "Encontré recursos relacionados que vale la pena revisar antes de crear el ticket.":"I found related resources worth reviewing before creating the ticket.",
+  "Por favor, te sugerimos leer esta información relacionada con el ticket que deseas crear para verificar si este artículo puede ayudarte a resolver tus dudas. Si la información no fue de ayuda, podrás regresar y continuar creando tu ticket.":"Please review this information related to the ticket you want to create and check whether the article resolves your question. If it does not help, return and continue creating your ticket.",
+  "Filtros de Helpdesk":"Helpdesk filters",
+  "Aplicar filtros":"Apply filters",
+  "Todos":"All",
+  "Todas":"All",
+  "Producto destino":"Destination product",
+  "sugerido desde Helpdesk":"suggested from Helpdesk",
+  "Aceptar a Backlog":"Accept into Backlog",
+  "Crear un ticket de mejora para desarrollo futuro.":"Create an improvement ticket for future development.",
+  "Descartar por alcance, prioridad o porque no corresponde al proyecto.":"Reject due to scope, priority, or because it does not belong to the project.",
+  "Nota de decisión (opcional)":"Decision note (optional)",
+  "Motivo del rechazo":"Rejection reason",
+  "Contexto para el equipo de producto…":"Context for the product team…",
+  "Explica al solicitante por qué no se incorporará…":"Explain to the requester why it will not be included…",
+  "Rechazar sugerencia":"Reject suggestion",
+  "Datos del usuario":"User details",
+  "Datos y accesos del colaborador":"Member profile & access",
+  "Agregar Staff":"Add Staff",
+  "Colaborador del workspace":"Workspace member",
+  "Responsable Dev":"Dev assignee",
+  "Responsable QA":"QA assignee",
+  "Mostrar contraseña":"Show password",
+  "Ocultar contraseña":"Hide password",
+  "Regenerar y copiar acceso":"Regenerate and copy access",
+  "Mínimo 10 caracteres":"Minimum 10 characters",
+  "Selecciona un rol.":"Select a role.",
+  "Selecciona un rol válido.":"Select a valid role.",
+  "Selecciona al menos un producto.":"Select at least one product.",
+  "Rol base":"Base role",
+  "Rol activo":"Active role",
+  "Permisos del rol":"Role permissions",
+  "Estos permisos serán la base para todos los colaboradores que utilicen este rol.":"These permissions are the baseline for all members using this role.",
+  "Centro de ayuda":"Help center",
+  "Accesos rápidos y guía del Jira Interno TROBBU.":"Quick access and Jira Interno TROBBU guide.",
+  "Abrir Helpdesk":"Open Helpdesk",
+  "Helpdesk deshabilitado":"Helpdesk disabled",
+  "Atajo de búsqueda":"Search shortcut",
+  "Usa ⌘ K o Ctrl K para enfocar el buscador global.":"Use ⌘ K or Ctrl K to focus global search.",
+  "Nuevo sprint":"New sprint",
+  "Define objetivo, alcance y ventana de trabajo del sprint.":"Define the sprint goal, scope, and work window.",
+  "Detalles y criterios":"Details and criteria",
+  "Resultado que debe lograr el ciclo.":"Outcome the cycle must achieve.",
+  "Alcance, dependencias, criterios de salida, notas de planeación…":"Scope, dependencies, exit criteria, planning notes…",
+  "Inicio":"Start",
+  "Fin":"End",
+  "Planeado":"Planned",
+  "Completado":"Completed",
+  "Guardar sprint":"Save sprint",
+  "Nuevo producto":"New product",
+  "Guardar producto":"Save product",
+  "Clave":"Key",
+  "Nuevo campo personalizado":"New custom field",
+  "Guardar campo":"Save field",
+  "Nuevo módulo / grupo":"New module / group",
+  "Guardar módulo":"Save module",
+  "Nueva área de Helpdesk":"New Helpdesk area",
+  "Guardar área":"Save area",
+  "Nuevo tipo de solicitud":"New request type",
+  "Guardar tipo":"Save type",
+  "Nombre del área":"Area name",
+  "Área activa":"Active area",
+  "Tipo activo":"Active type",
+  "Vista previa":"Preview",
+  "Filtros del dashboard":"Dashboard filters",
+  "Segmenta las métricas por producto y sprint.":"Segment metrics by product and sprint.",
+  "Todos los productos":"All products",
+  "Todos los sprints":"All sprints",
+  "Restablecer":"Reset",
+  "Filtros de tickets":"Ticket filters",
+  "No hay tickets con estos criterios.":"There are no tickets matching these criteria.",
+  "Comentario agregado.":"Comment added.",
+  "Comentario actualizado.":"Comment updated.",
+  "Comentario eliminado.":"Comment deleted.",
+  "Evidencia eliminada.":"Evidence deleted.",
+  "Solicitud actualizada.":"Request updated.",
+  "Solicitud eliminada.":"Request deleted.",
+  "Solicitud asignada correctamente.":"Request assigned successfully.",
+  "Requerimiento y evidencias enviados.":"Requirement and evidence submitted.",
+  "Solicitud y evidencias enviadas.":"Request and evidence submitted.",
+  "Nuevo requerimiento enviado para decisión.":"New requirement submitted for decision.",
+  "Solicitud de soporte creada.":"Support request created.",
+  "Requerimiento aceptado a Backlog":"Requirement accepted into Backlog",
+  "Sugerencia rechazada y notificada al solicitante.":"Suggestion rejected and requester notified.",
+  "El título es obligatorio.":"Title is required.",
+  "El correo es obligatorio.":"Email is required.",
+  "Las contraseñas no coinciden.":"Passwords do not match.",
+  "La zona horaria es obligatoria.":"Timezone is required.",
+  "Fecha límite no puede ser anterior a Fecha inicio.":"Due date cannot be earlier than start date.",
+  "La duración del sprint debe estar entre 1 y 90 días.":"Sprint duration must be between 1 and 90 days.",
+  "El SLA de resolución debe estar entre 1 y 2160 horas.":"Resolution SLA must be between 1 and 2160 hours.",
+  "La función no pudo completar la operación.":"The function could not complete the operation."
+})
+
+Object.assign(UI_TRANSLATIONS_EN,{
+  "Usuario":"User",
+  "Artículo":"Article",
+  "Subtítulo":"Subtitle",
+  "Comentario":"Comment",
+  "Asignación":"Assignment",
+  "Sin área":"No area",
+  "Crear rol":"Create role",
+  "Editar rol":"Edit role",
+  "Guardar tag":"Save tag",
+  "Rol creado.":"Role created.",
+  "Área creada.":"Area created.",
+  "Acceso activo":"Active access",
+  "Eliminar área":"Delete area",
+  "Crear relación":"Create relationship",
+  "Editar espacio":"Edit workspace",
+  "Es seguido por":"Is followed by",
+  "Módulo creado.":"Module created.",
+  "Rol eliminado.":"Role deleted.",
+  "SLA resolución":"Resolution SLA",
+  "Sin configurar":"Not configured",
+  "Sprint creado.":"Sprint created.",
+  "Ticket Backlog":"Backlog ticket",
+  "Usuario creado":"User created",
+  "Eliminar bloque":"Delete block",
+  "Eliminar sprint":"Delete sprint",
+  "Eliminar ticket":"Delete ticket",
+  "Sprints activos":"Active sprints",
+  "Tickets Backlog":"Backlog tickets",
+  "Tickets creados":"Created tickets",
+  "Versión inicial":"Initial version",
+  "Área eliminada.":"Area deleted.",
+  "Acceso correcto.":"Access confirmed.",
+  "Generar análisis":"Generate analysis",
+  "Navegación móvil":"Mobile navigation",
+  "Producto creado.":"Product created.",
+  "Relación creada.":"Relationship created.",
+  "Rol actualizado.":"Role updated.",
+  "Backlog y Sprints":"Backlog & Sprints",
+  "Correo de soporte":"Support email",
+  "Editar comentario":"Edit comment",
+  "Eliminar artículo":"Delete article",
+  "Eliminar relación":"Delete relationship",
+  "Guardar evidencia":"Save evidence",
+  "Guardar workspace":"Save workspace",
+  "Módulo eliminado.":"Module deleted.",
+  "Nombre y apellido":"First and last name",
+  "Portal de tickets":"Ticket portal",
+  "Rol personalizado":"Custom role",
+  "Sprint eliminado.":"Sprint deleted.",
+  "Ticket eliminado.":"Ticket deleted.",
+  "Área actualizada.":"Area updated.",
+  "Describe la imagen":"Describe the image",
+  "Eliminar evidencia":"Delete evidence",
+  "Guardar comentario":"Save comment",
+  "Sin notificaciones":"No notifications",
+  "Última edición por":"Last edited by",
+  "CENTRO DE ACTIVIDAD":"ACTIVITY CENTER",
+  "Ej. Soporte técnico":"E.g. Technical support",
+  "Eliminar comentario":"Delete comment",
+  "Módulo actualizado.":"Module updated.",
+  "Producto eliminado.":"Product deleted.",
+  "Relación eliminada.":"Relationship deleted.",
+  "Sin fecha de cierre":"No closing date",
+  "Sprint actualizado.":"Sprint updated.",
+  "Título del artículo":"Article title",
+  "Evidencia del sprint":"Sprint evidence",
+  "Mis tickets enviados":"My submitted tickets",
+  "Workspace eliminado.":"Workspace deleted.",
+  "Artículo de Knowledge":"Knowledge article",
+  "Comentario del sprint":"Sprint comment",
+  "Escribe el contenido…":"Write the content…",
+  "Guardar configuración":"Save settings",
+  "Guardar planificación":"Save planning",
+  "Producto actualizado.":"Product updated.",
+  "Selecciona una acción":"Select an action",
+  "Sin objetivo definido":"No goal defined",
+  "Ej. usuario@trobbu.com":"E.g. user@trobbu.com",
+  "Sin resolver en sprint":"Unresolved in sprint",
+  "Workspace actualizado.":"Workspace updated.",
+  "Configuración guardada.":"Settings saved.",
+  "Editar área de Helpdesk":"Edit Helpdesk area",
+  "Productos seleccionados":"Selected products",
+  "Selecciona el producto.":"Select the product.",
+  "Configuración de tickets":"Ticket settings",
+  "Crear espacio de trabajo":"Create workspace",
+  "Editar tipo de solicitud":"Edit request type",
+  "Se creó un nuevo sprint.":"A new sprint was created.",
+  "Notificaciones por correo":"Email notifications",
+  "Ticket enviado a Backlog.":"Ticket sent to Backlog.",
+  "Tipo de solicitud creado.":"Request type created.",
+  "Cambiar espacio de trabajo":"Switch workspace",
+  "Eliminar tipo de solicitud":"Delete request type",
+  "Espacio de trabajo creado.":"Workspace created.",
+  "Se agregó nueva evidencia.":"New evidence added.",
+  "Agrega al menos una opción.":"Add at least one option.",
+  "Importar tickets al Backlog":"Import tickets to Backlog",
+  "Planificar / cambiar sprint":"Plan / change sprint",
+  "Categorías de notificaciones":"Notification categories",
+  "Desactivar tipo de solicitud":"Disable request type",
+  "La revisión QA fue aprobada.":"QA review was approved.",
+  "Tipo de solicitud eliminado.":"Request type deleted.",
+  "Agrega contenido al artículo.":"Add content to the article.",
+  "Indica el motivo del rechazo.":"Provide the rejection reason.",
+  "Seleccionar Excel, CSV o XLSM":"Select Excel, CSV, or XLSM",
+  "Acceso al workspace habilitado":"Workspace access enabled",
+  "Agregar comentario / evidencia":"Add comment / evidence",
+  "Evidencia del sprint agregada.":"Sprint evidence added.",
+  "Indica el motivo del override.":"Provide the override reason.",
+  "Se agregó evidencia al sprint.":"Evidence added to sprint.",
+  "Se agregó un nuevo comentario.":"A new comment was added.",
+  "Seleccionar para mover en lote":"Select for bulk move",
+  "Tipo de solicitud actualizado.":"Request type updated.",
+  "Superadmin es un rol protegido.":"Superadmin is a protected role.",
+  "Tipo de evidencia no soportado.":"Unsupported evidence type.",
+  "Tus accesos fueron actualizados":"Your access was updated",
+  "Usuario y accesos configurados.":"User and access configured.",
+  "Describe el trabajo en una frase":"Describe the work in one sentence",
+  "Artículo y multimedia eliminados.":"Article and media deleted.",
+  "Comentario y evidencia agregados.":"Comment and evidence added.",
+  "Forzar avance de ticket bloqueado":"Force blocked ticket transition",
+  "Indica el motivo de esta versión.":"Provide the reason for this version.",
+  "Planeación y periodos de trabajo.":"Planning and work periods.",
+  "Selecciona el ticket relacionado.":"Select the related ticket.",
+  "Tu rol no permite cerrar sprints.":"Your role does not allow closing sprints.",
+  "Tu rol no permite editar tickets.":"Your role does not allow editing tickets.",
+  "Se agregó un comentario al sprint.":"A sprint comment was added.",
+  "Tu rol no permite cambiar estados.":"Your role does not allow changing statuses.",
+  "Artículo guardado como borrador v1.":"Article saved as draft v1.",
+  "Colaborador retirado del workspace.":"Member removed from workspace.",
+  "Versión inicial / motivo del cambio":"Initial version / change reason",
+  "Ej. Cómo configurar pagos con Stripe":"E.g. How to configure Stripe payments",
+  "El ticket fue cerrado completamente.":"The ticket was completely closed.",
+  "Tu rol no permite planificar tickets.":"Your role does not allow planning tickets.",
+  "Se creó una nueva versión en borrador.":"A new draft version was created.",
+  "Tableros separados para cada producto.":"Separate boards for each product.",
+  "¿Qué necesitas o qué quieres proponer?":"What do you need or want to propose?",
+  "Agrega al menos un bloque de contenido.":"Add at least one content block.",
+  "El archivo no contiene una hoja válida.":"The file does not contain a valid sheet.",
+  "Rol, permisos y productos actualizados.":"Role, permissions, and products updated.",
+  "Solo se permiten imágenes como evidencia.":"Only images are allowed as evidence.",
+  "Tipo desactivado; el histórico se conserva.":"Type disabled; history is preserved.",
+  "El sprint relacionado ya no está disponible.":"The related sprint is no longer available.",
+  "El ticket relacionado ya no está disponible.":"The related ticket is no longer available.",
+  "Cada imagen original debe pesar máximo 15 MB.":"Each original image must be at most 15 MB.",
+  "Hay correos fallidos pendientes de reintento.":"There are failed emails pending retry.",
+  "El artículo relacionado ya no está disponible.":"The related article is no longer available.",
+  "La imagen procesada supera el máximo de 10 MB.":"The processed image exceeds the 10 MB maximum.",
+  "Selecciona el contexto que deseas administrar.":"Select the context you want to manage.",
+  "Tickets que reportaste o que tienes asignados.":"Tickets you reported or are assigned to.",
+  "Consulta, filtra y gestiona tickets del equipo.":"View, filter, and manage team tickets.",
+  "La solicitud relacionada ya no está disponible.":"The related request is no longer available.",
+  "Se actualizó la planeación o estado del sprint.":"Sprint planning or status was updated.",
+  "Solo se admiten URLs válidas de YouTube o Vimeo.":"Only valid YouTube or Vimeo URLs are supported.",
+  "Tu rol no permite decidir nuevos requerimientos.":"Your role does not allow deciding new requirements.",
+  "Requiere correcciones antes de volver a revisión.":"Requires corrections before review again.",
+  "Selecciona al menos un producto o habilita Todos.":"Select at least one product or enable All.",
+  "Todavía no has enviado tickets en este workspace.":"You have not submitted tickets in this workspace yet.",
+  "Corrige los errores del archivo antes de importar.":"Fix the file errors before importing.",
+  "No puedes retirarte a ti mismo desde esta pantalla.":"You cannot remove yourself from this screen.",
+  "Ticket regresado al Backlog y retirado del Timeline.":"Ticket returned to Backlog and removed from Timeline.",
+  "Canaliza la solicitud y actualiza su atención interna.":"Route the request and update its internal handling.",
+  "Describe por qué se crea esta nueva versión.":"Describe why this new version is being created.",
+  "Nueva versión en borrador":"New draft version",
+  "Los lectores seguirán viendo la versión activa hasta que publiques este borrador.":"Readers will continue seeing the active version until you publish this draft.",
+  "Crear borrador":"Create draft",
+  "Creando…":"Creating…",
+  "Selecciona una imagen o elimina el bloque de imagen vacío.":"Select an image or remove the empty image block."
+})
+
+Object.assign(UI_TRANSLATIONS_EN,{
+  "Mínimo 6 caracteres":"Minimum 6 characters",
+  "Repite tu contraseña":"Repeat your password",
+  "Crea tu primer espacio de trabajo":"Create your first workspace",
+  "Avance del alcance":"Scope progress",
+  "Story points cerrados frente al total del filtro actual.":"Closed story points versus the current filtered total.",
+  "solicitudes de Helpdesk abiertas":"open Helpdesk requests",
+  "Flujo de los tickets filtrados.":"Flow of filtered tickets.",
+  "Avance por producto":"Progress by product",
+  "Cerrados frente al total en el contexto seleccionado.":"Closed versus total in the selected context.",
+  "ESTADO":"STATUS",
+  "Sin resultados":"No results",
+  "más":"more",
+  "Sin programar":"Unscheduled",
+  "Tickets sin fecha de inicio ni entrega.":"Tickets without start or due dates.",
+  "· histórico, proyección y progreso":"· history, forecast and progress",
+  "Sin agrupar":"Ungrouped",
+  "en Backlog / sin fechas":"in Backlog / no dates",
+  "No hay tickets programados dentro del periodo visible. Cambia la fecha, el periodo o selecciona un sprint histórico.":"There are no scheduled tickets in the visible period. Change the date, period, or select a historical sprint.",
+  "Ver detalle":"View details",
+  "actividades en Backlog / sin programar":"activities in Backlog / unscheduled",
+  "Asigna sprint y fechas para incorporarlas al Timeline.":"Assign a sprint and dates to include them in the Timeline.",
+  "Todas las tags":"All tags",
+  "Mover seleccionados a…":"Move selected to…",
+  "Mover":"Move",
+  "COLA DE TRABAJO":"WORK QUEUE",
+  "Trabajo comprometido y proyección de entregas.":"Committed work and delivery forecast.",
+  "Detalle":"Details",
+  "Plantilla controlada para Backlog":"Controlled Backlog template",
+  "Título y producto son obligatorios. Sprint siempre queda vacío; estado siempre será Backlog.":"Title and product are required. Sprint always remains empty; status will always be Backlog.",
+  "listos para importar":"ready to import",
+  "Corrige antes de importar":"Fix before importing",
+  "Tipo":"Type",
+  "Decisión":"Decision",
+  "SOLICITUD":"REQUEST",
+  "ÁREA":"AREA",
+  "PRIORIDAD":"PRIORITY",
+  "Borrador v":"Draft v",
+  "antes de compresión":"before compression",
+  "Máximo 15 MB original. Se redimensiona a 1920 px y se convierte a WebP cuando reduce el peso.":"Maximum 15 MB original. It is resized to 1920 px and converted to WebP when it reduces file size.",
+  "Los videos se insertan por URL para no consumir Storage ni ancho de banda del sistema.":"Videos are embedded by URL to avoid consuming system Storage or bandwidth.",
+  "Respuesta corta que verá el asistente y el lector.":"Short answer shown to the assistant and reader.",
+  "Vista previa local · los cambios aún no se han publicado.":"Local preview · changes have not been published yet.",
+  "· Borrador":"· Draft",
+  "Clasificación, resumen y metadatos que usarán los lectores y el asistente de Knowledge.":"Classification, summary, and metadata used by readers and the Knowledge assistant.",
+  "Explica en pocas líneas qué resolverá este artículo.":"Explain in a few lines what this article will solve.",
+  "Combina texto, listas, destacados, imágenes comprimidas, código y videos embebidos. Los bloques se publican en el mismo orden.":"Combine text, lists, callouts, compressed images, code, and embedded videos. Blocks are published in the same order.",
+  "Workspace activo:":"Active workspace:",
+  "Cada colaborador, rol y producto de esta vista pertenece únicamente a este workspace.":"Every member, role, and product in this view belongs only to this workspace.",
+  "PRODUCTOS":"PRODUCTS",
+  "Portal Helpdesk · sin productos":"Helpdesk portal · no products",
+  "Sin productos":"No products",
+  "Roles del workspace":"Workspace roles",
+  "Edita permisos base, crea roles personalizados o elimina roles que ya no estén asignados.":"Edit base permissions, create custom roles, or delete roles that are no longer assigned.",
+  "permisos activos":"active permissions",
+  "Matriz de roles base":"Base role matrix",
+  "Permiso":"Permission",
+  "siempre conserva todos los accesos y no puede eliminarse. Los demás roles pueden ajustarse en este workspace.":"always keeps full access and cannot be deleted. Other roles can be adjusted in this workspace.",
+  "Datos generales, SLA y funciones habilitadas del espacio.":"General settings, SLA, and enabled workspace features.",
+  "días":"days",
+  "h resolución.":"h resolution.",
+  "Tipos de solicitudes":"Request types",
+  "Áreas disponibles para clasificar y canalizar solicitudes.":"Available areas to classify and route requests.",
+  "Catálogo escalable para segmentar soporte, incidencias, requerimientos y cualquier clasificación futura.":"Scalable catalog to segment support, incidents, requirements, and future classifications.",
+  "Sin tipos configurados.":"No request types configured.",
+  "Solo los tipos activos pueden seleccionarse en nuevas solicitudes.":"Only active types can be selected in new requests.",
+  "Las notificaciones dentro de la plataforma funcionan; para enviar emails configura Resend o Mailgun como secretos de Supabase.":"In-app notifications work; to send emails configure Resend or Mailgun as Supabase secrets.",
+  "Ej. Se actualiza el flujo de pagos y se agregan nuevas capturas.":"E.g. The payment flow is updated and new screenshots are added.",
+  "Crear ticket":"Create ticket",
+  "Cerrar modal":"Close modal",
+  "Nombre del workspace":"Workspace name",
+  "Contexto, criterios de aceptación, pasos para reproducir…":"Context, acceptance criteria, steps to reproduce…",
+  ", sin responsables, sprint ni fechas. Módulo, tags y campos documentales sí se conservarán.":", without assignees, sprint, or dates. Module, tags, and documentation fields will be preserved.",
+  "Sin sprint / Backlog":"No sprint / Backlog",
+  "Sin estimar":"Unestimated",
+  "Ver escala y ejemplos":"View scale and examples",
+  "Fecha de inicio":"Start date",
+  "Fecha de entrega":"Due date",
+  "Campos adicionales":"Additional fields",
+  "Comentario general":"General comment",
+  "Describe la revisión, hallazgo, corrección o criterio de cierre…":"Describe the review, finding, fix, or closure criteria…",
+  "antes de continuar.":"before continuing.",
+  "Sin tags":"No tags",
+  "Evidencias conservadas":"Preserved evidence",
+  "Tu rol tiene acceso de solo lectura a la revisión del ticket.":"Your role has read-only access to ticket review.",
+  "Selecciona…":"Select…",
+  "El ticket dependiente no puede avanzar hasta que el bloqueador llegue a QA aprobado o Cerrado.":"The dependent ticket cannot move forward until the blocker reaches QA approved or Closed.",
+  "Ej. La API debe estar liberada antes de iniciar esta vista.":"E.g. The API must be released before starting this view.",
+  "Solo Admin/Superadmin puede continuar sin liberar todos los bloqueadores.":"Only Admin/Superadmin can continue without releasing all blockers.",
+  "Explica por qué puede continuar…":"Explain why it can continue…",
+  "Nombre":"Name",
+  "Objetivo y alcance del módulo…":"Module goal and scope…",
+  "Agrupan varios tickets bajo una iniciativa medible. Un ticket puede tener un módulo principal.":"Group multiple tickets under a measurable initiative. A ticket can have one main module.",
+  "Sin tags configuradas.":"No tags configured.",
+  "Compromiso actual, pendientes y actividades con fecha objetivo antes del cierre.":"Current commitment, pending work, and activities with target dates before close.",
+  "Estado de productos":"Product status",
+  "Ej. ¿Cómo vamos con Web Administrativa y qué riesgo existe para cerrar el sprint?":"E.g. How are we doing with Web Administrativa and what risk exists for closing the sprint?",
+  "Los porcentajes y KPIs los calcula Supabase. La IA solo interpreta esos datos y no puede inventar métricas.":"Percentages and KPIs are calculated by Supabase. AI only interprets those data and cannot invent metrics.",
+  "Backlog · Sin sprint":"Backlog · No sprint",
+  "Destino de pendientes":"Pending work destination",
+  "Sin comentarios ni evidencias del sprint.":"No sprint comments or evidence.",
+  "Contexto, impacto, pasos, evidencia y resultado esperado…":"Context, impact, steps, evidence, and expected result…",
+  "NUEVO REQUERIMIENTO":"NEW REQUIREMENT",
+  "Sin movimientos registrados.":"No activity recorded.",
+  "Selecciona un responsable":"Select an assignee",
+  "Contexto, instrucción o nota para quien atenderá la solicitud…":"Context, instruction, or note for the person handling the request…",
+  "El responsable recibirá la notificación de asignación. El comentario, si lo agregas, quedará en el historial de la solicitud.":"The assignee will receive an assignment notification. If you add a comment, it will remain in the request history.",
+  "Describe el hallazgo, seguimiento o evidencia…":"Describe the finding, follow-up, or evidence…",
+  "Fotos de evidencia":"Evidence photos",
+  "antes de compresión. Se redimensionan hasta 1920 px y se convierten a WebP cuando reduce el peso.":"before compression. They are resized to 1920 px and converted to WebP when it reduces file size.",
+  "La imagen se comprime en el navegador antes de subir; la base solo guarda metadatos y Storage conserva el archivo optimizado.":"The image is compressed in the browser before upload; the database stores only metadata and Storage keeps the optimized file.",
+  "Selecciona un producto":"Select a product",
+  "Limita el acceso a productos concretos":"Limit access to specific products",
+  "Permisos efectivos":"Effective permissions",
+  "Acceso total":"Full access",
+  "Tipo de acceso":"Access type",
+  "Equipo de producto":"Product team",
+  "Solo crea y consulta sus solicitudes. Sin productos ni tableros.":"Can only create and view own requests. No products or boards.",
+  "Acceso inmediato y claves visibles al finalizar.":"Immediate access with credentials shown when finished.",
+  "Se mostrará nuevamente al terminar para que puedas copiar correo y contraseña. No se almacena en el perfil del workspace.":"It will be shown again when finished so you can copy email and password. It is not stored in the workspace profile.",
+  "Se enviará un enlace de invitación. Si el proveedor de correo de Auth no puede enviarlo, el sistema generará una contraseña temporal como respaldo.":"An invitation link will be sent. If the Auth email provider cannot send it, the system will generate a temporary fallback password.",
+  "Acceso sin productos":"Access without products",
+  "Podrá crear accesos, incidentes, nuevos módulos, funcionalidades y requerimientos; consultar solo sus propias solicitudes, comentarios, decisiones y estadísticas personales.":"Can create access requests, incidents, modules, features, and requirements; can only view own requests, comments, decisions, and personal statistics.",
+  "Sin tableros/productos":"No boards/products",
+  "usuario@trobbu.com":"user@trobbu.com",
+  "Acceso a la plataforma":"Platform access",
+  "Por seguridad la contraseña actual no puede recuperarse. Puedes generar una nueva contraseña temporal para compartirla.":"For security, the current password cannot be recovered. You can generate a new temporary password to share.",
+  "Tu Superadmin conserva siempre acceso total.":"Your Superadmin always keeps full access.",
+  "Este colaborador no requiere productos. Solo verá sus propias solicitudes y estadísticas personales.":"This member does not require products. They will only see their own requests and personal statistics.",
+  "Retirar del workspace":"Remove from workspace",
+  "Al copiar se incluyen enlace, correo y contraseña. Compártelos de forma segura y pide al colaborador cambiar su contraseña después de iniciar sesión.":"The copied access includes link, email, and password. Share it securely and ask the member to change their password after signing in.",
+  "Cuándo debe utilizarse este tipo de solicitud.":"When this request type should be used.",
+  "Administra workspace, productos y notificaciones.":"Manage workspace, products, and notifications.",
+  "para enfocar el buscador global.":"to focus the global search."
+})
+
 const UI_REPLACEMENTS_EN = [
-  [/^Nuevo ticket (.+)$/,'New ticket $1'],[/^Editar (.+)$/,'Edit $1'],[/^Eliminar (.+)$/,'Delete $1'],[/^Nuevo (.+)$/,'New $1'],[/^Nueva (.+)$/,'New $1'],[/^Guardar (.+)$/,'Save $1'],[/^Crear (.+)$/,'Create $1'],[/^Ver (.+)$/,'View $1'],[/^Sin (.+)$/,'No $1']
+  [/^Nuevo ticket (.+)$/,'New ticket $1'],[/^Editar (.+)$/,'Edit $1'],[/^Eliminar (.+)$/,'Delete $1'],[/^Nuevo (.+)$/,'New $1'],[/^Nueva (.+)$/,'New $1'],[/^Guardar (.+)$/,'Save $1'],[/^Crear (.+)$/,'Create $1'],[/^Ver (.+)$/,'View $1'],[/^Sin (.+)$/,'No $1'],
+  [/^Creado (.+)$/,'Created $1'],[/^Actualizado (.+)$/,'Updated $1'],[/^Objetivo (.+)$/,'Target $1'],[/^Decisión (.+)$/,'Decision $1'],[/^(\d+) abiertas · (\d+) resueltas\/cerradas$/,'$1 open · $2 resolved/closed'],[/^(.+) tickets movidos a (.+)\.$/,'$1 tickets moved to $2.'],[/^Versión (\d+)$/,'Version $1'],
+  [/^Se eliminarán (\d+) notificaciones leídas\. Esta acción no se puede deshacer\.$/,'$1 read notifications will be deleted. This action cannot be undone.'],
+  [/^La versión pública de “(.+)” seguirá visible mientras trabajas este borrador\.$/,'The public version of “$1” will remain visible while you work on this draft.'],
+  [/^¿Deseas eliminar “(.+)”\? También se eliminarán comentarios, evidencias e historial asociado\.$/,'Delete “$1”? Comments, evidence, and associated history will also be deleted.'],
+  [/^¿Deseas retirar a (.+) de (.+)\? Perderá acceso a este workspace, pero sus tickets e historial se conservarán\.$/,'Remove $1 from $2? They will lose access to this workspace, but their tickets and history will be preserved.'],
+  [/^“(.+)” tiene (\d+) solicitud(?:es)? asociada(?:s)?\. Para conservar el histórico se desactivará en lugar de eliminarse\.$/,'“$1” has $2 associated request(s). To preserve history it will be deactivated instead of deleted.'],
+  [/^Se eliminará “(.+)”\. Esta acción solo está disponible porque todavía no tiene solicitudes asociadas\.$/,'“$1” will be deleted. This action is only available because it has no associated requests yet.'],
+  [/^¿Deseas eliminar “(.+)”\? También se eliminarán las imágenes almacenadas para este artículo\.$/,'Delete “$1”? Stored images for this article will also be deleted.'],
+  [/^Preferencias operativas de (.+)\.$/,'Operational preferences for $1.'],
+  [/^Completa el campo obligatorio: (.+)\.$/,'Complete the required field: $1.'],
+  [/^Se eliminará “(.+)” de forma permanente\.$/,'“$1” will be permanently deleted.'],
+  [/^“(.+)” no es JPG, PNG o WebP\.$/,'“$1” is not JPG, PNG, or WebP.'],
+  [/^“(.+)” supera el máximo de 15 MB antes de compresión\.$/,'“$1” exceeds the 15 MB maximum before compression.'],
+  [/^Producto “(.+)” no existe o no está autorizado\.$/,'Product “$1” does not exist or is not authorized.'],
+  [/^(.+): “(.+)” no coincide con Staff autorizado\.$/,'$1: “$2” does not match authorized Staff.'],
+  [/^Borrador v(\d+) creado\. La versión pública permanece sin cambios\.$/,'Draft v$1 created. The public version remains unchanged.'],
+  [/^Versión v(\d+) publicada\.$/,'Version v$1 published.'],
+  [/^Borrador v(\d+) guardado\. La versión pública sigue activa\.$/,'Draft v$1 saved. The public version remains active.']
 ]
 const I18N_TEXT_ORIGINAL = new WeakMap()
 const I18N_ATTR_ORIGINAL = new WeakMap()
@@ -74,17 +555,25 @@ function useDomI18n(locale){
 }
 
 const getAppUrl = () => {
-  const configured = String(cfg.appUrl || '').trim()
-  if (configured) return configured.endsWith('/') ? configured : configured + '/'
-  const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname.replace(/[^/]*$/, '')
-  return `${window.location.origin}${path || '/'}`
+  try{
+    const current=new URL(window.location.href)
+    if(/^https?:$/.test(current.protocol)){
+      current.search='';current.hash=''
+      const path=current.pathname||'/'
+      if(!path.endsWith('/')) current.pathname=path.replace(/[^/]*$/,'')
+      return current.toString()
+    }
+  }catch{}
+  const configured=String(cfg.appUrl||'').trim()
+  return configured?(configured.endsWith('/')?configured:configured+'/'):'/'
 }
-
-const knowledgeArticleUrl=id=>{const u=new URL(getAppUrl());u.searchParams.set('knowledge',id);return u.toString()}
+const appDeepLink=(params={})=>{const u=new URL(getAppUrl(),window.location.href);Object.entries(params).forEach(([k,v])=>{if(v!==null&&v!==undefined&&String(v)!=='')u.searchParams.set(k,String(v))});return u.toString()}
+const knowledgeArticleUrl=id=>appDeepLink({knowledge:id})
 
 const knowledgeTranslationLocalKey=(versionId,language)=>`jira_knowledge_translation:${versionId}:${language}`
 const knowledgeTranslationLocalGet=(versionId,language)=>{try{const raw=localStorage.getItem(knowledgeTranslationLocalKey(versionId,language));return raw?JSON.parse(raw):null}catch{return null}}
 const knowledgeTranslationLocalSet=(versionId,language,translation)=>{try{localStorage.setItem(knowledgeTranslationLocalKey(versionId,language),JSON.stringify(translation))}catch{}}
+const cleanKnowledgeSnippet=(value,max=220)=>{const text=String(value||'').replace(/\\n/g,' ').replace(/\r?\n/g,' ').replace(/\s+/g,' ').trim();return text.length>max?text.slice(0,max-1).trimEnd()+'…':text}
 
 const generateAccessPassword = () => {
   const upper='ABCDEFGHJKLMNPQRSTUVWXYZ',lower='abcdefghijkmnopqrstuvwxyz',digits='23456789',symbols='!@#$%&*?'
@@ -503,6 +992,7 @@ function WorkspaceApp({session,locale,setLocale}){
   const [departments,setDepartments]=useState([])
   const [requestTypes,setRequestTypes]=useState([])
   const [helpdesk,setHelpdesk]=useState([])
+  const [helpdeskProducts,setHelpdeskProducts]=useState([])
   const [notifications,setNotifications]=useState([])
   const [emailQueue,setEmailQueue]=useState([])
   const [emailProviderStatus,setEmailProviderStatus]=useState(null)
@@ -522,7 +1012,7 @@ function WorkspaceApp({session,locale,setLocale}){
   const [productId,setProductId]=useState('all')
   const [search,setSearch]=useState('')
   const [filters,setFilters]=useState({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})
-  const [helpFilters,setHelpFilters]=useState({status:'all',requestType:'all',department:'all',assignee:'all',priority:'all'})
+  const [helpFilters,setHelpFilters]=useState({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all'})
   const [busy,setBusy]=useState(true)
   const [modal,setModal]=useState(null)
   const [drawer,setDrawer]=useState(null)
@@ -546,7 +1036,7 @@ function WorkspaceApp({session,locale,setLocale}){
   const loadWorkspaceData=async(silent=false)=>{
     if(!workspace){if(!silent)setBusy(false);return}
     if(!silent)setBusy(true)
-    const [p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke]=await Promise.all([
+    const [p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,hp]=await Promise.all([
       db.from('products').select('*').eq('workspace_id',workspace.id).order('board_order'),
       db.from('sprints').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
       db.from('tickets').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
@@ -568,16 +1058,17 @@ function WorkspaceApp({session,locale,setLocale}){
       db.from('ticket_custom_field_values').select('*').eq('workspace_id',workspace.id),
       db.from('knowledge_articles').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
       db.from('knowledge_article_versions').select('*').eq('workspace_id',workspace.id).order('version_number',{ascending:false}),
-      db.from('knowledge_version_events').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false})
+      db.from('knowledge_version_events').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
+      db.rpc('list_helpdesk_products',{p_workspace:workspace.id})
     ])
-    const fail=[p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke].find(x=>x.error)?.error
+    const fail=[p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,hp].find(x=>x.error)?.error
     if(fail){showToast('error',fail.message);if(!silent)setBusy(false);return}
     const ids=(m.data||[]).map(x=>x.user_id)
     const profileMap={}
     if(ids.length){const pr=await db.from('profiles').select('*').in('id',ids); (pr.data||[]).forEach(x=>profileMap[x.id]=x)}
     const roles=wr.data||[]
     setProducts(p.data||[]); setSprints(s.data||[]); setTickets(t.data||[]); setRoleTemplates(roles); setSettings(ws.data||null)
-    setDepartments(d.data||[]); setRequestTypes(rt.data||[]); setHelpdesk(h.data||[]); setNotifications(n.data||[]); setEmailQueue(q.data||[]); setMemberProductAccess(mp.data||[])
+    setDepartments(d.data||[]); setRequestTypes(rt.data||[]); setHelpdesk(h.data||[]); setHelpdeskProducts(hp.data||[]); setNotifications(n.data||[]); setEmailQueue(q.data||[]); setMemberProductAccess(mp.data||[])
     setModules(mods.data||[]); setTags(tagsQ.data||[]); setTicketTagLinks(tagLinks.data||[]); setTicketLinks(links.data||[]); setCustomFields(fields.data||[]); setCustomFieldProducts(fieldProducts.data||[]); setCustomValues(values.data||[]); setKnowledgeArticles(ka.data||[]); setKnowledgeVersions(kv.data||[]); setKnowledgeVersionEvents(ke.data||[])
     setMembers((m.data||[]).map(x=>({...x,profile:profileMap[x.user_id],role_template:roles.find(r=>r.id===x.role_id)||roles.find(r=>r.code===x.role),product_ids:(mp.data||[]).filter(a=>a.user_id===x.user_id).map(a=>a.product_id)})))
     if(!silent)setBusy(false)
@@ -618,7 +1109,7 @@ function WorkspaceApp({session,locale,setLocale}){
     setProductId('all')
     setSearch('')
     setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})
-    setHelpFilters({status:'all',requestType:'all',department:'all',assignee:'all',priority:'all'})
+    setHelpFilters({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all'})
     setDrawer(null)
     setModal(null)
   },[workspace?.id])
@@ -689,7 +1180,7 @@ function WorkspaceApp({session,locale,setLocale}){
   }),[tickets,productId,filters,search,ticketTagLinks,tags,modules])
 
   const myTickets=useMemo(()=>filteredTickets.filter(t=>t.dev_owner_id===session.user.id||t.qa_owner_id===session.user.id||t.reporter_id===session.user.id),[filteredTickets,session.user.id])
-  const filteredHelpdesk=useMemo(()=>helpdesk.filter(h=>(helpFilters.status==='all'||h.status===helpFilters.status)&&(helpFilters.requestType==='all'||h.request_type_id===helpFilters.requestType)&&(helpFilters.department==='all'||h.department_id===helpFilters.department)&&(helpFilters.assignee==='all'||h.assigned_to===helpFilters.assignee)&&(helpFilters.priority==='all'||h.priority===helpFilters.priority)),[helpdesk,helpFilters])
+  const filteredHelpdesk=useMemo(()=>helpdesk.filter(h=>(helpFilters.status==='all'||h.status===helpFilters.status)&&(helpFilters.requestType==='all'||h.request_type_id===helpFilters.requestType)&&(helpFilters.department==='all'||h.department_id===helpFilters.department)&&((helpFilters.product||'all')==='all'||h.product_id===helpFilters.product)&&(helpFilters.assignee==='all'||h.assigned_to===helpFilters.assignee)&&(helpFilters.priority==='all'||h.priority===helpFilters.priority)),[helpdesk,helpFilters])
 
   const refresh=async()=>{await loadWorkspaceData()}
   const runEmails=()=>{if(settings?.email_notifications) db.functions.invoke('process-notifications',{body:{workspace_id:workspace.id}}).catch(()=>{})}
@@ -788,6 +1279,7 @@ function WorkspaceApp({session,locale,setLocale}){
     const base={
       department_id:form.department_id||null,
       request_type_id:form.request_type_id||item?.request_type_id||null,
+      product_id:form.product_id||null,
       subject:form.subject,
       description:form.description||null,
       requester_name:form.requester_name||null,
@@ -951,6 +1443,8 @@ function WorkspaceApp({session,locale,setLocale}){
       {busy ? <LoadingPanel/> : knowledgeScreen ? (
         knowledgeScreen.mode==='read'
           ? <KnowledgeArticlePage article={knowledgeScreen.article} versions={knowledgeVersions.filter(v=>v.article_id===knowledgeScreen.article.id)} events={knowledgeVersionEvents.filter(e=>e.article_id===knowledgeScreen.article.id)} products={products} modules={modules} members={members} locale={locale} canManage={canManageSettings} onBack={()=>setKnowledgeScreen(null)} onEdit={()=>openKnowledgeEdit(knowledgeScreen.article)} onCreateVersion={()=>setModal({type:'knowledge-new-version',article:knowledgeScreen.article})} onPublishVersion={version=>publishKnowledgeVersion(knowledgeScreen.article,version)}/>
+          : knowledgeScreen.mode==='preview'
+            ? <KnowledgeListPreviewPage article={knowledgeScreen.article} version={knowledgeScreen.version} products={helpdeskProducts.length?helpdeskProducts:products} modules={modules} locale={locale} onBack={()=>setKnowledgeScreen(null)}/>
           : <KnowledgeArticleEditorPage article={knowledgeScreen.article||null} version={knowledgeScreen.version||null} workspace={workspace} products={products} modules={modules} session={session} locale={locale} onBack={()=>setKnowledgeScreen(null)} onSave={payload=>saveKnowledgeArticle(payload,knowledgeScreen.article||null,knowledgeScreen.version||null)}/>
       ) : <>
         {view==='overview' && canViewDashboard && <Overview workspace={workspace} tickets={tickets} helpdesk={helpdesk} products={products} sprints={sprints}/>} 
@@ -959,17 +1453,17 @@ function WorkspaceApp({session,locale,setLocale}){
         {view==='backlog' && canViewDashboard && <BacklogView workspace={workspace} tickets={tickets} products={products} sprints={sprints} members={members} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} canPlan={canPlan} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onPlan={ticket=>setModal({type:'ticket-plan',ticket})} onBulkMove={bulkMoveTickets} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onCloseSprint={sprint=>setModal({type:'sprint-rollover',sprint})} onCreateSprint={()=>setModal({type:'sprint-create'})} onImport={()=>setModal({type:'backlog-import'})}/>} 
         {view==='mytasks' && <TicketWorkspace workspace={workspace} title="Mis tareas" subtitle="Tickets que reportaste o que tienes asignados." tickets={myTickets} allTickets={myTickets} products={products} members={members} sprints={sprints} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})} canWork={canWork} canPlan={canPlan} canDelete={canDeleteTicket} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={ticket=>setModal({type:'ticket-edit',ticket})} onDelete={ticket=>setModal({type:'ticket-delete',ticket})} onBacklog={ticket=>planTicket(ticket,null)} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onMove={moveTicket}/>} 
         {view==='helpdesk' && helpdeskEnabled && (helpdeskStaff
-          ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} requestTypes={requestTypes} members={members} canPlan={canPlan} canAssign={canManageHelpdesk} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})} onDecision={item=>setModal({type:'help-requirement-decision',item})} onAssign={item=>setModal({type:'help-assign',item})}/>
-          : <HelpdeskPortal items={helpdesk} departments={departments} requestTypes={requestTypes} onCreate={()=>setModal({type:'help-create'})} onOpen={item=>setModal({type:'help-detail',item})}/>)} 
+          ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} requestTypes={requestTypes} products={helpdeskProducts} members={members} canPlan={canPlan} canAssign={canManageHelpdesk} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})} onDecision={item=>setModal({type:'help-requirement-decision',item})} onAssign={item=>setModal({type:'help-assign',item})}/>
+          : <HelpdeskPortal items={helpdesk} departments={departments} requestTypes={requestTypes} products={helpdeskProducts} onCreate={()=>setModal({type:'help-create'})} onOpen={item=>setModal({type:'help-detail',item})}/>)} 
         {view==='reports' && canViewDashboard && <ReportsView workspace={workspace} products={products} modules={modules} tickets={tickets} sprints={sprints} toast={showToast}/>}
-        {view==='knowledge' && <KnowledgeView workspace={workspace} articles={knowledgeArticles} versions={knowledgeVersions} locale={locale} products={products} modules={modules} canManage={canManageSettings} onCreate={()=>setKnowledgeScreen({mode:'create',article:null,version:null})} onEdit={openKnowledgeEdit} onOpen={article=>setKnowledgeScreen({mode:'read',article})} onDelete={article=>setModal({type:'knowledge-delete',article})}/>}
+        {view==='knowledge' && <KnowledgeView workspace={workspace} articles={knowledgeArticles} versions={knowledgeVersions} locale={locale} products={products} modules={modules} canManage={canManageSettings} onCreate={()=>setKnowledgeScreen({mode:'create',article:null,version:null})} onEdit={openKnowledgeEdit} onOpen={article=>setKnowledgeScreen({mode:'read',article})} onPreview={(article,version)=>setKnowledgeScreen({mode:'preview',article,version})} onDelete={article=>setModal({type:'knowledge-delete',article})}/>}
         {view==='catalogs' && canManageTicketFields && <TicketCatalogsView workspace={workspace} modules={modules} tags={tags} customFields={customFields} tickets={tickets} ticketTagLinks={ticketTagLinks} canManage={canManageTicketFields} onModuleCreate={()=>setModal({type:'module-create'})} onModuleEdit={module=>setModal({type:'module-edit',module})} onModuleDelete={module=>setModal({type:'module-delete',module})} onTagCreate={()=>setModal({type:'tag-create'})} onTagEdit={tag=>setModal({type:'tag-edit',tag})} onTagDelete={tag=>setModal({type:'tag-delete',tag})} onFieldCreate={()=>setModal({type:'field-create'})} onFieldEdit={field=>setModal({type:'field-edit',field})} onFieldDelete={field=>setModal({type:'field-delete',field})}/>}
         {view==='team' && canManageStaff && <StaffRolesView workspace={workspace} members={members} products={products} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} canManage={canManageStaff} isSuperadmin={isSuperadmin} session={session} onInvite={()=>setModal({type:'invite'})} onMember={member=>setModal({type:'member-edit',member})} onRoleCreate={()=>setModal({type:'role-create'})} onRoleEdit={role=>setModal({type:'role-edit',role})} onRoleDelete={role=>setModal({type:'role-delete',role})}/>} 
         {view==='settings' && (canManageSettings||canManageProducts) && <SettingsView workspace={workspace} settings={settings} products={products} sprints={sprints} departments={departments} requestTypes={requestTypes} emailQueue={emailQueue} emailProviderStatus={emailProviderStatus} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canPlan={canPlan} canDeleteWorkspace={isSuperadmin} onWorkspaceEdit={()=>setModal({type:'workspace-edit'})} onWorkspaceConfig={()=>setModal({type:'workspace-config'})} onWorkspaceDelete={()=>setModal({type:'workspace-delete'})} onSettingsSaved={refresh} onProductCreate={()=>setModal({type:'product-create'})} onProductEdit={product=>setModal({type:'product-edit',product})} onProductDelete={product=>setModal({type:'product-delete',product})} onSprintCreate={()=>setModal({type:'sprint-create'})} onSprintEdit={sprint=>setModal({type:'sprint-edit',sprint})} onSprintDelete={sprint=>setModal({type:'sprint-delete',sprint})} onDepartmentCreate={()=>setModal({type:'department-create'})} onDepartmentEdit={department=>setModal({type:'department-edit',department})} onDepartmentDelete={department=>setModal({type:'department-delete',department})} onRequestTypeCreate={()=>setModal({type:'request-type-create'})} onRequestTypeEdit={requestType=>setModal({type:'request-type-edit',requestType})} onRequestTypeDelete={requestType=>setModal({type:'request-type-delete',requestType})} onProcessEmails={processEmails} toast={showToast}/>} 
       </>}
     </main>
     {drawer==='notifications' && <NotificationsDrawer locale={locale} notifications={notifications} onClose={()=>setDrawer(null)} onMark={markNotification} onMarkAll={markAll} onDelete={deleteNotification} onClearRead={clearReadNotifications} onOpen={n=>{setDrawer(null);const meta=n.metadata||{},entity=meta.entity_type;if(n.ticket_id||entity==='ticket'){const id=n.ticket_id||meta.entity_id;const t=tickets.find(x=>x.id===id);if(t)setModal({type:'ticket-detail',ticket:t});else showToast('error',locale==='en'?'The related ticket is no longer available.':'El ticket relacionado ya no está disponible.')}else if(n.helpdesk_ticket_id||entity==='helpdesk'){const id=n.helpdesk_ticket_id||meta.entity_id;const h=helpdesk.find(x=>x.id===id);if(h)setModal({type:'help-detail',item:h});else showToast('error',locale==='en'?'The related request is no longer available.':'La solicitud relacionada ya no está disponible.')}else if(entity==='sprint'){const sp=sprints.find(x=>x.id===meta.entity_id);if(sp)setModal({type:'sprint-detail',sprint:sp});else showToast('error',locale==='en'?'The related sprint is no longer available.':'El sprint relacionado ya no está disponible.')}else if(entity==='knowledge'){const a=knowledgeArticles.find(x=>x.id===(meta.article_id||meta.entity_id));if(a){setView('knowledge');setKnowledgeScreen({mode:'read',article:a})}else showToast('error',locale==='en'?'The related article is no longer available.':'El artículo relacionado ya no está disponible.')}else if(entity==='staff'){setView('team')}}}/>} 
-    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} requestTypes={requestTypes} helpdesk={helpdesk} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} ticketLinks={ticketLinks} customFields={customFields} customFieldProducts={customFieldProducts} customValues={customValues} knowledgeArticles={knowledgeArticles} knowledgeVersions={knowledgeVersions} createKnowledgeVersion={createKnowledgeVersion} locale={locale} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canManageTicketFields={canManageTicketFields} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>} 
+    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} helpdeskProducts={helpdeskProducts} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} requestTypes={requestTypes} helpdesk={helpdesk} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} ticketLinks={ticketLinks} customFields={customFields} customFieldProducts={customFieldProducts} customValues={customValues} knowledgeArticles={knowledgeArticles} knowledgeVersions={knowledgeVersions} createKnowledgeVersion={createKnowledgeVersion} locale={locale} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canManageTicketFields={canManageTicketFields} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>} 
     {toast && <Toast toast={toast}/>} 
   </div>
 }
@@ -1270,7 +1764,7 @@ function ReporterTicketsView({tickets,products,onCreate,onOpen}){
 }
 
 function RequirementBadge({status}){const value=status||'pending';const icon=value==='accepted_backlog'?'lucide:circle-check-big':value==='rejected'?'lucide:circle-x':'lucide:clock-3';return <span className={`requirement-badge requirement-${value}`}><Icon name={icon} size={13}/>{requirementStatusLabel(value)}</span>}
-function HelpdeskPortal({items,departments,requestTypes=[],onCreate,onOpen}){
+function HelpdeskPortal({items,departments,requestTypes=[],products=[],onCreate,onOpen}){
   const order=['created','review','attended','resolved','closed']
   const normal=items.filter(x=>!isProposalCategory(x.category))
   const requirements=items.filter(x=>isProposalCategory(x.category))
@@ -1278,12 +1772,12 @@ function HelpdeskPortal({items,departments,requestTypes=[],onCreate,onOpen}){
   const categoryCounts=requestTypes.map(type=>({key:type.id,label:type.name,count:items.filter(x=>x.request_type_id===type.id).length,color:type.color})).filter(x=>x.count)
   return <div className="page"><PageHeader eyebrow="Portal administrativo" title="Mis solicitudes" subtitle="Crea solicitudes, consulta únicamente las tuyas y sigue su resolución o decisión." icon="lucide:life-buoy" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nueva solicitud</button>}/>
     <div className="metric-grid six portal-metrics"><Metric label="Solicitudes" value={items.length} icon="lucide:inbox" tone="blue"/><Metric label="En seguimiento" value={active} icon="lucide:loader-circle" tone="orange"/><Metric label="Resueltas / cerradas" value={normal.filter(x=>['resolved','closed'].includes(x.status)).length} icon="lucide:circle-check" tone="green"/><Metric label="Requerimientos pendientes" value={requirements.filter(x=>(x.proposal_status||'pending')==='pending').length} icon="lucide:lightbulb" tone="purple"/><Metric label="Aceptados a Backlog" value={requirements.filter(x=>x.proposal_status==='accepted_backlog').length} icon="lucide:list-plus" tone="navy"/><Metric label="Sugerencias rechazadas" value={requirements.filter(x=>x.proposal_status==='rejected').length} icon="lucide:circle-x" tone="red"/></div>
-    <div className="portal-info"><Icon name="lucide:shield-check"/><div><b>Portal privado de solicitudes.</b><p>No tienes acceso a productos, tableros ni Gantt. Aquí solo ves lo que tú creaste, sus comentarios y su seguimiento.</p></div></div>
+    <div className="portal-info"><Icon name="lucide:shield-check"/><div><b>Portal privado de solicitudes.</b><p>No tienes acceso operativo a tableros ni Gantt. El producto se usa solo para clasificar tu solicitud; aquí ves lo que tú creaste, sus comentarios y su seguimiento.</p></div></div>
     {categoryCounts.length>0&&<section className="panel portal-category-stats"><div className="panel-heading"><div><h3>Solicitudes por tipo</h3><p>Distribución personal de lo que has solicitado.</p></div></div><div>{categoryCounts.map(c=><span key={c.key}><b>{c.count}</b><small><i className="request-type-dot" style={{background:c.color||'#D4DCE0'}}></i>{c.label}</small></span>)}</div></section>}
-    <section className="request-list">{items.length===0&&<div className="empty-state-inline"><Icon name="lucide:life-buoy" size={34}/><h3>No tienes solicitudes</h3><p>Cuando necesites acceso, reportar un error o proponer un requerimiento, créalo desde aquí.</p><button className="primary compact" onClick={onCreate}>Crear solicitud</button></div>}{items.map(item=>{const dept=departments.find(d=>d.id===item.department_id),requestType=requestTypes.find(x=>x.id===item.request_type_id),isRequirement=isProposalCategory(item.category),idx=Math.max(0,order.indexOf(item.status));return <article className={`request-card ${isRequirement?'requirement-card':''}`} key={item.id}><button type="button" className="request-card-main" onClick={()=>onOpen(item)}><div className="request-card-title"><span className="request-icon"><Icon name={isRequirement?'lucide:lightbulb':'lucide:headphones'}/></span><div><small>{item.ticket_key} · {dept?.name||'Sin área'} · {requestType?.name||helpCategoryLabel(item.category)}</small><h3>{item.subject}</h3><p>{item.description||'Sin descripción.'}</p></div>{isRequirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</div>{isRequirement?<div className="requirement-flow"><span className="requirement-flow-node done"><i><Icon name="lucide:send" size={12}/></i><b>Solicitado</b></span><span className={`requirement-flow-line ${(item.proposal_status||'pending')!=='pending'?'done':''}`}></span><span className={`requirement-flow-node ${(item.proposal_status||'pending')==='pending'?'current':'done'}`}><i><Icon name={(item.proposal_status||'pending')==='pending'?'lucide:clock-3':item.proposal_status==='accepted_backlog'?'lucide:list-plus':'lucide:circle-x'} size={12}/></i><b>{requirementStatusLabel(item.proposal_status)}</b></span>{item.converted_ticket_key&&<span className="converted-ticket-chip"><Icon name="lucide:ticket-check"/>{item.converted_ticket_key}</span>}</div>:<div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<idx?'done':''} ${i===idx?'current':''}`}><i>{i<idx?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div>}<div className="request-meta"><span><Icon name="lucide:calendar"/> Creado {formatDateTime(item.created_at)}</span>{!isRequirement&&item.due_at&&<span><Icon name="lucide:clock"/> Objetivo {formatDateTime(item.due_at)}</span>}{isRequirement&&item.decision_at&&<span><Icon name="lucide:gavel"/> Decisión {formatDateTime(item.decision_at)}</span>}<span><Icon name="lucide:refresh-cw"/> Actualizado {formatDateTime(item.updated_at)}</span></div></button></article>})}</section>
+    <section className="request-list">{items.length===0&&<div className="empty-state-inline"><Icon name="lucide:life-buoy" size={34}/><h3>No tienes solicitudes</h3><p>Cuando necesites acceso, reportar un error o proponer un requerimiento, créalo desde aquí.</p><button className="primary compact" onClick={onCreate}>Crear solicitud</button></div>}{items.map(item=>{const dept=departments.find(d=>d.id===item.department_id),requestType=requestTypes.find(x=>x.id===item.request_type_id),product=products.find(x=>x.id===item.product_id),isRequirement=isProposalCategory(item.category),idx=Math.max(0,order.indexOf(item.status));return <article className={`request-card ${isRequirement?'requirement-card':''}`} key={item.id}><button type="button" className="request-card-main" onClick={()=>onOpen(item)}><div className="request-card-title"><span className="request-icon"><Icon name={isRequirement?'lucide:lightbulb':'lucide:headphones'}/></span><div><small>{item.ticket_key} · {dept?.name||'Sin área'} · {requestType?.name||helpCategoryLabel(item.category)}{product?` · ${product.name}`:''}</small><h3>{item.subject}</h3><p>{item.description||'Sin descripción.'}</p></div>{isRequirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</div>{isRequirement?<div className="requirement-flow"><span className="requirement-flow-node done"><i><Icon name="lucide:send" size={12}/></i><b>Solicitado</b></span><span className={`requirement-flow-line ${(item.proposal_status||'pending')!=='pending'?'done':''}`}></span><span className={`requirement-flow-node ${(item.proposal_status||'pending')==='pending'?'current':'done'}`}><i><Icon name={(item.proposal_status||'pending')==='pending'?'lucide:clock-3':item.proposal_status==='accepted_backlog'?'lucide:list-plus':'lucide:circle-x'} size={12}/></i><b>{requirementStatusLabel(item.proposal_status)}</b></span>{item.converted_ticket_key&&<span className="converted-ticket-chip"><Icon name="lucide:ticket-check"/>{item.converted_ticket_key}</span>}</div>:<div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<idx?'done':''} ${i===idx?'current':''}`}><i>{i<idx?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div>}<div className="request-meta"><span><Icon name="lucide:calendar"/> Creado {formatDateTime(item.created_at)}</span>{!isRequirement&&item.due_at&&<span><Icon name="lucide:clock"/> Objetivo {formatDateTime(item.due_at)}</span>}{isRequirement&&item.decision_at&&<span><Icon name="lucide:gavel"/> Decisión {formatDateTime(item.decision_at)}</span>}<span><Icon name="lucide:refresh-cw"/> Actualizado {formatDateTime(item.updated_at)}</span></div></button></article>})}</section>
   </div>
 }
-function HelpdeskView({items,allItems,departments,requestTypes=[],members,canPlan,canAssign,filters,onFilter,onCreate,onActions,onOpen,onDecision,onAssign}){
+function HelpdeskView({items,allItems,departments,requestTypes=[],products=[],members,canPlan,canAssign,filters,onFilter,onCreate,onActions,onOpen,onDecision,onAssign}){
   const normal=allItems.filter(h=>!isProposalCategory(h.category))
   const requirements=allItems.filter(h=>isProposalCategory(h.category))
   const open=normal.filter(h=>['created','review','attended'].includes(h.status)).length
@@ -1301,11 +1795,11 @@ function HelpdeskView({items,allItems,departments,requestTypes=[],members,canPla
     <div className="metric-grid six"><Metric label="Solicitudes" value={allItems.length} icon="lucide:inbox" tone="blue"/><Metric label="Abiertas" value={open} icon="lucide:loader-circle" tone="orange"/><Metric label="Requerimientos por decidir" value={pendingRequirements} icon="lucide:lightbulb" tone="purple"/><Metric label="Vencidas" value={overdue} icon="lucide:alarm-clock" tone="red"/><Metric label="Resueltas / cerradas" value={resolved+closed} icon="lucide:circle-check" tone="green"/><Metric label="SLA cumplido" value={`${slaPct}%`} icon="lucide:gauge" tone="navy"/></div>
     {typeStats.length>0&&<section className="panel helpdesk-type-stats"><div className="panel-heading"><div><h3>Solicitudes por tipo</h3><p>Segmentación usando el catálogo configurable de Helpdesk.</p></div></div><div className="helpdesk-type-stat-grid">{typeStats.map(x=><button type="button" key={x.type.id} onClick={()=>onFilter?.()}><span className="request-type-icon" style={{background:`${x.type.color||'#0D47A1'}18`,color:x.type.color||'#0D47A1'}}><Icon name={x.type.icon||'lucide:ticket'}/></span><span><b>{x.type.name}</b><small>{x.open} abiertas · {x.done} resueltas/cerradas</small></span><strong>{x.total}</strong></button>)}</div></section>}
     <section className="workspace-panel"><div className="panel-toolbar"><div><h3>Solicitudes internas</h3><p className="muted">Los nuevos requerimientos no usan SLA: PM/Admin/Superadmin decide si se aceptan a Backlog o se rechazan.</p></div><div className="toolbar-actions"><button className={`filter-button ${active?'active':''}`} onClick={onFilter}><Icon name="lucide:list-filter"/> Filtros {active>0&&<em>{active}</em>}</button><button className="primary compact" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button></div></div>
-    <div className="table-wrap"><div className="table help-table"><div className="tr th"><span>SOLICITUD</span><span>ÁREA</span><span>ASIGNADO</span><span>PRIORIDAD</span><span>ESTADO / DECISIÓN</span><span></span></div>{items.length===0&&<TableEmpty text="No hay solicitudes con estos filtros."/>}{items.map(h=>{const dep=departments.find(d=>d.id===h.department_id),requestType=requestTypes.find(x=>x.id===h.request_type_id),owner=members.find(m=>m.user_id===h.assigned_to)?.profile?.full_name||'Sin asignar',req=isProposalCategory(h.category);return <div className={`tr ${req?'requirement-row':''}`} key={h.id}><span className="task-cell"><button className="task-link" onClick={()=>onOpen(h)}><b>{h.subject}</b><small>{h.ticket_key} · {requestType?.name||helpCategoryLabel(h.category)}</small></button></span><span><span className="dept-dot" style={{background:dep?.color||'#D4DCE0'}}></span>{dep?.name||'Sin área'}</span><span className="assignee-cell">{req?<span className="muted"><Icon name="lucide:gavel" size={14}/> Decisión PM</span>:<><span className="mini-avatar">{initials(owner)}</span>{owner}</>}</span><span><span className={`priority-badge priority-${h.priority}`}>{PRIORITY_LABELS[h.priority]}</span></span><span>{req?<RequirementBadge status={h.proposal_status}/>:<HelpStatusBadge status={h.status}/>}</span><span><div className="inline-actions">{!req&&canAssign&&!h.assigned_to&&<button type="button" className="quick-assign-button" onClick={()=>onAssign(h)} title="Asignar ahora"><Icon name="lucide:user-plus"/><span>Asignar</span></button>}{req&&canPlan&&(h.proposal_status||'pending')==='pending'&&<button type="button" className="decision-button" onClick={()=>onDecision(h)} title="Evaluar requerimiento"><Icon name="lucide:gavel"/></button>}<button className="icon-button" onClick={()=>onActions(h)} title="Acciones"><Icon name="lucide:ellipsis-vertical"/></button></div></span></div>})}</div></div></section>
+    <div className="table-wrap"><div className="table help-table"><div className="tr th"><span>SOLICITUD</span><span>ÁREA</span><span>ASIGNADO</span><span>PRIORIDAD</span><span>ESTADO / DECISIÓN</span><span></span></div>{items.length===0&&<TableEmpty text="No hay solicitudes con estos filtros."/>}{items.map(h=>{const dep=departments.find(d=>d.id===h.department_id),requestType=requestTypes.find(x=>x.id===h.request_type_id),product=products.find(x=>x.id===h.product_id),owner=members.find(m=>m.user_id===h.assigned_to)?.profile?.full_name||'Sin asignar',req=isProposalCategory(h.category);return <div className={`tr ${req?'requirement-row':''}`} key={h.id}><span className="task-cell"><button className="task-link" onClick={()=>onOpen(h)}><b>{h.subject}</b><small>{h.ticket_key} · {requestType?.name||helpCategoryLabel(h.category)}{product?` · ${product.name}`:''}</small></button></span><span><span className="dept-dot" style={{background:dep?.color||'#D4DCE0'}}></span>{dep?.name||'Sin área'}</span><span className="assignee-cell">{req?<span className="muted"><Icon name="lucide:gavel" size={14}/> Decisión PM</span>:<><span className="mini-avatar">{initials(owner)}</span>{owner}</>}</span><span><span className={`priority-badge priority-${h.priority}`}>{PRIORITY_LABELS[h.priority]}</span></span><span>{req?<RequirementBadge status={h.proposal_status}/>:<HelpStatusBadge status={h.status}/>}</span><span><div className="inline-actions">{!req&&canAssign&&!h.assigned_to&&<button type="button" className="quick-assign-button" onClick={()=>onAssign(h)} title="Asignar ahora"><Icon name="lucide:user-plus"/><span>Asignar</span></button>}{req&&canPlan&&(h.proposal_status||'pending')==='pending'&&<button type="button" className="decision-button" onClick={()=>onDecision(h)} title="Evaluar requerimiento"><Icon name="lucide:gavel"/></button>}<button className="icon-button" onClick={()=>onActions(h)} title="Acciones"><Icon name="lucide:ellipsis-vertical"/></button></div></span></div>})}</div></div></section>
   </div>
 }
 function knowledgeSlug(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,120)}
-function KnowledgeView({workspace,articles,versions=[],locale='es',products,modules,canManage,onCreate,onEdit,onOpen,onDelete}){
+function KnowledgeView({workspace,articles,versions=[],locale='es',products,modules,canManage,onCreate,onEdit,onOpen,onPreview,onDelete}){
   const [q,setQ]=useState(''),[scope,setScope]=useState('published'),[localized,setLocalized]=useState({})
   useEffect(()=>{let cancelled=false;(async()=>{
     const map={}
@@ -1322,7 +1816,7 @@ function KnowledgeView({workspace,articles,versions=[],locale='es',products,modu
   const visible=articles.filter(a=>{const d=displayArticle(a);return (scope==='all'||a.status===scope||scope==='draft'&&a.draft_version_id)&&(!q.trim()||`${d.title} ${d.summary||''} ${(d.tags||[]).join(' ')} ${d.content||''}`.toLowerCase().includes(q.trim().toLowerCase()))})
   const activeVersion=a=>versions.find(v=>v.id===a.active_version_id)||versions.filter(v=>v.article_id===a.id&&v.status==='published').sort((x,y)=>y.version_number-x.version_number)[0]
   const draftVersion=a=>versions.find(v=>v.id===a.draft_version_id)||versions.find(v=>v.article_id===a.id&&v.status==='draft')
-  return <div className="page"><PageHeader eyebrow="Recursos internos" title="Knowledge" subtitle="Artículos, guías y procedimientos para resolver dudas antes de abrir un ticket." icon="lucide:book-open-text" action={canManage?<button className="primary" onClick={onCreate}><Icon name="lucide:file-plus-2"/> Nuevo artículo</button>:null}/><div className="knowledge-toolbar"><div className="knowledge-search"><Icon name="lucide:search"/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por título, contenido o etiqueta…"/></div>{canManage&&<select value={scope} onChange={e=>setScope(e.target.value)}><option value="published">Publicados</option><option value="draft">Con borrador</option><option value="archived">Archivados</option><option value="all">Todos</option></select>}</div><section className="knowledge-grid">{visible.length===0&&<div className="knowledge-empty"><Icon name="lucide:book-dashed" size={38}/><h3>Sin artículos</h3><p>{canManage?'Crea el primer recurso para este workspace.':'Todavía no hay recursos publicados.'}</p></div>}{visible.map(a=>{const d=displayArticle(a),p=products.find(x=>x.id===a.product_id),m=modules.find(x=>x.id===a.module_id),active=activeVersion(a),draft=draftVersion(a);return <article className="knowledge-card" key={a.id}><button type="button" className="knowledge-card-main" onClick={()=>onOpen(a)}><div className="knowledge-card-icon"><Icon name="lucide:notebook-text"/></div><div><div className="knowledge-card-meta">{active&&<span className="knowledge-version-chip"><Icon name="lucide:git-branch"/>v{active.version_number}</span>}{draft&&<span className="knowledge-status draft">Borrador v{draft.version_number}</span>}{locale!==(a.default_language||'es')&&localized[a.id]&&<span className="knowledge-language-badge"><Icon name="lucide:languages"/>{locale.toUpperCase()}</span>}{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key}</span>}</div><h3>{d.title}</h3><p>{d.summary||String(d.content||'').slice(0,180)}</p><div className="knowledge-tags">{(d.tags||[]).slice(0,4).map(tag=><span key={tag}>{tag}</span>)}</div></div></button>{canManage&&<div className="knowledge-card-actions"><button type="button" onClick={()=>onEdit(a)}><Icon name={draft?'lucide:file-pen-line':'lucide:git-branch-plus'}/>{draft?'Editar borrador':'Nueva versión'}</button><button type="button" className="danger-text" onClick={()=>onDelete(a)}><Icon name="lucide:trash-2"/>Eliminar</button></div>}</article>})}</section></div>
+  return <div className="page"><PageHeader eyebrow="Recursos internos" title="Knowledge" subtitle="Artículos, guías y procedimientos para resolver dudas antes de abrir un ticket." icon="lucide:book-open-text" action={canManage?<button className="primary" onClick={onCreate}><Icon name="lucide:file-plus-2"/> Nuevo artículo</button>:null}/><div className="knowledge-toolbar"><div className="knowledge-search"><Icon name="lucide:search"/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar por título, contenido o etiqueta…"/></div>{canManage&&<select value={scope} onChange={e=>setScope(e.target.value)}><option value="published">Publicados</option><option value="draft">Con borrador</option><option value="archived">Archivados</option><option value="all">Todos</option></select>}</div><section className="knowledge-grid">{visible.length===0&&<div className="knowledge-empty"><Icon name="lucide:book-dashed" size={38}/><h3>Sin artículos</h3><p>{canManage?'Crea el primer recurso para este workspace.':'Todavía no hay recursos publicados.'}</p></div>}{visible.map(a=>{const d=displayArticle(a),p=products.find(x=>x.id===a.product_id),m=modules.find(x=>x.id===a.module_id),active=activeVersion(a),draft=draftVersion(a);return <article className="knowledge-card" key={a.id}><button type="button" className="knowledge-card-main" onClick={()=>a.active_version_id?onOpen(a):onPreview(a,draft||active||versions.filter(v=>v.article_id===a.id).sort((x,y)=>y.version_number-x.version_number)[0]||null)}><div className="knowledge-card-icon"><Icon name="lucide:notebook-text"/></div><div><div className="knowledge-card-meta">{active&&<span className="knowledge-version-chip"><Icon name="lucide:git-branch"/>v{active.version_number}</span>}{draft&&<span className="knowledge-status draft">Borrador v{draft.version_number}</span>}{locale!==(a.default_language||'es')&&localized[a.id]&&<span className="knowledge-language-badge"><Icon name="lucide:languages"/>{locale.toUpperCase()}</span>}{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key}</span>}</div><h3>{d.title}</h3><p>{cleanKnowledgeSnippet(d.summary||d.content,180)}</p><div className="knowledge-tags">{(d.tags||[]).slice(0,4).map(tag=><span key={tag}>{tag}</span>)}</div></div></button><div className="knowledge-card-actions"><button type="button" onClick={()=>onPreview(a,draft||active||versions.filter(v=>v.article_id===a.id).sort((x,y)=>y.version_number-x.version_number)[0]||null)}><Icon name="lucide:scan-eye"/>{locale==='en'?'Reader preview':'Vista previa lector'}</button>{canManage&&<><button type="button" onClick={()=>onEdit(a)}><Icon name={draft?'lucide:file-pen-line':'lucide:git-branch-plus'}/>{draft?'Editar borrador':'Nueva versión'}</button><button type="button" className="danger-text" onClick={()=>onDelete(a)}><Icon name="lucide:trash-2"/>Eliminar</button></>}</div></article>})}</section></div>
 }
 
 function KnowledgeBlockEditor({blocks,setBlocks,media=[]}){
@@ -1482,11 +1976,29 @@ function KnowledgeArticlePage({article,versions=[],events=[],products,modules,me
   </div>
 }
 
+
+function KnowledgeListPreviewPage({article,version,products=[],modules=[],locale='es',onBack}){
+  const [media,setMedia]=useState([])
+  const source=version?{...article,...version}:article
+  const product=products.find(x=>x.id===source.product_id),module=modules.find(x=>x.id===source.module_id)
+  const blocks=knowledgeDefaultBlocks(source)
+  useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id])
+  const statusLabel=source.status==='draft'?(locale==='en'?'Draft':'Borrador'):source.status==='archived'?(locale==='en'?'Archived':'Archivado'):(locale==='en'?'Published':'Publicado')
+  return <div className="page knowledge-reader-page" data-i18n-skip>
+    <div className="knowledge-preview-banner knowledge-list-preview-banner"><span><Icon name="lucide:scan-eye"/><b>{locale==='en'?'Reader POV preview':'Vista previa POV lector'}</b><small>{locale==='en'?`Previewing ${version?`v${version.version_number} · `:''}${statusLabel}. No content is changed.`:`Visualizando ${version?`v${version.version_number} · `:''}${statusLabel}. No se modifica ningún contenido.`}</small></span><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> {locale==='en'?'Back to Knowledge':'Volver a Knowledge'}</button></div>
+    <article className="content-card knowledge-reader-card knowledge-preview-card">
+      <header className="knowledge-reader-hero"><div className="knowledge-reader-version-line"><span className={`knowledge-status ${source.status||'draft'}`}>{statusLabel}</span>{version&&<span className="knowledge-version-chip"><Icon name="lucide:git-branch"/>v{version.version_number}</span>}</div><h1>{source.title}</h1>{source.summary&&<p>{cleanKnowledgeSnippet(source.summary,420)}</p>}<div className="knowledge-detail-meta">{product&&<span><Icon name="lucide:folder"/>{product.name}</span>}{module&&<span><Icon name="lucide:blocks"/>{module.module_key} · {module.name}</span>}{(source.tags||[]).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div></header>
+      <div className="knowledge-content knowledge-rendered knowledge-reader-content"><KnowledgeRenderedBlocks blocks={blocks} media={media} title={source.title}/></div>
+    </article>
+  </div>
+}
+
 function KnowledgeSuggestions({workspace,locale='es',title,description,articles=[]}){
   const [state,setState]=useState({loading:false,message:'',articles:[],provider:''}),[expanded,setExpanded]=useState(null)
-  useEffect(()=>{const query=`${title||''} ${description||''}`.trim();if(query.length<8){setState({loading:false,message:'',articles:[],provider:''});return}let cancelled=false;const timer=setTimeout(async()=>{setState(x=>({...x,loading:true}));try{const {data,error}=await db.functions.invoke('trobbu-knowledge-assistant',{body:{workspace_id:workspace.id,title,description,language:locale}});if(error||data?.error)throw new Error(await functionErrorMessage(error,data));if(!cancelled)setState({loading:false,message:data.message||'',articles:data.articles||[],provider:data.provider||''})}catch{const q=query.toLowerCase(),fallback=articles.filter(a=>a.status==='published'&&`${a.title} ${a.summary||''} ${(a.tags||[]).join(' ')}`.toLowerCase().split(/\s+/).some(w=>w.length>4&&q.includes(w))).slice(0,3).map(a=>({id:a.id,title:a.title,summary:a.summary,tags:a.tags,content_preview:String(a.content||'').slice(0,800)}));if(!cancelled)setState({loading:false,message:fallback.length?'Encontré recursos relacionados que vale la pena revisar antes de crear el ticket.':'',articles:fallback,provider:'local'})}},550);return()=>{cancelled=true;clearTimeout(timer)}},[workspace?.id,title,description])
+  useEffect(()=>{const query=`${title||''} ${description||''}`.trim();if(query.length<8){setState({loading:false,message:'',articles:[],provider:''});return}let cancelled=false;const timer=setTimeout(async()=>{setState(x=>({...x,loading:true}));try{const {data,error}=await db.functions.invoke('trobbu-knowledge-assistant',{body:{workspace_id:workspace.id,title,description,language:locale}});if(error||data?.error)throw new Error(await functionErrorMessage(error,data));if(!cancelled)setState({loading:false,message:data.message||'',articles:(data.articles||[]).map(a=>({...a,summary:cleanKnowledgeSnippet(a.summary||a.content_preview,200)})),provider:data.provider||''})}catch{const q=query.toLowerCase(),fallback=articles.filter(a=>a.status==='published'&&`${a.title} ${a.summary||''} ${(a.tags||[]).join(' ')}`.toLowerCase().split(/\s+/).some(w=>w.length>4&&q.includes(w))).slice(0,3).map(a=>({id:a.id,title:a.title,summary:cleanKnowledgeSnippet(a.summary||a.content,200),tags:a.tags}));if(!cancelled)setState({loading:false,message:fallback.length?(locale==='en'?'I found related resources worth reviewing before creating the ticket.':'Encontré recursos relacionados que vale la pena revisar antes de crear el ticket.'):'',articles:fallback,provider:'local'})}},550);return()=>{cancelled=true;clearTimeout(timer)}},[workspace?.id,title,description,locale])
   if(!state.loading&&!state.message&&!state.articles.length)return null
-  return <div className="knowledge-suggestions"><div className="knowledge-suggestion-head"><span><Icon name="lucide:sparkles"/><b>Asistente Knowledge</b></span>{state.loading&&<small>Buscando artículos relacionados…</small>}</div>{state.articles.length>0&&<div className="knowledge-suggestion-guidance"><Icon name="lucide:book-open-check"/><p>Por favor, te sugerimos leer esta información relacionada con el ticket que deseas crear para verificar si este artículo puede ayudarte a resolver tus dudas. Si la información no fue de ayuda, podrás regresar y continuar creando tu ticket.</p></div>}{state.message&&<p className="knowledge-suggestion-ai-message">{state.message}</p>}{state.articles.length>0&&<div className="knowledge-suggestion-list">{state.articles.map(a=><article key={a.id}><button type="button" onClick={()=>setExpanded(expanded===a.id?null:a.id)}><span><Icon name="lucide:book-open"/><b>{a.title}</b><small>{a.summary||'Recurso relacionado'}</small></span><Icon name={expanded===a.id?'lucide:chevron-up':'lucide:chevron-down'}/></button>{expanded===a.id&&<div className="knowledge-suggestion-preview"><p>{a.content_preview||a.summary}</p><a className="primary compact knowledge-direct-link" href={knowledgeArticleUrl(a.id)} target="_blank" rel="noopener noreferrer"><Icon name="lucide:external-link"/> Leer artículo completo</a><small>El artículo se abrirá en una nueva pestaña para conservar lo que ya escribiste en este ticket.</small></div>}</article>)}</div>}</div>
+  const guidance=locale==='en'?'Please review this information related to the ticket you want to create and check whether the article resolves your question. If it does not help, return to this tab and continue creating your ticket.':'Por favor, te sugerimos leer esta información relacionada con el ticket que deseas crear para verificar si este artículo puede ayudarte a resolver tus dudas. Si la información no fue de ayuda, podrás regresar y continuar creando tu ticket.'
+  return <div className="knowledge-suggestions"><div className="knowledge-suggestion-head"><span><Icon name="lucide:sparkles"/><b>{locale==='en'?'Knowledge Assistant':'Asistente Knowledge'}</b></span>{state.loading&&<small>{locale==='en'?'Searching related articles…':'Buscando artículos relacionados…'}</small>}</div>{state.articles.length>0&&<div className="knowledge-suggestion-guidance"><Icon name="lucide:book-open-check"/><p>{guidance}</p></div>}{state.message&&<p className="knowledge-suggestion-ai-message">{cleanKnowledgeSnippet(state.message,240)}</p>}{state.articles.length>0&&<div className="knowledge-suggestion-list">{state.articles.map(a=><article key={a.id}><button type="button" onClick={()=>setExpanded(expanded===a.id?null:a.id)}><span><Icon name="lucide:book-open"/><b>{a.title}</b><small>{cleanKnowledgeSnippet(a.summary||(locale==='en'?'Related resource':'Recurso relacionado'),200)}</small></span><Icon name={expanded===a.id?'lucide:chevron-up':'lucide:chevron-down'}/></button>{expanded===a.id&&<div className="knowledge-suggestion-preview"><p>{cleanKnowledgeSnippet(a.summary||(locale==='en'?'Open the full article to review all details.':'Abre el artículo completo para revisar todos los detalles.'),220)}</p><a className="primary compact knowledge-direct-link" href={knowledgeArticleUrl(a.id)} target="_blank" rel="noopener noreferrer"><Icon name="lucide:external-link"/> {locale==='en'?'Read full article':'Leer artículo completo'}</a><small>{locale==='en'?'The article opens in a new tab so the request you are writing remains intact.':'El artículo se abrirá en una nueva pestaña para conservar lo que ya escribiste en este ticket.'}</small></div>}</article>)}</div>}</div>
 }
 
 function InlineCredentials({credentials,onClose}){const [copied,setCopied]=useState(false),url=credentials.platform_url||'https://jiratrobbu.vercel.app/';const copy=async()=>{await navigator.clipboard.writeText(`Jira Interno TROBBU\nPlataforma: ${url}\nCorreo: ${credentials.email}\nContraseña temporal: ${credentials.temporary_password}`);setCopied(true);setTimeout(()=>setCopied(false),1500)};return <div className="inline-credentials"><span><small>Plataforma</small><a href={url} target="_blank" rel="noreferrer">{url}</a></span><span><small>Correo</small><b>{credentials.email}</b></span><span><small>Contraseña temporal</small><code>{credentials.temporary_password}</code></span><button type="button" className="primary compact" onClick={copy}><Icon name={copied?'lucide:check':'lucide:copy'}/>{copied?'Copiado':'Copiar acceso'}</button><button type="button" className="icon-button" onClick={onClose}><Icon name="lucide:x"/></button></div>}
@@ -1601,9 +2113,9 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='sprint-rollover') return <SprintRolloverModal sprint={modal.sprint} sprints={props.sprints} tickets={props.tickets} onClose={close} onSave={async nextId=>{await props.closeSprintAndRollover(modal.sprint,nextId);close()}}/>
   if(modal.type==='sprint-delete') return <ConfirmModal title="Eliminar sprint" message="Los tickets del sprint quedarán sin sprint. Para conservar el flujo recomendado usa “Cerrar / trasladar” desde Backlog." danger onClose={close} onConfirm={async()=>{const {error}=await db.from('sprints').delete().eq('id',modal.sprint.id);if(error)throw error;await props.refresh();props.toast('success','Sprint eliminado.');close()}}/>
 
-  if(modal.type==='help-create') return <HelpdeskModal title="Nueva solicitud de Helpdesk" workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} departments={props.departments} requestTypes={props.requestTypes} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f);close()}}/>
-  if(modal.type==='help-edit') return <HelpdeskModal title={`Editar ${modal.item.ticket_key}`} workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f,modal.item);close()}}/>
-  if(modal.type==='help-detail') return <HelpdeskDetailModal workspace={props.workspace} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} members={props.members} session={props.session} canWork={props.canManageHelpdesk} canManage={props.canPlan} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onDecision={()=>setModal({type:'help-requirement-decision',item:modal.item})} onAssign={()=>setModal({type:'help-assign',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
+  if(modal.type==='help-create') return <HelpdeskModal title="Nueva solicitud de Helpdesk" workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f);close()}}/>
+  if(modal.type==='help-edit') return <HelpdeskModal title={`Editar ${modal.item.ticket_key}`} workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f,modal.item);close()}}/>
+  if(modal.type==='help-detail') return <HelpdeskDetailModal workspace={props.workspace} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} session={props.session} canWork={props.canManageHelpdesk} canManage={props.canPlan} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onDecision={()=>setModal({type:'help-requirement-decision',item:modal.item})} onAssign={()=>setModal({type:'help-assign',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='help-actions'){
     const requirement=isProposalCategory(modal.item.category)
     const actions=[['lucide:eye','Ver solicitud',()=>setModal({type:'help-detail',item:modal.item})]]
@@ -1615,7 +2127,7 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='help-assign') return <HelpdeskAssignModal item={modal.item} members={props.members} onClose={close} onSave={async(assigneeId,comment)=>{const {error}=await db.rpc('assign_helpdesk_ticket',{p_ticket_id:modal.item.id,p_assignee:assigneeId,p_comment:comment||null});if(error)throw error;await props.refresh();props.toast('success','Solicitud asignada correctamente.');close()}}/>
   if(modal.type==='help-requirement-decision') return <RequirementDecisionModal item={modal.item} products={props.products} onClose={close} onSave={async(decision,productId,note)=>{await props.decideRequirement(modal.item,decision,productId,note);close()}}/>
   if(modal.type==='help-delete') return <ConfirmModal title={`Eliminar ${modal.item.ticket_key}`} message={`¿Deseas eliminar “${modal.item.subject}”?`} danger onClose={close} onConfirm={async()=>{await props.deleteHelpdesk(modal.item);close()}}/>
-  if(modal.type==='help-filters') return <HelpFilterModal filters={props.helpFilters} departments={props.departments} requestTypes={props.requestTypes} members={props.members} onClose={close} onApply={f=>{props.setHelpFilters(f);close()}}/>
+  if(modal.type==='help-filters') return <HelpFilterModal filters={props.helpFilters} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} onClose={close} onApply={f=>{props.setHelpFilters(f);close()}}/>
 
   if(modal.type==='invite') return <InviteModal workspace={props.workspace} products={props.products} roleTemplates={props.roleTemplates} isSuperadmin={props.isSuperadmin} onClose={close} onSaved={async result=>{await props.loadMemberships(props.workspace.id);await props.refresh();if(result?.temporary_password){setModal({type:'temporary-credentials',credentials:result});return}props.toast('success',result?.invitation_sent?'Invitación enviada y accesos configurados.':'Usuario y accesos configurados.');close()}}/>
   if(modal.type==='temporary-credentials') return <TemporaryCredentialsModal credentials={modal.credentials} onClose={close}/>
@@ -1903,9 +2415,9 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
   </>
 }
 
-function HelpdeskModal({title,workspace,knowledgeArticles=[],locale='es',item,departments,requestTypes=[],members,session,canWork,onClose,onSave}){
+function HelpdeskModal({title,workspace,knowledgeArticles=[],locale='es',item,departments,requestTypes=[],products=[],members,session,canWork,onClose,onSave}){
   const isCreate=!item
-  const [f,setF]=useState({department_id:item?.department_id||departments.find(d=>d.active)?.id||'',request_type_id:item?.request_type_id||requestTypes.find(x=>x.active)?.id||'',subject:item?.subject||'',description:item?.description||'',requester_name:item?.requester_name||session.user.user_metadata?.full_name||'',requester_email:item?.requester_email||session.user.email||'',category:item?.category||'general',priority:item?.priority||'medium',status:item?.status||'created',assigned_to:item?.assigned_to||'',source:item?.source||'portal',due_at:toLocalDateTimeInput(item?.due_at)})
+  const [f,setF]=useState({department_id:item?.department_id||departments.find(d=>d.active)?.id||'',request_type_id:item?.request_type_id||requestTypes.find(x=>x.active)?.id||'',product_id:item?.product_id||'',subject:item?.subject||'',description:item?.description||'',requester_name:item?.requester_name||session.user.user_metadata?.full_name||'',requester_email:item?.requester_email||session.user.email||'',category:item?.category||'general',priority:item?.priority||'medium',status:item?.status||'created',assigned_to:item?.assigned_to||'',source:item?.source||'portal',due_at:toLocalDateTimeInput(item?.due_at)})
   const [evidenceFiles,setEvidenceFiles]=useState([]),[evidenceError,setEvidenceError]=useState('')
   const evidenceBytes=evidenceFiles.reduce((sum,file)=>sum+Number(file.size||0),0)
   const selectEvidence=files=>{
@@ -1925,17 +2437,18 @@ function HelpdeskModal({title,workspace,knowledgeArticles=[],locale='es',item,de
   const isRequirement=selectedRequestType?.code==='requirement'||(!selectedRequestType&&isProposalCategory(f.category))
   const internalMode=!isCreate&&canWork&&!isRequirement
   return <Modal title={title} subtitle={isCreate?'Registra la solicitud y, si aplica, adjunta fotos de evidencia. Las imágenes se optimizan antes de almacenarse.':isRequirement?'Revisa la propuesta; su decisión se gestiona desde Evaluar requerimiento.':'Canaliza la solicitud y actualiza su atención interna.'} onClose={onClose} size="lg"><AsyncForm onSubmit={()=>onSave({...f,source:isCreate?'portal':f.source,status:isCreate||isRequirement?'created':f.status,assigned_to:isCreate||isRequirement?'':f.assigned_to,due_at:isCreate||isRequirement?'':f.due_at,evidence_files:isCreate?evidenceFiles:[]})} submitLabel={item?'Guardar cambios':'Crear solicitud'}>
-    <div className="form-section"><h4>Solicitud</h4><label>Asunto<input value={f.subject} onChange={e=>setF({...f,subject:e.target.value})} required placeholder="¿Qué necesitas o qué quieres proponer?"/></label><KnowledgeSuggestions workspace={workspace} locale={locale} title={f.subject} description={f.description} articles={knowledgeArticles}/><label>Descripción<textarea rows="5" value={f.description} onChange={e=>setF({...f,description:e.target.value})} required placeholder="Contexto, impacto, pasos, evidencia y resultado esperado…"/></label><div className="form-grid"><label>Departamento solicitante<select value={f.department_id} onChange={e=>setF({...f,department_id:e.target.value})} required><option value="" disabled>Selecciona un departamento</option>{activeDepartments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Tipo de solicitud<select value={f.request_type_id} onChange={e=>setF({...f,request_type_id:e.target.value})} required disabled={!!item&&isProposalCategory(item.category)}><option value="" disabled>Selecciona un tipo</option>{activeRequestTypes.map(type=><option value={type.id} key={type.id}>{type.name}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}</select></label>{!isCreate&&canWork&&<label>Origen<select value={f.source} onChange={e=>setF({...f,source:e.target.value})}><option value="internal">Interno</option><option value="portal">Portal</option><option value="email">Correo</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>}</div></div>
+    <div className="form-section"><h4>Solicitud</h4><label>Asunto<input value={f.subject} onChange={e=>setF({...f,subject:e.target.value})} required placeholder="¿Qué necesitas o qué quieres proponer?"/></label><KnowledgeSuggestions workspace={workspace} locale={locale} title={f.subject} description={f.description} articles={knowledgeArticles}/><label>Descripción<textarea rows="5" value={f.description} onChange={e=>setF({...f,description:e.target.value})} required placeholder="Contexto, impacto, pasos, evidencia y resultado esperado…"/></label><div className="form-grid"><label>Departamento solicitante<select value={f.department_id} onChange={e=>setF({...f,department_id:e.target.value})} required><option value="" disabled>Selecciona un departamento</option>{activeDepartments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Tipo de solicitud<select value={f.request_type_id} onChange={e=>setF({...f,request_type_id:e.target.value})} required disabled={!!item&&isProposalCategory(item.category)}><option value="" disabled>Selecciona un tipo</option>{activeRequestTypes.map(type=><option value={type.id} key={type.id}>{type.name}</option>)}</select></label><label>Producto <span className="optional">Opcional</span><select value={f.product_id} onChange={e=>setF({...f,product_id:e.target.value})}><option value="">Sin producto específico</option>{products.map(p=><option value={p.id} key={p.id}>{p.name} · {p.key}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}>{PRIORITIES.map(p=><option key={p} value={p}>{PRIORITY_LABELS[p]}</option>)}</select></label>{!isCreate&&canWork&&<label>Origen<select value={f.source} onChange={e=>setF({...f,source:e.target.value})}><option value="internal">Interno</option><option value="portal">Portal</option><option value="email">Correo</option><option value="phone">Teléfono</option><option value="whatsapp">WhatsApp</option></select></label>}</div></div>
     <div className="form-section"><h4>Solicitante</h4><div className="form-grid"><label>Solicitante<input value={f.requester_name} onChange={e=>setF({...f,requester_name:e.target.value})} readOnly={isCreate}/></label><label>Correo<input type="email" value={f.requester_email} onChange={e=>setF({...f,requester_email:e.target.value})} readOnly={isCreate}/></label></div>{isCreate&&<small className="section-help">Se toma de la sesión actual para conservar la trazabilidad de quién realizó la solicitud.</small>}</div>
     {isCreate&&<div className="form-section helpdesk-create-evidence"><div className="section-heading compact-heading"><div><h4>Evidencia fotográfica</h4><p>Opcional · agrega hasta 5 fotos que ayuden a documentar el reporte desde su creación.</p></div><span className="evidence-counter">{evidenceFiles.length}/5</span></div><label className="helpdesk-evidence-picker"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>{try{selectEvidence(e.target.files)}catch(err){e.target.value='';setEvidenceFiles([]);setEvidenceError(err.message||String(err))}}}/><span className="helpdesk-evidence-picker-icon"><Icon name="lucide:image-plus" size={24}/></span><span><b>{evidenceFiles.length?'Cambiar imágenes':'Seleccionar fotos de evidencia'}</b><small>JPG, PNG o WebP · máximo 15 MB por original · se comprimen antes de subir.</small></span></label>{evidenceError&&<div className="error compact-error"><Icon name="lucide:triangle-alert"/>{evidenceError}</div>}{evidenceFiles.length>0&&<div className="helpdesk-evidence-selection">{evidenceFiles.map((file,index)=><div key={`${file.name}-${file.size}-${index}`}><span><Icon name="lucide:image"/><b title={file.name}>{file.name}</b><small>{fileSizeLabel(file.size)}</small></span><button type="button" className="icon-button" title="Quitar imagen" onClick={()=>setEvidenceFiles(files=>files.filter((_,i)=>i!==index))}><Icon name="lucide:x"/></button></div>)}<small className="field-help">{fileSizeLabel(evidenceBytes)} antes de compresión. El sistema redimensiona hasta 1920 px y utiliza WebP cuando realmente reduce el peso.</small></div>}<div className="compression-notice"><Icon name="lucide:shrink"/><div><b>Optimización automática antes de guardar</b><span>La base de datos almacena solo metadatos; el archivo optimizado se guarda en Storage privado y se consulta mediante URL firmada.</span></div></div></div>}
     {isRequirement?<div className="requirement-notice"><Icon name="lucide:lightbulb"/><span><b>Propuesta de producto · sin SLA operativo.</b><small>PM/Admin/Superadmin decidirá posteriormente si pasa a Backlog o si se rechaza con una nota para el solicitante.</small></span></div>:internalMode?<div className="form-section internal-section"><h4>Atención interna</h4><div className="form-grid"><label>Asignado a<select value={f.assigned_to} onChange={e=>setF({...f,assigned_to:e.target.value})}><option value="">Sin asignar</option>{assignees.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Fecha objetivo<input type="datetime-local" value={f.due_at} onChange={e=>setF({...f,due_at:e.target.value})}/></label></div></div>:<div className="notice routing-notice"><Icon name="lucide:route"/><span><b>{isCreate?'Se enviará sin asignar para canalización.':'Canalización administrada por la mesa.'}</b><small>PM/Admin/Superadmin define responsable, estado y fecha objetivo después de revisar la solicitud.</small></span></div>}
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
-function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],members,session,canWork,canManage,onClose,onEdit,onDecision,onAssign,onRefresh,toast}){
+function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],products=[],members,session,canWork,canManage,onClose,onEdit,onDecision,onAssign,onRefresh,toast}){
   const [comments,setComments]=useState([]),[activity,setActivity]=useState([]),[attachments,setAttachments]=useState([]),[tab,setTab]=useState('comments'),[commentModal,setCommentModal]=useState(null)
   const requirement=isProposalCategory(item.category)
   const requestType=requestTypes.find(x=>x.id===item.request_type_id)
+  const product=products.find(x=>x.id===item.product_id)
   const load=async()=>{const [c,a,e]=await Promise.all([db.from('helpdesk_comments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*').eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false}),db.from('helpdesk_attachments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at')]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[]);if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))}
   useEffect(()=>{load()},[item.id])
   const addComment=async({body,files})=>{body=String(body||'').trim();if(!body)throw new Error('Escribe un comentario.');const {data,error}=await db.from('helpdesk_comments').insert({helpdesk_ticket_id:item.id,author_id:session.user.id,body}).select('*').single();if(error)throw error;try{await uploadEvidenceFiles({workspaceId:workspace.id,scope:'helpdesk',parentId:item.id,commentId:data.id,files,evidenceType:'general',userId:session.user.id,compress:true})}catch(err){await db.from('helpdesk_comments').delete().eq('id',data.id);throw err}await load();toast('success',files?.length?'Comentario y evidencias agregados.':'Comentario agregado.')}
@@ -1952,7 +2465,7 @@ function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],members
     <div className="detail-description"><h4>Descripción de la solicitud</h4><p>{item.description||'Sin descripción.'}</p></div>
     <div className="detail-tabs"><button type="button" className={tab==='comments'?'active':''} onClick={()=>setTab('comments')}>Comentarios <em>{comments.length}</em></button><button type="button" className={tab==='activity'?'active':''} onClick={()=>setTab('activity')}>Seguimiento <em>{activity.length}</em></button></div>
     {tab==='comments'?<><div className="comment-list helpdesk-comments-scroll">{comments.length===0&&unlinked.length===0&&<p className="muted">Todavía no hay comentarios ni evidencias.</p>}{comments.map(c=>{const member=members.find(m=>m.user_id===c.author_id),author=c.author_name||member?.profile?.full_name||(c.author_id===session.user.id?session.user.user_metadata?.full_name||session.user.email:'Usuario'),authorEmail=c.author_email||member?.profile?.email||(c.author_id===session.user.id?session.user.email:''),own=c.author_id===session.user.id,files=attachments.filter(a=>a.comment_id===c.id);return <div className="comment evidence-comment helpdesk-comment-card" key={c.id}><span className="mini-avatar">{initials(author)}</span><div className="comment-body"><div className="comment-head"><div><b>{author}</b>{authorEmail&&<span className="comment-author-email">{authorEmail}</span>}<small>{formatDateTime(c.created_at)}</small></div>{own&&<button type="button" className="icon-button" onClick={()=>setCommentModal({type:'actions',comment:c})}><Icon name="lucide:ellipsis" size={16}/></button>}</div><p>{c.body}</p><EvidenceGallery rows={files} session={session} canManage={canWork} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/></div></div>})}{unlinked.length>0&&<div className="standalone-evidence"><h4>Evidencias conservadas</h4><EvidenceGallery rows={unlinked} session={session} canManage={canWork} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/></div>}</div><div className="comment-create-row helpdesk-comment-create"><button type="button" className="primary compact" onClick={()=>setCommentModal({type:'create'})}><Icon name="lucide:image-plus"/> Agregar comentario / evidencia</button></div></>:<div className="activity-list">{activity.length===0&&<p className="muted">Sin movimientos registrados.</p>}{activity.map(a=><div className="activity-item" key={a.id}><span className="activity-dot"></span><div><b>{activityTitle(a)}</b><p>{a.action==='status_changed'?`${helpStatusLabel(a.from_value)} → ${helpStatusLabel(a.to_value)}`:a.action==='requirement_decision'?(a.to_value?.startsWith('accepted_backlog')?'Aceptado a Backlog':'Sugerencia rechazada'):a.to_value}</p><small>{formatDateTime(a.created_at)}</small></div></div>)}</div>}
-  </div><aside className="detail-aside">{mayEdit&&<button type="button" className={item.assigned_to?'secondary-button full':'primary full'} onClick={onAssign}><Icon name="lucide:user-plus"/> {item.assigned_to?'Reasignar':'Asignar ahora'}</button>}{mayEdit&&<button type="button" className="secondary-button full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar solicitud</button>}{requirement&&canManage&&(item.proposal_status||'pending')==='pending'&&<button type="button" className="primary full" onClick={onDecision}><Icon name="lucide:gavel"/> Evaluar requerimiento</button>}<DetailRow label={requirement?'Decisión':'Estado'}>{requirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</DetailRow><DetailRow label="Tipo de solicitud">{requestType?.name||helpCategoryLabel(item.category)}</DetailRow><DetailRow label="Prioridad"><span className={`priority-badge priority-${item.priority}`}>{PRIORITY_LABELS[item.priority]}</span></DetailRow><DetailRow label="Departamento">{dep?.name||'—'}</DetailRow>{!requirement&&<DetailRow label="Asignado">{owner}</DetailRow>}<DetailRow label="Solicitante">{item.requester_name||'—'}</DetailRow><DetailRow label="Correo">{item.requester_email||'—'}</DetailRow><DetailRow label="Creado">{formatDateTime(item.created_at)}</DetailRow>{requirement?<><DetailRow label="Decisión">{formatDateTime(item.decision_at)}</DetailRow>{item.converted_ticket_key&&<DetailRow label="Ticket Backlog"><b>{item.converted_ticket_key}</b></DetailRow>}</>:<><DetailRow label="En revisión">{formatDateTime(item.reviewed_at)}</DetailRow><DetailRow label="Atendido">{formatDateTime(item.attended_at)}</DetailRow><DetailRow label="Objetivo SLA">{formatDateTime(item.due_at)}</DetailRow><DetailRow label="Resuelto">{formatDateTime(item.resolved_at)}</DetailRow><DetailRow label="Cerrado">{formatDateTime(item.closed_at)}</DetailRow></>}</aside></div></Modal>
+  </div><aside className="detail-aside">{mayEdit&&<button type="button" className={item.assigned_to?'secondary-button full':'primary full'} onClick={onAssign}><Icon name="lucide:user-plus"/> {item.assigned_to?'Reasignar':'Asignar ahora'}</button>}{mayEdit&&<button type="button" className="secondary-button full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar solicitud</button>}{requirement&&canManage&&(item.proposal_status||'pending')==='pending'&&<button type="button" className="primary full" onClick={onDecision}><Icon name="lucide:gavel"/> Evaluar requerimiento</button>}<DetailRow label={requirement?'Decisión':'Estado'}>{requirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</DetailRow><DetailRow label="Tipo de solicitud">{requestType?.name||helpCategoryLabel(item.category)}</DetailRow><DetailRow label="Producto">{product?.name||'—'}</DetailRow><DetailRow label="Prioridad"><span className={`priority-badge priority-${item.priority}`}>{PRIORITY_LABELS[item.priority]}</span></DetailRow><DetailRow label="Departamento">{dep?.name||'—'}</DetailRow>{!requirement&&<DetailRow label="Asignado">{owner}</DetailRow>}<DetailRow label="Solicitante">{item.requester_name||'—'}</DetailRow><DetailRow label="Correo">{item.requester_email||'—'}</DetailRow><DetailRow label="Creado">{formatDateTime(item.created_at)}</DetailRow>{requirement?<><DetailRow label="Decisión">{formatDateTime(item.decision_at)}</DetailRow>{item.converted_ticket_key&&<DetailRow label="Ticket Backlog"><b>{item.converted_ticket_key}</b></DetailRow>}</>:<><DetailRow label="En revisión">{formatDateTime(item.reviewed_at)}</DetailRow><DetailRow label="Atendido">{formatDateTime(item.attended_at)}</DetailRow><DetailRow label="Objetivo SLA">{formatDateTime(item.due_at)}</DetailRow><DetailRow label="Resuelto">{formatDateTime(item.resolved_at)}</DetailRow><DetailRow label="Cerrado">{formatDateTime(item.closed_at)}</DetailRow></>}</aside></div></Modal>
     {commentModal?.type==='create'&&<HelpdeskCommentModal title="Agregar comentario / evidencia" onClose={()=>setCommentModal(null)} onSave={async data=>{await addComment(data);setCommentModal(null)}}/>}
     {commentModal?.type==='actions'&&<ActionSheet title="Comentario" subtitle="Selecciona una acción" onClose={()=>setCommentModal(null)} actions={[["lucide:pencil","Editar comentario",()=>setCommentModal({type:'edit',comment:commentModal.comment})],["lucide:trash-2","Eliminar comentario",()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>} 
     {commentModal?.type==='edit'&&<CommentEditModal title="Editar comentario" initial={commentModal.comment.body} onClose={()=>setCommentModal(null)} onSave={async text=>{await editComment(commentModal.comment,text);setCommentModal(null)}}/>}
@@ -1984,17 +2497,17 @@ function HelpdeskCommentModal({title,onClose,onSave}){
 }
 
 function RequirementDecisionModal({item,products,onClose,onSave}){
-  const [decision,setDecision]=useState('accepted_backlog'),[productId,setProductId]=useState(products[0]?.id||''),[note,setNote]=useState('')
+  const [decision,setDecision]=useState('accepted_backlog'),[productId,setProductId]=useState((item.product_id&&products.some(p=>p.id===item.product_id)?item.product_id:'')||products[0]?.id||''),[note,setNote]=useState('')
   const accepting=decision==='accepted_backlog'
   return <Modal title={`Evaluar ${item.ticket_key}`} subtitle="Decide si el requerimiento entra al Backlog o se devuelve como sugerencia rechazada." onClose={onClose} size="md"><AsyncForm onSubmit={()=>{if(accepting&&!productId)throw new Error('Selecciona el producto.');if(!accepting&&!note.trim())throw new Error('Indica el motivo del rechazo.');return onSave(decision,productId,note.trim())}} submitLabel={accepting?'Aceptar a Backlog':'Rechazar sugerencia'} danger={!accepting}>
     <div className="decision-choice"><button type="button" className={accepting?'active accept':''} onClick={()=>setDecision('accepted_backlog')}><Icon name="lucide:list-plus"/><span><b>Aceptar a Backlog</b><small>Crear un ticket de mejora para desarrollo futuro.</small></span></button><button type="button" className={!accepting?'active reject':''} onClick={()=>setDecision('rejected')}><Icon name="lucide:circle-x"/><span><b>Sugerencia rechazada</b><small>Descartar por alcance, prioridad o porque no corresponde al proyecto.</small></span></button></div>
-    {accepting&&<label>Producto destino<select value={productId} onChange={e=>setProductId(e.target.value)} required><option value="" disabled>Selecciona un producto</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+    {accepting&&<label>Producto destino {item.product_id&&<span className="optional">· sugerido desde Helpdesk</span>}<select value={productId} onChange={e=>setProductId(e.target.value)} required><option value="" disabled>Selecciona un producto</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
     <label>{accepting?'Nota de decisión (opcional)':'Motivo del rechazo'}<textarea rows="4" value={note} onChange={e=>setNote(e.target.value)} required={!accepting} placeholder={accepting?'Contexto para el equipo de producto…':'Explica al solicitante por qué no se incorporará…'}/></label>
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
 
-function HelpFilterModal({filters,departments,requestTypes=[],members,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de Helpdesk" onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Tipo de solicitud<select value={f.requestType||'all'} onChange={e=>setF({...f,requestType:e.target.value})}><option value="all">Todos</option>{requestTypes.map(type=><option value={type.id} key={type.id}>{type.name}</option>)}</select></label><label>Área<select value={f.department} onChange={e=>setF({...f,department:e.target.value})}><option value="all">Todas</option>{departments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Asignado<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
+function HelpFilterModal({filters,departments,requestTypes=[],products=[],members,onClose,onApply}){const [f,setF]=useState({...filters});return <Modal title="Filtros de Helpdesk" onClose={onClose}><AsyncForm onSubmit={()=>onApply(f)} submitLabel="Aplicar filtros"><div className="form-grid"><label>Estado<select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option value="all">Todos</option>{HELP_STATUS.map(([k,l])=><option value={k} key={k}>{l}</option>)}</select></label><label>Tipo de solicitud<select value={f.requestType||'all'} onChange={e=>setF({...f,requestType:e.target.value})}><option value="all">Todos</option>{requestTypes.map(type=><option value={type.id} key={type.id}>{type.name}</option>)}</select></label><label>Área<select value={f.department} onChange={e=>setF({...f,department:e.target.value})}><option value="all">Todas</option>{departments.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select></label><label>Producto<select value={f.product||'all'} onChange={e=>setF({...f,product:e.target.value})}><option value="all">Todos</option>{products.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label><label>Asignado<select value={f.assignee} onChange={e=>setF({...f,assignee:e.target.value})}><option value="all">Todos</option>{members.map(m=><option value={m.user_id} key={m.user_id}>{m.profile?.full_name||'Usuario'}</option>)}</select></label><label>Prioridad<select value={f.priority} onChange={e=>setF({...f,priority:e.target.value})}><option value="all">Todas</option>{PRIORITIES.map(p=><option value={p} key={p}>{PRIORITY_LABELS[p]}</option>)}</select></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
 
 function ProductScopeEditor({products,role,allProducts,setAllProducts,selected,setSelected,disabled=false}){
   const forced=role==='superadmin'

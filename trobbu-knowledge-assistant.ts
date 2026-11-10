@@ -5,6 +5,7 @@ const norm=(v:string)=>v.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLower
 const words=(v:string)=>new Set(norm(v).split(/\s+/).filter(x=>x.length>2));
 function scoreArticle(a:any,q:string){const qWords=words(q);if(!qWords.size)return 0;const title=words(a.title||"");const summary=words(a.summary||"");const tags=words((a.tags||[]).join(" "));const content=words(String(a.content||"").slice(0,12000));let s=0;qWords.forEach(w=>{if(title.has(w))s+=6;if(tags.has(w))s+=5;if(summary.has(w))s+=3;if(content.has(w))s+=1});return s}
 function extractText(payload:any){if(typeof payload?.output_text==="string")return payload.output_text;for(const item of payload?.output||[])for(const c of item?.content||[])if(typeof c?.text==="string")return c.text;return ""}
+const cleanSnippet=(v:any,max=220)=>{const text=String(v||"").replace(/\\n/g," ").replace(/\r?\n/g," ").replace(/\s+/g," ").trim();return text.length>max?text.slice(0,max-1).trimEnd()+"…":text}
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
   try{
@@ -29,6 +30,6 @@ Deno.serve(async(req:Request)=>{
       }catch{}
     }
     console.log(JSON.stringify({event:"knowledge_assistant_result",provider,language,candidates:candidates.length,has_openai_key:Boolean(openaiKey),has_gateway_key:Boolean(gatewayKey)}));
-    return new Response(JSON.stringify({ok:true,message,provider,language,articles:candidates.slice(0,3).map(a=>({id:a.id,title:a.title,summary:a.summary,tags:a.tags,product_id:a.product_id,module_id:a.module_id,content_preview:String(a.content||"").slice(0,800),translation_cached:a.translation_cached}))}),{headers:{...cors,"Content-Type":"application/json"}});
+    return new Response(JSON.stringify({ok:true,message,provider,language,articles:candidates.slice(0,3).map(a=>({id:a.id,title:a.title,summary:cleanSnippet(a.summary||a.content,220),tags:a.tags,product_id:a.product_id,module_id:a.module_id,content_preview:cleanSnippet(a.summary||a.content,220),translation_cached:a.translation_cached}))}),{headers:{...cors,"Content-Type":"application/json"}});
   }catch(error){const message=error instanceof Error?error.message:"Unknown error";console.error("trobbu-knowledge-assistant:",message);return new Response(JSON.stringify({error:message}),{status:400,headers:{...cors,"Content-Type":"application/json"}})}
 });
