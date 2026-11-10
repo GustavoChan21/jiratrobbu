@@ -542,3 +542,7 @@ Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RL
 ## v16.6 · Deep links + ES/EN + Knowledge + Producto Helpdesk
 
 Ver `QA-V16.6.md`. Compilación JSX/TypeScript PASS, importación 16/16, auditoría estática i18n sin textos visibles pendientes, deep links Vercel/GitHub/local PASS y flujo Helpdesk Producto → Backlog PASS con rollback.
+
+## v16.7 · Workspace governance + quick assignment + document attachments
+
+Ver `QA-V16.7.md`. Compilación JSX/TypeScript PASS, importación 16/16, roles de workspace verificados con rollback, asignación/reasignación auditada, contadores por módulo validados y Storage documental endurecido.

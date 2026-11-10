@@ -1,4 +1,4 @@
-# Jira Interno TROBBU v16.6
+# Jira Interno TROBBU v16.7
 
 
 
@@ -281,3 +281,7 @@ El centro de actividad cubre Tickets, Helpdesk, Sprints, Knowledge y Staff. Los 
 ## v16.6 · Deep links, ES/EN, Knowledge Preview y Producto Helpdesk
 
 La v16.6 corrige enlaces Knowledge para respetar el dominio actual, completa una auditoría ES/EN, agrega preview lector desde el listado de Knowledge y permite clasificar solicitudes Helpdesk por producto opcional con herencia automática al Backlog. Ver `RELEASE-v16.6.md` y `QA-V16.6.md`.
+
+## v16.7 · Workspace governance, contadores, asignación rápida y documentos
+
+La v16.7 restringe la creación de workspaces a Admin/PM/Superadmin, corrige contadores, agrega asignación rápida auditable en Kanban, elimina el Centro de ayuda, incorpora favicon TROBBU y amplía los adjuntos privados a documentos Office/PDF/CSV. Ver `RELEASE-v16.7.md` y `QA-V16.7.md`.

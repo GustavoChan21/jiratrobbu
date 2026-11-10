@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.6.0",
-  "description": "Jira Interno TROBBU v16.6 - environment-aware deep links + complete ES/EN pass + Knowledge reader preview + Helpdesk product profiling",
+  "version": "16.7.0",
+  "description": "Jira Interno TROBBU v16.7 - workspace governance + live module counters + quick Kanban assignment + document attachments",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },
