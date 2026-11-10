@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.8.0",
-  "description": "Jira Interno TROBBU v16.8 - intelligent Helpdesk routing + capacity queue + staff routing profiles + refined assignee UX",
+  "version": "16.9.0",
+  "description": "Jira Interno TROBBU v16.9 - stable RLS-aware counters + private permission loading + unified attachments",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },

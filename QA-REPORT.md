@@ -551,3 +551,7 @@ Ver `QA-V16.7.md`. Compilación JSX/TypeScript PASS, importación 16/16, roles d
 ## v16.8
 
 See `QA-V16.8.md` for intelligent Helpdesk routing, capacity, redirect, RLS, queue and frontend regression results.
+
+## v16.9
+
+Ver `QA-V16.9.md` para pruebas de contadores RLS-aware, privacidad durante carga de permisos, inventario de uploaders, Sprint con archivos documentales, regresión frontend y Advisors.

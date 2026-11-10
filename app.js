@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v16.8 · Intelligent Helpdesk routing + capacity rules + refined assignee UX */
+/* Jira Interno TROBBU v16.9 · Stable counters + private permission loading + unified attachments */
 const { useEffect, useMemo, useState } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -570,6 +570,23 @@ const UI_REPLACEMENTS_EN = [
   [/^Versión v(\d+) publicada\.$/,'Version v$1 published.'],
   [/^Borrador v(\d+) guardado\. La versión pública sigue activa\.$/,'Draft v$1 saved. The public version remains active.']
 ]
+Object.assign(UI_TRANSLATIONS_EN,{
+  'Validando acceso y permisos…':'Validating access and permissions…',
+  'Preparando únicamente los recursos autorizados para tu usuario.':'Preparing only the resources authorized for your user.',
+  'No se pudo validar el acceso':'Access could not be validated',
+  'No se mostrará ningún módulo hasta confirmar tus permisos.':'No module will be shown until your permissions are confirmed.',
+  'Reintentar':'Retry',
+  'Comentario / evidencia del sprint':'Sprint comment / evidence',
+  'Agregar comentario / archivo':'Add comment / file',
+  'Imágenes, PDF, CSV, Excel, Word, PowerPoint y formatos OpenDocument.':'Images, PDF, CSV, Excel, Word, PowerPoint, and OpenDocument formats.',
+  'Las imágenes se comprimen automáticamente; los documentos se conservan sin alterar.':'Images are compressed automatically; documents are preserved unchanged.',
+  'Comentario y archivos del sprint agregados.':'Sprint comment and files added.',
+  'Comentario del sprint agregado.':'Sprint comment added.',
+  'El comentario se eliminará; sus archivos adjuntos quedarán conservados en el historial del sprint.':'The comment will be deleted; its attachments will remain in the sprint history.',
+  'El texto se eliminará. Los archivos adjuntos se conservarán en el historial del ticket.':'The text will be deleted. Attachments will remain in the ticket history.',
+  'El texto se eliminará. Los archivos adjuntos quedarán conservados en el historial de la solicitud.':'The text will be deleted. Attachments will remain in the request history.'
+})
+
 const I18N_TEXT_ORIGINAL = new WeakMap()
 const I18N_ATTR_ORIGINAL = new WeakMap()
 function uiTranslate(value,locale){
@@ -1066,6 +1083,9 @@ function WorkspaceApp({session,locale,setLocale}){
   const [filters,setFilters]=useState({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})
   const [helpFilters,setHelpFilters]=useState({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all'})
   const [busy,setBusy]=useState(true)
+  const [accessReady,setAccessReady]=useState(false)
+  const [workspaceLoadError,setWorkspaceLoadError]=useState('')
+  const [navCounts,setNavCounts]=useState(null)
   const [modal,setModal]=useState(null)
   const [drawer,setDrawer]=useState(null)
   const [toast,setToast]=useState(null)
@@ -1088,8 +1108,8 @@ function WorkspaceApp({session,locale,setLocale}){
   const loadWorkspaceData=async(silent=false)=>{
     if(!workspace){if(!silent)setBusy(false);return}
     if(!silent)setBusy(true)
-    const [p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,hp,ms]=await Promise.all([
-      db.from('products').select('*').eq('workspace_id',workspace.id).order('board_order'),
+    const [p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,hp,ms,nc]=await Promise.all([
+      db.rpc('list_authorized_products',{p_workspace:workspace.id}),
       db.from('sprints').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
       db.from('tickets').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
       db.from('workspace_members').select('user_id,role,role_id,active,joined_at,permissions,all_products,helpdesk_routing_description,helpdesk_auto_assign_enabled,helpdesk_daily_limit,helpdesk_active_limit,helpdesk_overflow_mode,helpdesk_overflow_user_id').eq('workspace_id',workspace.id).order('joined_at'),
@@ -1112,18 +1132,39 @@ function WorkspaceApp({session,locale,setLocale}){
       db.from('knowledge_article_versions').select('*').eq('workspace_id',workspace.id).order('version_number',{ascending:false}),
       db.from('knowledge_version_events').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
       db.rpc('list_helpdesk_products',{p_workspace:workspace.id}),
-      db.rpc('list_module_counts',{p_workspace:workspace.id})
+      db.rpc('list_module_counts',{p_workspace:workspace.id}),
+      db.rpc('get_navigation_counts',{p_workspace:workspace.id})
     ])
-    const fail=[p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,hp,ms].find(x=>x.error)?.error
-    if(fail){showToast('error',fail.message);if(!silent)setBusy(false);return}
-    const ids=(m.data||[]).map(x=>x.user_id)
+
+    const permissionError=wr.error||ws.error
+    if(permissionError){
+      if(silent){console.warn('No se pudo revalidar el acceso del workspace:',permissionError.message);return}
+      setWorkspaceLoadError(permissionError.message||'No se pudo validar el acceso al workspace.')
+      setAccessReady(false)
+      setBusy(false)
+      return
+    }
+    const initial=result=>result?.error?[]:(result?.data||[])
+    const row=result=>result?.error?null:(result?.data||null)
+    const apply=(result,setter,fallback=[])=>{if(result?.error){if(!silent)setter(fallback)}else setter(result?.data??fallback)}
+    const ids=initial(m).map(x=>x.user_id)
     const profileMap={}
-    if(ids.length){const pr=await db.from('profiles').select('*').in('id',ids); (pr.data||[]).forEach(x=>profileMap[x.id]=x)}
-    const roles=wr.data||[]
-    setProducts(p.data||[]); setSprints(s.data||[]); setTickets(t.data||[]); setRoleTemplates(roles); setSettings(ws.data||null)
-    setDepartments(d.data||[]); setRequestTypes(rt.data||[]); setHelpdesk(h.data||[]); setHelpdeskProducts(hp.data||[]); setNotifications(n.data||[]); setEmailQueue(q.data||[]); setMemberProductAccess(mp.data||[])
-    setModules(mods.data||[]); setModuleStats(ms.data||[]); setTags(tagsQ.data||[]); setTicketTagLinks(tagLinks.data||[]); setTicketLinks(links.data||[]); setCustomFields(fields.data||[]); setCustomFieldProducts(fieldProducts.data||[]); setCustomValues(values.data||[]); setKnowledgeArticles(ka.data||[]); setKnowledgeVersions(kv.data||[]); setKnowledgeVersionEvents(ke.data||[])
-    setMembers((m.data||[]).map(x=>({...x,profile:profileMap[x.user_id],role_template:roles.find(r=>r.id===x.role_id)||roles.find(r=>r.code===x.role),product_ids:(mp.data||[]).filter(a=>a.user_id===x.user_id).map(a=>a.product_id)})))
+    if(ids.length){
+      const pr=await db.from('profiles').select('*').in('id',ids)
+      if(!pr.error)(pr.data||[]).forEach(x=>profileMap[x.id]=x)
+    }
+    const roles=initial(wr)
+    apply(p,setProducts,[]);apply(s,setSprints,[]);apply(t,setTickets,[]);setRoleTemplates(roles);setSettings(row(ws))
+    apply(d,setDepartments,[]);apply(rt,setRequestTypes,[]);apply(h,setHelpdesk,[]);apply(hp,setHelpdeskProducts,[]);apply(n,setNotifications,[]);apply(q,setEmailQueue,[]);apply(mp,setMemberProductAccess,[])
+    apply(mods,setModules,[]);apply(ms,setModuleStats,[]);apply(tagsQ,setTags,[]);apply(tagLinks,setTicketTagLinks,[]);apply(links,setTicketLinks,[]);apply(fields,setCustomFields,[]);apply(fieldProducts,setCustomFieldProducts,[]);apply(values,setCustomValues,[]);apply(ka,setKnowledgeArticles,[]);apply(kv,setKnowledgeVersions,[]);apply(ke,setKnowledgeVersionEvents,[])
+    if(!m.error)setMembers(initial(m).map(x=>({...x,profile:profileMap[x.user_id],role_template:roles.find(r=>r.id===x.role_id)||roles.find(r=>r.code===x.role),product_ids:initial(mp).filter(a=>a.user_id===x.user_id).map(a=>a.product_id)})))
+    else if(!silent)setMembers([])
+    if(!nc.error)setNavCounts(nc.data||null);else if(!silent)setNavCounts(null)
+
+    const nonCritical=[p,s,t,m,mp,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,hp,ms,nc].filter(x=>x?.error)
+    if(nonCritical.length&&!silent)console.warn('Carga parcial del workspace:',nonCritical.map(x=>x.error?.message).filter(Boolean))
+    setWorkspaceLoadError('')
+    setAccessReady(true)
     if(!silent)setBusy(false)
   }
 
@@ -1156,8 +1197,13 @@ function WorkspaceApp({session,locale,setLocale}){
   const workspaces=memberships.map(m=>({...m.workspaces,role:m.role,role_id:m.role_id})).filter(Boolean)
   const unread=notifications.filter(n=>!n.read_at).length
 
-  useEffect(()=>{loadMemberships().then(()=>setBusy(false))},[])
-  useEffect(()=>{loadWorkspaceData()},[workspace?.id])
+  useEffect(()=>{loadMemberships().then(rows=>{if(!rows.length){setBusy(false);setAccessReady(true)}})},[])
+  useEffect(()=>{
+    if(!workspace?.id)return
+    setAccessReady(false);setWorkspaceLoadError('');setNavCounts(null);setBusy(true)
+    setProducts([]);setSprints([]);setTickets([]);setMembers([]);setMemberProductAccess([]);setRoleTemplates([]);setSettings(null);setDepartments([]);setRequestTypes([]);setHelpdesk([]);setHelpdeskProducts([]);setNotifications([]);setEmailQueue([]);setModules([]);setModuleStats([]);setTags([]);setTicketTagLinks([]);setTicketLinks([]);setCustomFields([]);setCustomFieldProducts([]);setCustomValues([]);setKnowledgeArticles([]);setKnowledgeVersions([]);setKnowledgeVersionEvents([])
+    loadWorkspaceData()
+  },[workspace?.id])
   useEffect(()=>{
     if(!workspace?.id) return
     setProductId('all')
@@ -1511,11 +1557,13 @@ function WorkspaceApp({session,locale,setLocale}){
     return data
   }
 
+  if(!workspace&&busy) return <AccessValidationShell session={session} locale={locale} setLocale={setLocale} error="" onRetry={()=>{}}/>
   if(!workspace && !busy) return <EmptyWorkspace canCreate={canCreateWorkspace} onCreate={()=>setModal({type:'workspace-create'})}/>
+  if(workspace&&!accessReady) return <AccessValidationShell session={session} locale={locale} setLocale={setLocale} error={workspaceLoadError} onRetry={()=>{setWorkspaceLoadError('');setBusy(true);loadWorkspaceData()}}/>
 
   return <div className="app-shell">
     <Topbar session={session} locale={locale} setLocale={setLocale} unread={unread} search={search} setSearch={setSearch} canSearch={canViewTickets} portalOnly={helpdeskOnly} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')}/>
-    <Sidebar workspace={workspace} workspaces={workspaces} products={products} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
+    <Sidebar workspace={workspace} workspaces={workspaces} products={products} navCounts={navCounts} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
     <MobileNav view={view} setView={setView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard}/>
     <main className="main-area">
       {busy ? <LoadingPanel/> : knowledgeScreen ? (
@@ -1552,19 +1600,35 @@ function Topbar({session,locale='es',setLocale,unread,search,setSearch,canSearch
   <div className="topbar-actions"><select className="language-switcher" value={locale} onChange={e=>setLocale?.(e.target.value)} aria-label="Idioma / Language"><option value="es">ES</option><option value="en">EN</option></select>{canCreate&&<button className="primary create-button" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button>}<button className="icon-button bell" onClick={onNotifications} title="Notificaciones"><Icon name="lucide:bell"/>{unread>0&&<em>{unread>9?'9+':unread}</em>}</button><div className="top-user"><span className="avatar sm">{initials(session.user.user_metadata?.full_name||session.user.email)}</span><div><b>{session.user.user_metadata?.full_name||'Usuario'}</b><small>{session.user.email}</small></div></div></div>
 </header>}
 
-function Sidebar({workspace,products,productId,setProductId,view,setView,tickets,helpdesk,knowledgeArticles=[],modules=[],members=[],currentUserId,helpdeskEnabled,role,roleName,helpdeskOnly=false,canCreateWorkspace=false,canManageStaff,canManageSettings,canManageTicketFields,canViewDashboard,onWorkspace}){
+function AccessValidationShell({session,locale='es',setLocale,error,onRetry}){
+  return <div className="app-shell access-validation-shell" aria-busy="true">
+    <header className="global-topbar access-validation-topbar"><div className="topbar-brand"><img src="./logo.svg" alt="TROBBU"/><span></span><b>Jira Interno</b></div><div className="access-topbar-placeholder skeleton-shimmer"></div><div className="topbar-actions"><select className="language-switcher" value={locale} onChange={e=>setLocale?.(e.target.value)} aria-label="Idioma / Language"><option value="es">ES</option><option value="en">EN</option></select><div className="top-user"><span className="avatar sm">{initials(session.user.user_metadata?.full_name||session.user.email)}</span><div><b>{session.user.user_metadata?.full_name||'Usuario'}</b><small>{session.user.email}</small></div></div></div></header>
+    <aside className="sidebar access-sidebar-skeleton" aria-hidden="true"><div className="skeleton-line short skeleton-shimmer"></div><div className="skeleton-workspace skeleton-shimmer"></div><div className="skeleton-nav-stack">{Array.from({length:7}).map((_,i)=><div className="skeleton-nav-row" key={i}><i className="skeleton-shimmer"></i><span className="skeleton-shimmer" style={{width:`${54+(i%3)*12}%`}}></span></div>)}</div><div className="sidebar-spacer"></div><div className="skeleton-nav-row"><i className="skeleton-shimmer"></i><span className="skeleton-shimmer" style={{width:'46%'}}></span></div></aside>
+    <main className="main-area access-validation-main"><div className={`access-validation-card ${error?'error':''}`}><span className="access-validation-icon">{error?<Icon name="lucide:shield-alert" size={28}/>:<span className="loader"></span>}</span><div><b>{error?'No se pudo validar el acceso':'Validando acceso y permisos…'}</b><p>{error?'No se mostrará ningún módulo hasta confirmar tus permisos.':'Preparando únicamente los recursos autorizados para tu usuario.'}</p>{error&&<button type="button" className="secondary-button compact" onClick={onRetry}><Icon name="lucide:refresh-cw"/> Reintentar</button>}</div></div></main>
+  </div>
+}
+
+function Sidebar({workspace,products,navCounts,productId,setProductId,view,setView,tickets,helpdesk,knowledgeArticles=[],modules=[],members=[],currentUserId,helpdeskEnabled,role,roleName,helpdeskOnly=false,canCreateWorkspace=false,canManageStaff,canManageSettings,canManageTicketFields,canViewDashboard,onWorkspace}){
   const items=helpdeskOnly
     ? [['helpdesk','lucide:life-buoy','Mis solicitudes'],['knowledge','lucide:book-open-text','Knowledge']]
     : canViewDashboard
       ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['timeline','lucide:gantt-chart','Cronograma'],['reports','lucide:chart-no-axes-combined','Reportes / AI'],['knowledge','lucide:book-open-text','Knowledge'],...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy',role==='consulta'?'Mis solicitudes':'Helpdesk']]:[]),...(canManageTicketFields?[['catalogs','lucide:tags','Campos y módulos']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff y Roles']]:[])]
       : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[]),['knowledge','lucide:book-open-text','Knowledge']]
-  const helpdeskCount=helpdesk.length
-  const counts={overview:tickets.length,board:tickets.length,backlog:tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length,timeline:tickets.filter(t=>t.sprint_id||t.start_date||t.due_date).length,reports:tickets.length,knowledge:knowledgeArticles.length,mytasks:tickets.filter(t=>t.dev_owner_id===currentUserId||t.qa_owner_id===currentUserId||t.reporter_id===currentUserId).length,helpdesk:helpdeskCount,catalogs:modules.length,team:members.filter(m=>m.active).length}
+  const server=navCounts||{}
+  const counts={
+    board:Number(server.tickets??tickets.length),
+    backlog:Number(server.backlog??tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length),
+    knowledge:Number(server.knowledge??knowledgeArticles.length),
+    mytasks:Number(server.mytasks??tickets.filter(t=>t.dev_owner_id===currentUserId||t.qa_owner_id===currentUserId||t.reporter_id===currentUserId).length),
+    helpdesk:Number(server.helpdesk??helpdesk.length)
+  }
+  const countKeys=new Set(['board','backlog','knowledge','mytasks','helpdesk'])
+  const productCounts=server.products||{}
   return <aside className="sidebar">
     <div className="sidebar-section-title"><span>ESPACIO DE TRABAJO</span>{canCreateWorkspace&&<button className="ghost-icon" onClick={onWorkspace} title="Cambiar o crear workspace"><Icon name="lucide:plus" size={16}/></button>}</div>
     <button className="workspace-card" onClick={onWorkspace}><span className="workspace-icon"><Icon name="lucide:layers-3"/></span><div><b>{workspace?.name}</b><small>{roleName||ROLE_LABELS[role]||role}</small></div><Icon name="lucide:chevrons-up-down" size={16}/></button>
-    <nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{Number.isFinite(counts[key])&&<em>{counts[key]}</em>}</button>)}</nav>
-    {canViewDashboard&&!helpdeskOnly&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div><button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{tickets.length}</em></button>{products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{tickets.filter(t=>t.product_id===p.id).length}</em></button>)}</>}
+    <nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{countKeys.has(key)&&<em>{counts[key]}</em>}</button>)}</nav>
+    {canViewDashboard&&!helpdeskOnly&&products.length>0&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div><button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{Number(server.tickets??tickets.length)}</em></button>{products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{Number(productCounts[p.id]??tickets.filter(t=>t.product_id===p.id).length)}</em></button>)}</>}
     <div className="sidebar-spacer"></div><div className="sidebar-divider"></div>{canManageSettings&&!helpdeskOnly&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}<button className="footer-nav" onClick={()=>db.auth.signOut()}><Icon name="lucide:log-out"/>Cerrar sesión</button>
   </aside>
 }
@@ -2364,7 +2428,7 @@ function EvidenceCommentModal({title,initial,onClose,onSave,allowFiles=false}){
   return <Modal title={title} subtitle="Documenta revisión, rechazo, solicitud de fixes o cierre del trabajo." onClose={onClose}><AsyncForm onSubmit={()=>{const clean=body.trim();if(!clean&&!files.length)throw new Error('Escribe un comentario o adjunta al menos un archivo.');return onSave({body:clean||'Archivo adjunto',kind,files})}} submitLabel="Guardar evidencia">
     <label>Tipo<select value={kind} onChange={e=>setKind(e.target.value)}><option value="comment">Comentario general</option><option value="review">Revisión</option><option value="rejection">Rechazo</option><option value="fix">Fix / Corrección</option><option value="closure">Cierre</option></select></label>
     <label>Comentario <span className="optional">Opcional si adjuntas archivo</span><textarea rows="5" value={body} onChange={e=>setBody(e.target.value)} placeholder="Describe la revisión, hallazgo, corrección o criterio de cierre…"/></label>
-    {allowFiles&&<label>Archivos adjuntos <span className="optional">Hasta 5 · imágenes 15 MB · documentos 25 MB</span><input type="file" accept={ATTACHMENT_ACCEPT} multiple onChange={e=>{try{setFiles(validateAttachmentSelection(e.target.files));setFileError('')}catch(err){e.target.value='';setFiles([]);setFileError(err.message||String(err))}}}/>{files.length>0&&<small className="field-help">{files.map(f=>f.name).join(' · ')}</small>}{fileError&&<small className="field-error">{fileError}</small>}</label>}
+    {allowFiles&&<div className="form-section evidence-file-section"><div className="section-heading compact-heading"><div><h4>Archivos adjuntos</h4><p>Imágenes, PDF, CSV, Excel, Word, PowerPoint y formatos OpenDocument.</p></div><span className="evidence-counter">{files.length}/5</span></div><label className="helpdesk-evidence-picker"><input type="file" accept={ATTACHMENT_ACCEPT} multiple onChange={e=>{try{setFiles(validateAttachmentSelection(e.target.files));setFileError('')}catch(err){e.target.value='';setFiles([]);setFileError(err.message||String(err))}}}/><span className="helpdesk-evidence-picker-icon"><Icon name="lucide:paperclip" size={24}/></span><span><b>{files.length?'Cambiar archivos':'Seleccionar archivos'}</b><small>Imágenes hasta 15 MB y documentos hasta 25 MB · máximo 5 archivos.</small></span></label>{files.length>0&&<div className="helpdesk-evidence-selection">{files.map((file,index)=><div key={`${file.name}-${file.size}-${index}`}><span><Icon name={attachmentIcon(file)}/><b title={file.name}>{file.name}</b><small>{fileSizeLabel(file.size)}</small></span><button type="button" className="icon-button" title="Quitar archivo" onClick={()=>setFiles(current=>current.filter((_,i)=>i!==index))}><Icon name="lucide:x"/></button></div>)}</div>}{fileError&&<small className="field-error">{fileError}</small>}<small className="field-help">Las imágenes se comprimen automáticamente; los documentos se conservan sin alterar.</small></div>}
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
@@ -2387,7 +2451,7 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
   }
   useEffect(()=>{load()},[ticket.id])
   const addComment=async({body,kind,files})=>{
-    body=String(body||'').trim();if(!body)throw new Error('Escribe un comentario.')
+    body=String(body||'').trim();if(!body&&!(files?.length))throw new Error('Escribe un comentario o adjunta al menos un archivo.');body=body||'Archivo adjunto'
     const {data,error}=await db.from('ticket_comments').insert({ticket_id:ticket.id,author_id:session.user.id,body,kind:kind||'comment'}).select('*').single()
     if(error)throw error
     try{await uploadEvidenceFiles({workspaceId:workspace.id,scope:'tickets',parentId:ticket.id,commentId:data.id,files,evidenceType:kind==='comment'?'general':kind,userId:session.user.id,compress:true})}catch(err){await db.from('ticket_comments').delete().eq('id',data.id);throw err}
@@ -2420,7 +2484,7 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
     {commentModal?.type==='create'&&<EvidenceCommentModal title="Agregar revisión / evidencia" initial={{body:'',kind:'comment'}} allowFiles onClose={()=>setCommentModal(null)} onSave={async data=>{await addComment(data);setCommentModal(null)}}/>}
     {commentModal?.type==='actions'&&<ActionSheet title="Comentario" subtitle="Selecciona una acción" onClose={()=>setCommentModal(null)} actions={[...(commentModal.own?[['lucide:pencil','Editar comentario',()=>setCommentModal({type:'edit',comment:commentModal.comment})]]:[]),['lucide:trash-2','Eliminar comentario',()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>} 
     {commentModal?.type==='edit'&&<EvidenceCommentModal title="Editar comentario" initial={{body:commentModal.comment.body,kind:commentModal.comment.kind||'comment'}} onClose={()=>setCommentModal(null)} onSave={async data=>{await editComment(commentModal.comment,data);setCommentModal(null)}}/>}
-    {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="El texto se eliminará. Las imágenes de evidencia se conservarán en el historial del ticket." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteComment(commentModal.comment);setCommentModal(null)}}/>}
+    {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="El texto se eliminará. Los archivos adjuntos se conservarán en el historial del ticket." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteComment(commentModal.comment);setCommentModal(null)}}/>}
     {commentModal?.type==='delete-evidence'&&<ConfirmModal title="Eliminar evidencia" message={`Se eliminará “${commentModal.row.file_name}” de forma permanente.`} danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteEvidence(commentModal.row);setCommentModal(null)}}/>}
   </>
 }
@@ -2523,16 +2587,16 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
     if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))
   }
   useEffect(()=>{load()},[sprint.id])
-  const add=async({body,kind,files})=>{body=String(body||'').trim();if(!body)throw new Error('Escribe un comentario.');const {data,error}=await db.from('sprint_comments').insert({sprint_id:sprint.id,author_id:session.user.id,body,kind:kind||'comment'}).select('*').single();if(error)throw error;try{await uploadEvidenceFiles({workspaceId:workspace.id,scope:'sprints',parentId:sprint.id,commentId:data.id,files,evidenceType:kind==='comment'?'general':kind,userId:session.user.id})}catch(err){await db.from('sprint_comments').delete().eq('id',data.id);throw err}await load();toast('success','Evidencia del sprint agregada.')}
+  const add=async({body,kind,files})=>{body=String(body||'').trim();if(!body&&!(files?.length))throw new Error('Escribe un comentario o adjunta al menos un archivo.');body=body||'Archivo adjunto';const {data,error}=await db.from('sprint_comments').insert({sprint_id:sprint.id,author_id:session.user.id,body,kind:kind||'comment'}).select('*').single();if(error)throw error;try{await uploadEvidenceFiles({workspaceId:workspace.id,scope:'sprints',parentId:sprint.id,commentId:data.id,files,evidenceType:kind==='comment'?'general':kind,userId:session.user.id,compress:true})}catch(err){await db.from('sprint_comments').delete().eq('id',data.id);throw err}await load();toast('success',files?.length?'Comentario y archivos del sprint agregados.':'Comentario del sprint agregado.')}
   const edit=async(comment,data)=>{const {error}=await db.from('sprint_comments').update({body:String(data.body||'').trim(),kind:data.kind||'comment'}).eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario actualizado.')}
   const removeComment=async comment=>{const {error}=await db.from('sprint_comments').delete().eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario eliminado.')}
   const removeEvidence=async row=>{const {error:se}=await db.storage.from('jira-evidence').remove([row.storage_path]);if(se)throw se;const {error}=await db.from('sprint_attachments').delete().eq('id',row.id);if(error)throw error;await load();toast('success','Evidencia eliminada.')}
   const unlinked=attachments.filter(a=>!a.comment_id)
-  return <><Modal title={sprint.name} subtitle={`${formatDate(sprint.start_date)} → ${formatDate(sprint.end_date)}`} onClose={onClose} size="xl"><div className="sprint-detail-layout"><div className="sprint-detail-main"><div className="sprint-detail-hero"><div><span className={`sprint-status ${sprint.status}`}>{sprint.status==='active'?'Activo':sprint.status==='completed'?'Completado':'Planeado'}</span><h3>{sprint.goal||'Sin objetivo definido'}</h3><p>{sprint.details||'Sin detalles adicionales.'}</p></div><div className="sprint-ring"><b>{pct}%</b><small>{done}/{rows.length} resueltos</small></div></div><div className="sprint-ticket-section"><div className="section-heading"><div><h4>Actividades del sprint</h4><p>{unresolved} pendientes · {done} resueltas</p></div></div><div className="sprint-ticket-table sprint-ticket-scroll">{rows.length===0&&<div className="compact-empty"><Icon name="lucide:inbox"/><span>Este sprint todavía no tiene tickets.</span></div>}{rows.map(t=>{const p=products.find(x=>x.id===t.product_id);return <div className="sprint-ticket-row" key={t.id}><button type="button" className="sprint-ticket-open" onClick={()=>onTicket(t)}><span><small>{t.ticket_key} · {p?.name||'Producto'}</small><b>{t.title}</b></span><StatusBadge status={t.status}/><time>{formatDate(t.due_date)}</time><Icon name="lucide:chevron-right"/></button>{canPlan&&sprint.status!=='completed'&&<button type="button" className="sprint-backlog-button" onClick={async()=>{try{await onBacklog(t)}catch(err){toast('error',err.message||String(err))}}} title="Mover a Backlog"><Icon name="lucide:undo-2"/><span>Backlog</span></button>}</div>})}</div></div><div className="sprint-review-section"><div className="section-heading"><div><h4>Comentarios y evidencias</h4><p>Documenta revisión, rechazo, fixes y cierre del sprint.</p></div>{canWork&&<button type="button" className="primary compact" onClick={()=>setCommentModal({type:'create'})}><Icon name="lucide:paperclip"/> Agregar evidencia</button>}</div><div className="comment-list sprint-comments-scroll">{comments.length===0&&unlinked.length===0&&<p className="muted">Sin comentarios ni evidencias del sprint.</p>}{comments.map(c=>{const author=members.find(m=>m.user_id===c.author_id)?.profile?.full_name||'Usuario',own=c.author_id===session.user.id,files=attachments.filter(a=>a.comment_id===c.id);return <div className="comment evidence-comment" key={c.id}><span className="mini-avatar">{initials(author)}</span><div className="comment-body"><div className="comment-head"><div><div className="comment-kind-row"><b>{author}</b><EvidenceKind kind={c.kind}/></div><small>{formatDateTime(c.created_at)}</small></div>{(own||canPlan)&&<button type="button" className="icon-button" onClick={()=>setCommentModal({type:'actions',comment:c,own})}><Icon name="lucide:ellipsis"/></button>}</div><p>{c.body}</p><EvidenceGallery rows={files} session={session} canManage={canPlan} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/></div></div>})}{unlinked.length>0&&<EvidenceGallery rows={unlinked} session={session} canManage={canPlan} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/>}</div></div></div><aside className="sprint-detail-aside"><div className="sprint-side-stat"><span>Tickets</span><b>{rows.length}</b></div><div className="sprint-side-stat"><span>No resueltos</span><b>{unresolved}</b></div><div className="sprint-side-stat"><span>Story points</span><b>{rows.reduce((a,t)=>a+Number(t.story_points||0),0)}</b></div>{canPlan&&<><button type="button" className="secondary-button full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar sprint</button>{sprint.status!=='completed'&&<button type="button" className="primary full" onClick={onRollover}><Icon name="lucide:arrow-right-circle"/> Cerrar / trasladar</button>}</>}</aside></div></Modal>
-    {commentModal?.type==='create'&&<EvidenceCommentModal title="Evidencia del sprint" initial={{body:'',kind:'review'}} allowFiles onClose={()=>setCommentModal(null)} onSave={async data=>{await add(data);setCommentModal(null)}}/>}
+  return <><Modal title={sprint.name} subtitle={`${formatDate(sprint.start_date)} → ${formatDate(sprint.end_date)}`} onClose={onClose} size="xl"><div className="sprint-detail-layout"><div className="sprint-detail-main"><div className="sprint-detail-hero"><div><span className={`sprint-status ${sprint.status}`}>{sprint.status==='active'?'Activo':sprint.status==='completed'?'Completado':'Planeado'}</span><h3>{sprint.goal||'Sin objetivo definido'}</h3><p>{sprint.details||'Sin detalles adicionales.'}</p></div><div className="sprint-ring"><b>{pct}%</b><small>{done}/{rows.length} resueltos</small></div></div><div className="sprint-ticket-section"><div className="section-heading"><div><h4>Actividades del sprint</h4><p>{unresolved} pendientes · {done} resueltas</p></div></div><div className="sprint-ticket-table sprint-ticket-scroll">{rows.length===0&&<div className="compact-empty"><Icon name="lucide:inbox"/><span>Este sprint todavía no tiene tickets.</span></div>}{rows.map(t=>{const p=products.find(x=>x.id===t.product_id);return <div className="sprint-ticket-row" key={t.id}><button type="button" className="sprint-ticket-open" onClick={()=>onTicket(t)}><span><small>{t.ticket_key} · {p?.name||'Producto'}</small><b>{t.title}</b></span><StatusBadge status={t.status}/><time>{formatDate(t.due_date)}</time><Icon name="lucide:chevron-right"/></button>{canPlan&&sprint.status!=='completed'&&<button type="button" className="sprint-backlog-button" onClick={async()=>{try{await onBacklog(t)}catch(err){toast('error',err.message||String(err))}}} title="Mover a Backlog"><Icon name="lucide:undo-2"/><span>Backlog</span></button>}</div>})}</div></div><div className="sprint-review-section"><div className="section-heading"><div><h4>Comentarios y evidencias</h4><p>Documenta revisión, rechazo, fixes y cierre del sprint.</p></div>{canWork&&<button type="button" className="primary compact" onClick={()=>setCommentModal({type:'create'})}><Icon name="lucide:paperclip"/> Agregar comentario / archivo</button>}</div><div className="comment-list sprint-comments-scroll">{comments.length===0&&unlinked.length===0&&<p className="muted">Sin comentarios ni evidencias del sprint.</p>}{comments.map(c=>{const author=members.find(m=>m.user_id===c.author_id)?.profile?.full_name||'Usuario',own=c.author_id===session.user.id,files=attachments.filter(a=>a.comment_id===c.id);return <div className="comment evidence-comment" key={c.id}><span className="mini-avatar">{initials(author)}</span><div className="comment-body"><div className="comment-head"><div><div className="comment-kind-row"><b>{author}</b><EvidenceKind kind={c.kind}/></div><small>{formatDateTime(c.created_at)}</small></div>{(own||canPlan)&&<button type="button" className="icon-button" onClick={()=>setCommentModal({type:'actions',comment:c,own})}><Icon name="lucide:ellipsis"/></button>}</div><p>{c.body}</p><EvidenceGallery rows={files} session={session} canManage={canPlan} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/></div></div>})}{unlinked.length>0&&<EvidenceGallery rows={unlinked} session={session} canManage={canPlan} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/>}</div></div></div><aside className="sprint-detail-aside"><div className="sprint-side-stat"><span>Tickets</span><b>{rows.length}</b></div><div className="sprint-side-stat"><span>No resueltos</span><b>{unresolved}</b></div><div className="sprint-side-stat"><span>Story points</span><b>{rows.reduce((a,t)=>a+Number(t.story_points||0),0)}</b></div>{canPlan&&<><button type="button" className="secondary-button full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar sprint</button>{sprint.status!=='completed'&&<button type="button" className="primary full" onClick={onRollover}><Icon name="lucide:arrow-right-circle"/> Cerrar / trasladar</button>}</>}</aside></div></Modal>
+    {commentModal?.type==='create'&&<EvidenceCommentModal title="Comentario / evidencia del sprint" initial={{body:'',kind:'review'}} allowFiles onClose={()=>setCommentModal(null)} onSave={async data=>{await add(data);setCommentModal(null)}}/>}
     {commentModal?.type==='actions'&&<ActionSheet title="Comentario del sprint" onClose={()=>setCommentModal(null)} actions={[...(commentModal.own?[['lucide:pencil','Editar',()=>setCommentModal({type:'edit',comment:commentModal.comment})]]:[]),['lucide:trash-2','Eliminar',()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>} 
     {commentModal?.type==='edit'&&<EvidenceCommentModal title="Editar comentario" initial={{body:commentModal.comment.body,kind:commentModal.comment.kind||'comment'}} onClose={()=>setCommentModal(null)} onSave={async data=>{await edit(commentModal.comment,data);setCommentModal(null)}}/>}
-    {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="El comentario se eliminará; sus imágenes quedarán conservadas en el historial del sprint." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await removeComment(commentModal.comment);setCommentModal(null)}}/>}
+    {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="El comentario se eliminará; sus archivos adjuntos quedarán conservados en el historial del sprint." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await removeComment(commentModal.comment);setCommentModal(null)}}/>}
     {commentModal?.type==='delete-evidence'&&<ConfirmModal title="Eliminar evidencia" message={`Se eliminará “${commentModal.row.file_name}”.`} danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await removeEvidence(commentModal.row);setCommentModal(null)}}/>}
   </>
 }
@@ -2584,7 +2648,7 @@ function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],product
     {commentModal?.type==='create'&&<HelpdeskCommentModal title="Agregar comentario / evidencia" onClose={()=>setCommentModal(null)} onSave={async data=>{await addComment(data);setCommentModal(null)}}/>}
     {commentModal?.type==='actions'&&<ActionSheet title="Comentario" subtitle="Selecciona una acción" onClose={()=>setCommentModal(null)} actions={[["lucide:pencil","Editar comentario",()=>setCommentModal({type:'edit',comment:commentModal.comment})],["lucide:trash-2","Eliminar comentario",()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>} 
     {commentModal?.type==='edit'&&<CommentEditModal title="Editar comentario" initial={commentModal.comment.body} onClose={()=>setCommentModal(null)} onSave={async text=>{await editComment(commentModal.comment,text);setCommentModal(null)}}/>}
-    {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="El texto se eliminará. Las imágenes quedarán conservadas en el historial de la solicitud." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteComment(commentModal.comment);setCommentModal(null)}}/>}
+    {commentModal?.type==='delete'&&<ConfirmModal title="Eliminar comentario" message="El texto se eliminará. Los archivos adjuntos quedarán conservados en el historial de la solicitud." danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteComment(commentModal.comment);setCommentModal(null)}}/>}
     {commentModal?.type==='delete-evidence'&&<ConfirmModal title="Eliminar evidencia" message={`Se eliminará “${commentModal.row.file_name}” de forma permanente.`} danger onClose={()=>setCommentModal(null)} onConfirm={async()=>{await deleteEvidence(commentModal.row);setCommentModal(null)}}/>}
   </>
 }

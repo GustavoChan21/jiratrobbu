@@ -290,3 +290,13 @@ La v16.7 restringe la creación de workspaces a Admin/PM/Superadmin, corrige con
 ## v16.8 — Intelligent Helpdesk routing
 
 Staff can document responsibilities for Helpdesk auto-routing, configure per-user daily/active capacity, overflow/fallback behavior and queueing. The Helpdesk assistant can use OpenAI when configured and always has deterministic local routing as a fallback. Assigned specialists can redirect incorrectly routed work, comment and attach evidence without becoming Helpdesk administrators. The default TROBBU workspace is configured for 4 assignments/day + 4 active requests, overflowing to Gustavo Chan, with a queue processor running every minute.
+
+## v16.9 — Contadores estables, carga privada y adjuntos unificados
+
+- Contadores del Sidebar calculados mediante RPC RLS-aware independiente de los arrays visuales.
+- Badges únicamente en Tablero, Backlog/Sprints, Knowledge, Mis tareas/Helpdesk y productos autorizados.
+- Productos operativos cargados con `list_authorized_products`; Helpdesk conserva su catálogo separado según permisos.
+- Skeleton privado mientras se valida workspace/rol/permisos; evita mostrar nombres de módulos o datos del workspace anterior.
+- `loadWorkspaceData()` tolera errores opcionales sin perder toda la hidratación.
+- Comentarios de Ticket y Sprint aceptan archivo sin texto y comparten la whitelist documental de Helpdesk.
+- `upgrade-v16.9.sql` y `QA-V16.9.md` documentan los cambios y pruebas.
