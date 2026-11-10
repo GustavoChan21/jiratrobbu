@@ -273,3 +273,6 @@ El esquema consolidado está en `database.sql`; la actualización incremental es
 
 ## v16.4 — Knowledge bilingüe y versionado
 La aplicación incluye selector ES/EN. La UI estática usa un diccionario local; Knowledge usa traducciones cacheadas por versión para evitar consultas repetidas. Los artículos publicados son snapshots inmutables: para editar se crea una versión borrador con motivo obligatorio, que sustituye a la activa solo al publicarla. Para traducciones dinámicas configura `OPENAI_API_KEY` en Supabase Edge Function Secrets. Ver `RELEASE-v16.4.md` y `QA-V16.4.md`.
+
+## Notification Center 360 · v16.5
+El centro de actividad cubre Tickets, Helpdesk, Sprints, Knowledge y Staff. Los eventos se guardan con metadata estructurada, se deduplican y se muestran en ES/EN según el idioma del usuario. Los correos se procesan con la Edge Function `process-notifications` y respetan `profiles.locale`. Los CTA pueden abrir directamente Ticket, Helpdesk, Sprint, Knowledge o Staff.

@@ -526,3 +526,14 @@ Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RL
 - Cache local + cache Supabase de traducciones por versión.
 - Versiones publicadas/archivadas inmutables.
 - QA detallado: `QA-V16.4.md`.
+
+## v16.5 · Notification Center 360
+- Frontend TypeScript/JSX: PASS.
+- Importadores: 16/16 PASS.
+- Tickets/Helpdesk/Sprints/Knowledge/Staff: notificaciones In-App + Outbox verificadas con rollback.
+- Deduplicación: PASS.
+- RLS por destinatario: PASS.
+- Realtime: PASS a nivel publicación/suscripciones.
+- `process-notifications`: ACTIVE v10; ES/EN por perfil.
+- Health Advisor: 0 incidencias.
+- Residuos QA: 0.
