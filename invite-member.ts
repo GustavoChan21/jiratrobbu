@@ -2,13 +2,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
-const PROD_APP_URL="https://gustavochan21.github.io/jiratrobbu/";
+const PROD_APP_URL="https://jiratrobbu.vercel.app/";
 const PERMISSIONS=["view_dashboard","view_tickets","create_tickets","edit_tickets","delete_tickets","manage_sprints","qa_review","manage_helpdesk","manage_staff","manage_products","manage_settings"] as const;
 
 function safeRedirect(value:unknown){
   try{
     const u=new URL(String(value||PROD_APP_URL));
-    if(u.protocol==="https:"&&u.hostname==="gustavochan21.github.io"&&(u.pathname==="/jiratrobbu"||u.pathname.startsWith("/jiratrobbu/")))return u.toString();
+    if(u.protocol==="https:"&&((u.hostname==="jiratrobbu.vercel.app")||(u.hostname==="gustavochan21.github.io"&&(u.pathname==="/jiratrobbu"||u.pathname.startsWith("/jiratrobbu/")))))return u.toString();
   }catch{}
   return PROD_APP_URL;
 }
@@ -139,10 +139,8 @@ Deno.serve(async(req:Request)=>{
     }
 
     if(!user?.id)throw new Error("No se pudo resolver el usuario.");
-    if(fullName){
-      const {data:profile}=await admin.from("profiles").select("full_name").eq("id",user.id).maybeSingle();
-      if(!profile?.full_name)await admin.from("profiles").update({full_name:fullName}).eq("id",user.id);
-    }
+    const {data:profile}=await admin.from("profiles").select("full_name,email").eq("id",user.id).maybeSingle();
+    await admin.from("profiles").update({email:user.email||email,full_name:fullName||profile?.full_name||null,updated_at:new Date().toISOString()}).eq("id",user.id);
 
     const {data:existing}=await admin.from("workspace_members").select("role,role_id").eq("workspace_id",workspaceId).eq("user_id",user.id).maybeSingle();
     if(existing?.role==="superadmin"&&caller.role!=="superadmin"){

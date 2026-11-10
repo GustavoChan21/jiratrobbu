@@ -483,3 +483,9 @@ No se creó ningún ticket de soporte ni actividad QA dentro del Jira para esta 
 - Supabase Health Advisor: 0 lints.
 - Security Advisor: solo permanece el aviso global preexistente `Leaked Password Protection Disabled`.
 - Performance Advisor: sin nuevas alertas atribuibles a v15.9; continúan recomendaciones heredadas del proyecto.
+
+---
+
+## v16 — Knowledge / Kanban / Bulk Sprint / Staff / Realtime
+
+Ver `QA-V16.md` para la matriz completa. Resultado de código: 0 errores JSX/TypeScript; importación 16/16; pruebas SQL con rollback PASS; Health Advisor 0. No se crearon tickets de QA.

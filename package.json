@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "15.7.0",
-  "description": "Jira Interno TROBBU v15.7 - responsive de tablas + credenciales con enlace + XLSX/XLS/XLSM/CSV + Helpdesk escalable",
+  "version": "16.0.0",
+  "description": "Jira Interno TROBBU v16 - Knowledge + Kanban enriquecido + bulk sprint + Staff editable + Realtime + Helpdesk escalable",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },

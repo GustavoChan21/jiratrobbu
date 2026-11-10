@@ -256,3 +256,11 @@ En el detalle de Sprint, el listado de actividades tiene scroll interno y cada t
 ## v15.9 · Evidencia inicial en Helpdesk
 
 Al crear una solicitud de Helpdesk se pueden adjuntar hasta 5 fotografías. El navegador valida formato/tamaño, redimensiona hasta 1920 px y convierte a WebP solo cuando reduce el peso. Las imágenes quedan en el bucket privado `jira-evidence`; la base conserva únicamente metadatos. Si una carga falla, la solicitud recién creada se revierte para evitar reportes incompletos.
+
+## v16 — Knowledge, Kanban enriquecido, Bulk Sprint, Staff y Realtime
+
+La versión v16 incorpora un módulo Knowledge accesible a todos los miembros, sugerencias preventivas al crear tickets, tarjetas Kanban con prioridad/módulo/tags, movimiento múltiple de Backlog a sprint, edición de datos de Staff, regeneración segura de credenciales y sincronización en tiempo real mediante Supabase Realtime.
+
+La contraseña actual de un usuario no puede ser leída desde Supabase Auth. La opción de Staff genera una contraseña temporal nueva y permite copiarla junto con el correo y `https://jiratrobbu.vercel.app/`.
+
+El esquema consolidado está en `database.sql`; la actualización incremental está en `upgrade-v16.sql`. Ver `RELEASE-v16.md` y `QA-V16.md`.
