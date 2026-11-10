@@ -142,6 +142,22 @@ Deno.serve(async(req:Request)=>{
     const {data:profile}=await admin.from("profiles").select("full_name,email").eq("id",user.id).maybeSingle();
     await admin.from("profiles").update({email:user.email||email,full_name:fullName||profile?.full_name||null,updated_at:new Date().toISOString()}).eq("id",user.id);
 
+    const routingDescription=String(body.helpdesk_routing_description??"").trim().slice(0,4000)||null;
+    const autoAssign=Boolean(body.helpdesk_auto_assign_enabled)&&role.base_role!=="consulta"&&role.code!=="helpdesk_requester";
+    const dailyRaw=body.helpdesk_daily_limit;
+    const activeRaw=body.helpdesk_active_limit;
+    const dailyLimit=dailyRaw===null||dailyRaw===undefined||dailyRaw===""?null:Number(dailyRaw);
+    const activeLimit=activeRaw===null||activeRaw===undefined||activeRaw===""?null:Number(activeRaw);
+    if(dailyLimit!==null&&(!Number.isInteger(dailyLimit)||dailyLimit<0||dailyLimit>500))throw new Error("El límite diario debe estar entre 0 y 500.");
+    if(activeLimit!==null&&(!Number.isInteger(activeLimit)||activeLimit<0||activeLimit>500))throw new Error("El límite de tickets activos debe estar entre 0 y 500.");
+    const overflowMode=["inherit","fallback","queue","next_available"].includes(String(body.helpdesk_overflow_mode||"inherit"))?String(body.helpdesk_overflow_mode||"inherit"):"inherit";
+    const overflowUserId=body.helpdesk_overflow_user_id?String(body.helpdesk_overflow_user_id):null;
+    if(overflowUserId){
+      const {data:overflowMember,error:overflowError}=await admin.from("workspace_members").select("user_id,active").eq("workspace_id",workspaceId).eq("user_id",overflowUserId).maybeSingle();
+      if(overflowError)throw overflowError;
+      if(!overflowMember?.active)throw new Error("El responsable de respaldo no es un miembro activo de este workspace.");
+    }
+
     const {data:existing}=await admin.from("workspace_members").select("role,role_id").eq("workspace_id",workspaceId).eq("user_id",user.id).maybeSingle();
     if(existing?.role==="superadmin"&&caller.role!=="superadmin"){
       return new Response(JSON.stringify({error:"Solo un Superadmin puede modificar a otro Superadmin."}),{status:403,headers:{...cors,"Content-Type":"application/json"}});
@@ -150,6 +166,12 @@ Deno.serve(async(req:Request)=>{
     const {error:memberError}=await admin.from("workspace_members").upsert({
       workspace_id:workspaceId,user_id:user.id,role:role.base_role,role_id:role.id,active:true,
       all_products:allProducts,permissions:overrides,
+      helpdesk_routing_description:routingDescription,
+      helpdesk_auto_assign_enabled:autoAssign,
+      helpdesk_daily_limit:dailyLimit,
+      helpdesk_active_limit:activeLimit,
+      helpdesk_overflow_mode:overflowMode,
+      helpdesk_overflow_user_id:overflowUserId,
     },{onConflict:"workspace_id,user_id"});
     if(memberError)throw memberError;
 

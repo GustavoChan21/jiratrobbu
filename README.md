@@ -285,3 +285,8 @@ La v16.6 corrige enlaces Knowledge para respetar el dominio actual, completa una
 ## v16.7 · Workspace governance, contadores, asignación rápida y documentos
 
 La v16.7 restringe la creación de workspaces a Admin/PM/Superadmin, corrige contadores, agrega asignación rápida auditable en Kanban, elimina el Centro de ayuda, incorpora favicon TROBBU y amplía los adjuntos privados a documentos Office/PDF/CSV. Ver `RELEASE-v16.7.md` y `QA-V16.7.md`.
+
+
+## v16.8 — Intelligent Helpdesk routing
+
+Staff can document responsibilities for Helpdesk auto-routing, configure per-user daily/active capacity, overflow/fallback behavior and queueing. The Helpdesk assistant can use OpenAI when configured and always has deterministic local routing as a fallback. Assigned specialists can redirect incorrectly routed work, comment and attach evidence without becoming Helpdesk administrators. The default TROBBU workspace is configured for 4 assignments/day + 4 active requests, overflowing to Gustavo Chan, with a queue processor running every minute.

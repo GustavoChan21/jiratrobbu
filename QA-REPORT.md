@@ -546,3 +546,8 @@ Ver `QA-V16.6.md`. Compilación JSX/TypeScript PASS, importación 16/16, auditor
 ## v16.7 · Workspace governance + quick assignment + document attachments
 
 Ver `QA-V16.7.md`. Compilación JSX/TypeScript PASS, importación 16/16, roles de workspace verificados con rollback, asignación/reasignación auditada, contadores por módulo validados y Storage documental endurecido.
+
+
+## v16.8
+
+See `QA-V16.8.md` for intelligent Helpdesk routing, capacity, redirect, RLS, queue and frontend regression results.

@@ -653,3 +653,25 @@ input[type="color"]{min-height:38px;padding:4px!important}
 .module-count-metrics{display:grid;grid-template-columns:repeat(5,minmax(72px,1fr));gap:8px!important}.module-count-metrics span{border:1px solid var(--border);background:#FAFBFC;border-radius:8px;padding:8px;display:grid;gap:2px}.module-count-metrics b{line-height:1}
 @media(max-width:1100px){.module-count-metrics{grid-template-columns:repeat(3,minmax(72px,1fr))}}
 @media(max-width:640px){.kanban-assignee-badge{max-width:100%;flex:1}.kanban-assignee-badge select{max-width:none;width:100%}.module-count-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* v16.8 · Helpdesk routing + refined selects/assignee */
+select:not([multiple]){
+  -webkit-appearance:none;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B778C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;
+  background-position:right 12px center!important;
+  background-size:14px 14px!important;
+  padding-right:36px!important;
+}
+.kanban-assignee-badge{position:relative;padding:3px 30px 3px 4px!important;gap:6px!important;min-height:30px}
+.kanban-assignee-badge select{background-image:none!important;padding:2px 0!important;max-width:145px!important;line-height:20px!important}
+.kanban-assignee-badge:after{content:none!important}
+.kanban-assignee-badge .assignee-avatar{width:24px;height:24px;min-width:24px;font-size:9px;display:grid;place-items:center}
+.assignee-select-chevron{position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;color:#626F86}
+.kanban-assignee-badge.readonly{padding-right:10px!important;cursor:default}
+.kanban-assignee-badge.readonly b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.helpdesk-routing-config{border:1px solid #B3D4FF;background:#F7FBFF}.routing-config-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.routing-config-head>div{min-width:0}.routing-config-head h4{margin:0}.routing-config-head p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.45}.staff-routing-note{display:flex!important;align-items:flex-start;gap:4px;color:#44546F!important;line-height:1.35;max-width:420px}.staff-routing-note iconify-icon{flex:none;margin-top:1px;color:#0C66E4}.routing-capacity-summary{display:flex;align-items:center;gap:10px;border-radius:9px;padding:10px 12px;margin-top:10px}.routing-capacity-summary.ok{background:#E3FCEF;color:#216E4E;border:1px solid #7EE2B8}.routing-capacity-summary.full{background:#FFF7D6;color:#7F5F01;border:1px solid #F5CD47}.routing-capacity-summary span{display:grid;gap:2px}.routing-capacity-summary small{font-size:10px}.subtle-routing-note{margin-top:10px!important}
+.helpdesk-routing-summary{display:flex;align-items:center;gap:10px;border:1px solid #F5CD47;background:#FFFDF0;color:#7F5F01;border-radius:10px;padding:10px 12px;margin:0 0 12px}.helpdesk-routing-summary>span{display:grid;gap:2px}.helpdesk-routing-summary small{font-size:10px;color:#6B5D21}.helpdesk-assignee-pill{display:inline-flex;align-items:center;gap:5px;min-width:0}.helpdesk-assignee-pill>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}.assignment-source-badge,.assignment-queue-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 7px;font-size:9px;font-weight:800;white-space:nowrap}.assignment-source-badge{background:#E9F2FF;color:#0C66E4}.assignment-source-badge.auto_ai{background:#EAE6FF;color:#5E4DB2}.assignment-source-badge.overflow{background:#FFF4E5;color:#974F0C}.assignment-queue-badge{background:#FFF7D6;color:#7F5F01}.routing-reason-copy{font-size:11px;line-height:1.4;color:#44546F}.help-table .assignee-cell{display:flex!important;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+@media(max-width:820px){.routing-config-head{flex-direction:column}.routing-config-head .toggle-row{width:100%}.helpdesk-assignee-pill>span:last-child{max-width:none}.helpdesk-routing-summary{align-items:flex-start}}
+@media(max-width:520px){select:not([multiple]){background-position:right 10px center!important;padding-right:32px!important}.kanban-assignee-badge{padding-right:28px!important}.assignee-select-chevron{right:8px}.helpdesk-routing-summary{padding:9px 10px}}
