@@ -517,3 +517,12 @@ Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RL
 - POV lector local y botón Volver a editar: PASS.
 - Preview de imagen pendiente usa Object URL con cleanup: PASS.
 - No se agregó SQL ni se modificó esquema de Supabase.
+
+## v16.4 — ES/EN + Knowledge versioning
+- UI local ES/EN, selector global y preferencia persistente.
+- Deep link de Knowledge desde Helpdesk.
+- Versionamiento con borrador separado de versión pública.
+- Motivo obligatorio, auditoría y restauración histórica.
+- Cache local + cache Supabase de traducciones por versión.
+- Versiones publicadas/archivadas inmutables.
+- QA detallado: `QA-V16.4.md`.

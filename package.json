@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.3.0",
-  "description": "Jira Interno TROBBU v16.3 - Knowledge sticky editor + POV lector + responsive authoring UX",
+  "version": "16.4.0",
+  "description": "Jira Interno TROBBU v16.4 - ES/EN local UI + Knowledge deep links, versioning, cached translations and audit trail",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },

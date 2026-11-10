@@ -270,3 +270,6 @@ El esquema consolidado está en `database.sql`; la actualización incremental es
 - Knowledge con editor por bloques, imágenes comprimidas y video embebido.
 - Multimedia Knowledge privada con RLS.
 - Helpdesk con scroll de comentarios y snapshot histórico del autor.
+
+## v16.4 — Knowledge bilingüe y versionado
+La aplicación incluye selector ES/EN. La UI estática usa un diccionario local; Knowledge usa traducciones cacheadas por versión para evitar consultas repetidas. Los artículos publicados son snapshots inmutables: para editar se crea una versión borrador con motivo obligatorio, que sustituye a la activa solo al publicarla. Para traducciones dinámicas configura `OPENAI_API_KEY` en Supabase Edge Function Secrets. Ver `RELEASE-v16.4.md` y `QA-V16.4.md`.
