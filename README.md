@@ -264,3 +264,9 @@ La versión v16 incorpora un módulo Knowledge accesible a todos los miembros, s
 La contraseña actual de un usuario no puede ser leída desde Supabase Auth. La opción de Staff genera una contraseña temporal nueva y permite copiarla junto con el correo y `https://jiratrobbu.vercel.app/`.
 
 El esquema consolidado está en `database.sql`; la actualización incremental está en `upgrade-v16.sql`. Ver `RELEASE-v16.md` y `QA-V16.md`.
+
+## v16.1
+- Notificaciones con scroll completo.
+- Knowledge con editor por bloques, imágenes comprimidas y video embebido.
+- Multimedia Knowledge privada con RLS.
+- Helpdesk con scroll de comentarios y snapshot histórico del autor.

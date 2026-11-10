@@ -489,3 +489,6 @@ No se creó ningún ticket de soporte ni actividad QA dentro del Jira para esta 
 ## v16 — Knowledge / Kanban / Bulk Sprint / Staff / Realtime
 
 Ver `QA-V16.md` para la matriz completa. Resultado de código: 0 errores JSX/TypeScript; importación 16/16; pruebas SQL con rollback PASS; Health Advisor 0. No se crearon tickets de QA.
+
+## v16.1
+Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RLS PASS, Helpdesk author snapshot PASS, Health Advisor 0.

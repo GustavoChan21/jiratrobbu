@@ -26,6 +26,7 @@ Deno.serve(async(req:Request)=>{
         const payload=await res.json();if(res.ok){const txt=extractText(payload).trim();if(txt)message=txt;provider=isGateway?"vercel-ai-gateway":"openai-responses"}
       }catch{}
     }
+    console.log(JSON.stringify({event:"knowledge_assistant_result",provider,candidates:candidates.length,has_openai_key:Boolean(openaiKey),has_gateway_key:Boolean(gatewayKey)}));
     return new Response(JSON.stringify({ok:true,message,provider,articles:candidates.slice(0,3).map(a=>({id:a.id,title:a.title,summary:a.summary,tags:a.tags,product_id:a.product_id,module_id:a.module_id,content_preview:String(a.content||"").slice(0,800)}))}),{headers:{...cors,"Content-Type":"application/json"}});
   }catch(error){const message=error instanceof Error?error.message:"Unknown error";console.error("trobbu-knowledge-assistant:",message);return new Response(JSON.stringify({error:message}),{status:400,headers:{...cors,"Content-Type":"application/json"}})}
 });
