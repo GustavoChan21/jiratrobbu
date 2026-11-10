@@ -1207,14 +1207,36 @@ function KnowledgeArticleModal({article,workspace,products,modules,session,onClo
 function KnowledgeArticleDetail({article,products,modules,canManage,onClose,onEdit}){
   const [media,setMedia]=useState([]);const p=products.find(x=>x.id===article.product_id),m=modules.find(x=>x.id===article.module_id);const blocks=knowledgeDefaultBlocks(article)
   useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id])
-  const render=b=>{if(b.type==='paragraph')return <p>{b.text}</p>;if(b.type==='heading2')return <h2>{b.text}</h2>;if(b.type==='heading3')return <h3>{b.text}</h3>;if(b.type==='list')return <ul>{String(b.text||'').split('\n').filter(Boolean).map((x,i)=><li key={i}>{x}</li>)}</ul>;if(b.type==='quote')return <blockquote>{b.text}</blockquote>;if(b.type==='callout')return <aside className="knowledge-callout"><Icon name="lucide:info"/><span>{b.text}</span></aside>;if(b.type==='code')return <pre><code>{b.text}</code></pre>;if(b.type==='divider')return <hr/>;if(b.type==='image'){const row=media.find(x=>x.id===b.media_id);return row?.signed_url?<figure><img src={row.signed_url} alt={b.alt||''}/>{b.caption&&<figcaption>{b.caption}</figcaption>}</figure>:null}if(b.type==='video'){const src=knowledgeVideoEmbed(b.url);return src?<figure className="knowledge-video"><iframe src={src} title={b.caption||article.title} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>{b.caption&&<figcaption>{b.caption}</figcaption>}</figure>:null}return null}
   return <Modal title={article.title} subtitle={article.summary||'Artículo de Knowledge'} onClose={onClose} size="xl"><div className="knowledge-detail knowledge-rich-detail"><div className="knowledge-detail-meta">{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key} · {m.name}</span>}{(article.tags||[]).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div><article className="knowledge-content knowledge-rendered">{blocks.map(b=><React.Fragment key={b.id}>{render(b)}</React.Fragment>)}</article></div><div className="form-footer static-footer"><div className="form-footer-left"><button className="secondary-button" onClick={onClose}>Cerrar</button></div>{canManage&&<button className="primary" onClick={onEdit}><Icon name="lucide:pencil"/> Editar artículo</button>}</div></Modal>
+}
+
+function KnowledgePreviewImage({block,media=[]}){
+  const row=media.find(x=>x.id===block.media_id)
+  const [pendingUrl,setPendingUrl]=useState('')
+  useEffect(()=>{if(!block.pending_file){setPendingUrl('');return}const url=URL.createObjectURL(block.pending_file);setPendingUrl(url);return()=>URL.revokeObjectURL(url)},[block.pending_file])
+  const src=row?.signed_url||pendingUrl
+  if(!src)return null
+  return <figure><img src={src} alt={block.alt||''}/>{block.caption&&<figcaption>{block.caption}</figcaption>}</figure>
+}
+function KnowledgeRenderedBlocks({blocks,media=[],title='Artículo'}){
+  const render=b=>{if(b.type==='paragraph')return <p>{b.text}</p>;if(b.type==='heading2')return <h2>{b.text}</h2>;if(b.type==='heading3')return <h3>{b.text}</h3>;if(b.type==='list')return <ul>{String(b.text||'').split('\n').filter(Boolean).map((x,i)=><li key={i}>{x}</li>)}</ul>;if(b.type==='quote')return <blockquote>{b.text}</blockquote>;if(b.type==='callout')return <aside className="knowledge-callout"><Icon name="lucide:info"/><span>{b.text}</span></aside>;if(b.type==='code')return <pre><code>{b.text}</code></pre>;if(b.type==='divider')return <hr/>;if(b.type==='image')return <KnowledgePreviewImage block={b} media={media}/>;if(b.type==='video'){const src=knowledgeVideoEmbed(b.url);return src?<figure className="knowledge-video"><iframe src={src} title={b.caption||title} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>{b.caption&&<figcaption>{b.caption}</figcaption>}</figure>:null}return null}
+  return <>{blocks.map(b=><React.Fragment key={b.id}>{render(b)}</React.Fragment>)}</>
+}
+function KnowledgeReaderPreview({form,blocks,media,products,modules,onExit}){
+  const p=products.find(x=>x.id===form.product_id),m=modules.find(x=>x.id===form.module_id)
+  return <div className="knowledge-preview-shell">
+    <div className="knowledge-preview-banner"><span><Icon name="lucide:eye"/><b>POV lector</b><small>Vista previa local · los cambios aún no se han publicado.</small></span><button type="button" className="secondary-button compact" onClick={onExit}><Icon name="lucide:pencil"/> Volver a editar</button></div>
+    <article className="content-card knowledge-reader-card knowledge-preview-card">
+      <header className="knowledge-reader-hero"><span className="eyebrow">KNOWLEDGE</span><h1>{form.title.trim()||'Título del artículo'}</h1><p>{form.summary.trim()||'Así verá el lector el resumen y contenido del artículo.'}</p><div className="knowledge-detail-meta"><span><Icon name="lucide:circle-dot"/>{form.status==='published'?'Publicado':form.status==='archived'?'Archivado':'Borrador'}</span>{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key} · {m.name}</span>}{form.tags.split(',').map(x=>x.trim()).filter(Boolean).slice(0,20).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div></header>
+      <div className="knowledge-content knowledge-rendered knowledge-reader-content"><KnowledgeRenderedBlocks blocks={blocks} media={media} title={form.title}/></div>
+    </article>
+  </div>
 }
 
 function KnowledgeArticleEditorPage({article,workspace,products,modules,session,onBack,onSave}){
   const [articleId]=useState(()=>article?.id||crypto.randomUUID())
   const [f,setF]=useState({title:article?.title||'',slug:article?.slug||'',summary:article?.summary||'',tags:(article?.tags||[]).join(', '),product_id:article?.product_id||'',module_id:article?.module_id||'',status:article?.status||'draft'})
-  const [blocks,setBlocks]=useState(()=>knowledgeDefaultBlocks(article)),[media,setMedia]=useState([]),[saving,setSaving]=useState(false),[error,setError]=useState('')
+  const [blocks,setBlocks]=useState(()=>knowledgeDefaultBlocks(article)),[media,setMedia]=useState([]),[saving,setSaving]=useState(false),[error,setError]=useState(''),[preview,setPreview]=useState(false)
   const set=(k,v)=>setF(x=>({...x,[k]:v}))
   useEffect(()=>{let cancelled=false;(async()=>{if(!article?.id)return;const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article?.id])
   const submit=async(e)=>{
@@ -1234,12 +1256,17 @@ function KnowledgeArticleEditorPage({article,workspace,products,modules,session,
   }
   return <div className="page knowledge-author-page">
     <div className="knowledge-author-header">
-      <button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> Volver a Knowledge</button>
-      <div className="knowledge-author-heading"><span className="page-icon"><Icon name={article?'lucide:file-pen-line':'lucide:file-plus-2'}/></span><div><span className="eyebrow">KNOWLEDGE</span><h1>{article?'Editar artículo':'Nuevo artículo'}</h1><p>Define primero la información del recurso y después construye el contenido con bloques, imágenes y video.</p></div></div>
-      <div className="knowledge-author-actions"><select value={f.status} onChange={e=>set('status',e.target.value)} aria-label="Estado del artículo"><option value="draft">Borrador</option><option value="published">Publicado</option><option value="archived">Archivado</option></select><button type="button" className="primary" disabled={saving} onClick={submit}><Icon name={saving?'lucide:loader-circle':'lucide:save'}/>{saving?'Guardando…':article?'Guardar cambios':f.status==='published'?'Publicar artículo':'Guardar borrador'}</button></div>
+      <div className="knowledge-author-header-top">
+        <button type="button" className="secondary-button compact knowledge-back-button" onClick={onBack}><Icon name="lucide:arrow-left"/> Volver a Knowledge</button>
+        <div className="knowledge-author-heading"><span className="page-icon"><Icon name={article?'lucide:file-pen-line':'lucide:file-plus-2'}/></span><div><span className="eyebrow">KNOWLEDGE</span><h1>{article?'Editar artículo':'Nuevo artículo'}</h1></div></div>
+      </div>
+      <div className="knowledge-author-header-bottom">
+        <p>Define primero la información del recurso y después construye el contenido con bloques, imágenes y video.</p>
+        <div className="knowledge-author-actions"><button type="button" className={`secondary-button ${preview?'active':''}`} onClick={()=>setPreview(x=>!x)}><Icon name={preview?'lucide:pencil':'lucide:eye'}/>{preview?'Editar contenido':'Vista previa'}</button><select value={f.status} onChange={e=>set('status',e.target.value)} aria-label="Estado del artículo"><option value="draft">Borrador</option><option value="published">Publicado</option><option value="archived">Archivado</option></select><button type="button" className="primary" disabled={saving} onClick={submit}><Icon name={saving?'lucide:loader-circle':'lucide:save'}/>{saving?'Guardando…':article?'Guardar cambios':f.status==='published'?'Publicar artículo':'Guardar borrador'}</button></div>
+      </div>
     </div>
     {error&&<div className="error knowledge-page-error"><Icon name="lucide:circle-alert"/>{error}</div>}
-    <form className="knowledge-page-form" onSubmit={submit}>
+    {preview?<KnowledgeReaderPreview form={f} blocks={blocks} media={media} products={products} modules={modules} onExit={()=>setPreview(false)}/>:<form className="knowledge-page-form" onSubmit={submit}>
       <section className="content-card knowledge-page-section">
         <div className="knowledge-section-title"><span><Icon name="lucide:settings-2"/></span><div><h2>Detalles del artículo</h2><p>Clasificación, resumen y metadatos que usarán los lectores y el asistente de Knowledge.</p></div></div>
         <div className="knowledge-details-grid">
@@ -1255,8 +1282,8 @@ function KnowledgeArticleEditorPage({article,workspace,products,modules,session,
         <div className="knowledge-section-title"><span><Icon name="lucide:blocks"/></span><div><h2>Contenido del artículo</h2><p>Combina texto, listas, destacados, imágenes comprimidas, código y videos embebidos. Los bloques se publican en el mismo orden.</p></div></div>
         <div className="knowledge-page-editor"><KnowledgeBlockEditor blocks={blocks} setBlocks={setBlocks} media={media}/></div>
       </section>
-      <div className="knowledge-page-bottom-actions"><button type="button" className="secondary-button" onClick={onBack}>Cancelar</button><button type="submit" className="primary" disabled={saving}><Icon name={saving?'lucide:loader-circle':'lucide:save'}/>{saving?'Guardando…':article?'Guardar cambios':f.status==='published'?'Publicar artículo':'Guardar borrador'}</button></div>
-    </form>
+      <div className="knowledge-page-bottom-actions"><button type="button" className="secondary-button" onClick={onBack}>Cancelar</button><button type="button" className="secondary-button" onClick={()=>setPreview(true)}><Icon name="lucide:eye"/> Vista previa lector</button><button type="submit" className="primary" disabled={saving}><Icon name={saving?'lucide:loader-circle':'lucide:save'}/>{saving?'Guardando…':article?'Guardar cambios':f.status==='published'?'Publicar artículo':'Guardar borrador'}</button></div>
+    </form>}
   </div>
 }
 
@@ -1269,7 +1296,7 @@ function KnowledgeArticlePage({article,products,modules,canManage,onBack,onEdit}
     <div className="knowledge-reader-actions"><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> Volver a Knowledge</button>{canManage&&<button type="button" className="primary compact" onClick={onEdit}><Icon name="lucide:pencil"/> Editar artículo</button>}</div>
     <article className="content-card knowledge-reader-card">
       <header className="knowledge-reader-hero"><span className={`knowledge-status ${article.status}`}>{article.status==='published'?'Publicado':article.status==='draft'?'Borrador':'Archivado'}</span><h1>{article.title}</h1>{article.summary&&<p>{article.summary}</p>}<div className="knowledge-detail-meta">{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key} · {m.name}</span>}{(article.tags||[]).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div></header>
-      <div className="knowledge-content knowledge-rendered knowledge-reader-content">{blocks.map(b=><React.Fragment key={b.id}>{render(b)}</React.Fragment>)}</div>
+      <div className="knowledge-content knowledge-rendered knowledge-reader-content"><KnowledgeRenderedBlocks blocks={blocks} media={media} title={article.title}/></div>
     </article>
   </div>
 }

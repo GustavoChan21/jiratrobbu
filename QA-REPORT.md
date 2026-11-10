@@ -504,3 +504,16 @@ Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RL
 - CSS braces balanced.
 - Supabase Health Advisor: 0 lints.
 - No QA tickets created.
+
+## v16.3 — Knowledge sticky editor + POV lector
+- TypeScript/JSX (`tsc 5.8.3`): PASS, exit 0.
+- Importadores: 16/16 PASS.
+- `csv-import-v15.2.js`, `config.js`, `speed-insights.js`: sintaxis PASS.
+- Header editor Knowledge dividido en 2 filas: PASS por inspección estática.
+- Barra de bloques sticky separada y con `knowledge-content-builder{overflow:visible}`: PASS.
+- Breakpoint <=820: header estático + toolbar sticky horizontal: PASS.
+- Breakpoint <=520: acciones y footer a una columna: PASS.
+- `scroll-margin-top` en bloques: PASS.
+- POV lector local y botón Volver a editar: PASS.
+- Preview de imagen pendiente usa Object URL con cleanup: PASS.
+- No se agregó SQL ni se modificó esquema de Supabase.

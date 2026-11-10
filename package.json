@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.2.0",
-  "description": "Jira Interno TROBBU v16.2 - Knowledge full-page + overflow responsive audit + Sprint comments accessible",
+  "version": "16.3.0",
+  "description": "Jira Interno TROBBU v16.3 - Knowledge sticky editor + POV lector + responsive authoring UX",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },
