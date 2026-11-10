@@ -492,3 +492,15 @@ Ver `QA-V16.md` para la matriz completa. Resultado de código: 0 errores JSX/Typ
 
 ## v16.1
 Ver `QA-V16.1.md`. Compilación JSX PASS, importación 16/16, Knowledge media RLS PASS, Helpdesk author snapshot PASS, Health Advisor 0.
+
+
+## QA v16.2
+- Knowledge create/edit: full-page, no modal.
+- Knowledge reader: full-page.
+- Sprint activity list scroll: verified in code/CSS.
+- Sprint comments/evidence scroll: verified in code/CSS.
+- JSX/TypeScript: PASS (tsc exit 0).
+- Import suite: 16/16 PASS.
+- CSS braces balanced.
+- Supabase Health Advisor: 0 lints.
+- No QA tickets created.

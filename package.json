@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.0.0",
-  "description": "Jira Interno TROBBU v16 - Knowledge + Kanban enriquecido + bulk sprint + Staff editable + Realtime + Helpdesk escalable",
+  "version": "16.2.0",
+  "description": "Jira Interno TROBBU v16.2 - Knowledge full-page + overflow responsive audit + Sprint comments accessible",
   "scripts": {
     "serve": "python3 -m http.server 8080"
   },
