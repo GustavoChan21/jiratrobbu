@@ -1,3 +1,15 @@
+# Jira Interno TROBBU v17.2
+
+**Base de actualización:** v17.1 → v17.2. Para instalaciones ya en v17.1 ejecuta únicamente `upgrade-v17.2.sql` y despliega los archivos/Edge Functions actualizados.
+
+v17.2 corrige las regresiones restantes de Knowledge y endurece el flujo completo de autoría: crear borradores, reabrir borradores propios, editar, crear nuevas versiones, publicar, adjuntar imágenes y leerlas con RLS/Storage coherentes. El editor incorpora H1–H5 por bloque de título, texto enriquecido con fuente/tamaño/negrita/cursiva/subrayado/alineación, compatibilidad con párrafos antiguos, separadores y saltos de página.
+
+El Asistente Knowledge ahora exige contexto en la descripción, analiza título + etiquetas + resumen + contenido completo del artículo, utiliza términos ancla no genéricos y puede devolver cero sugerencias. También se corrige el buscador doble y el Timeline/Gantt deja sus cinco controles lógicos en una sola fila de escritorio, apilándolos limpiamente en responsive.
+
+Consulta `RELEASE-v17.2.md` y `QA-v17.2.md` para despliegue y validación.
+
+---
+
 # Jira Interno TROBBU v17.1
 
 **Base de actualización:** v17.0 → v17.1. Para instalaciones ya en v17.0 ejecuta únicamente `upgrade-v17.1.sql` y despliega los archivos/Edge Functions actualizados.

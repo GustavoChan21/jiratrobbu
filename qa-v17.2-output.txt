@@ -1,0 +1,92 @@
+PASS  Package version is 17.2.0
+PASS  Frontend cache bust targets 17.2.0
+PASS  App release marker is v17.2
+PASS  Incremental migration is appended exactly to database.sql
+PASS  Knowledge initial create restores direct RLS-backed article insert
+PASS  Knowledge initial create inserts v1 draft after article
+PASS  Knowledge initial create links draft_version_id
+PASS  Knowledge creation rolls back uploaded media and partial article
+PASS  Knowledge migration reasserts create_knowledge insert RLS
+PASS  Knowledge creator can read own initial draft through table RLS
+PASS  Knowledge creator can read own draft media through Storage helper
+PASS  Knowledge creator can upload own draft media through Storage helper
+PASS  Knowledge Storage insert retains file allowlist
+PASS  Knowledge own initial draft can be reopened by creator UI
+PASS  Knowledge manager list defaults to all so a new draft does not disappear
+PASS  Knowledge editor resets saving state even after success
+PASS  Knowledge editor remounts after draft/version identity change
+PASS  Knowledge title blocks support H1-H5 and can change level
+PASS  Knowledge rich editor supports H1-H5 inline hierarchy
+PASS  Knowledge text editor supports allowlisted fonts
+PASS  Knowledge text editor supports explicit 11-32px size scale
+PASS  Knowledge text editor supports bold italic underline
+PASS  Knowledge text editor supports lists and alignment
+PASS  Knowledge legacy paragraphs can be upgraded without losing text
+PASS  Knowledge supports visual divider and separate page break
+PASS  Knowledge normalizer persists pagebreak blocks
+PASS  Knowledge sanitizer allowlists font family and safe sizes
+PASS  Knowledge translation preserves rich content blocks
+PASS  Knowledge search inner input has no second border
+PASS  Knowledge Assistant waits for meaningful description context
+PASS  Knowledge Assistant source scans complete article content
+PASS  Knowledge Assistant downweights generic create/admin/panel/profile terms
+PASS  Knowledge Assistant requires real matched anchors before deterministic recommendation
+PASS  Knowledge Assistant AI threshold is strict and may return zero
+PASS  Knowledge Assistant response exposes matched concepts as evidence
+PASS  Behavior: screenshot false-positive lacks the required request anchor
+PASS  Helpdesk counters derive from same non-status filters as list
+PASS  Helpdesk filtering function covers status/type/department/product/assignee/priority
+PASS  Helpdesk all view remains active-first
+PASS  Manual auto-assign button exists
+PASS  Manual auto-assign processes existing active unassigned tickets
+PASS  Manual auto-assign Edge Function validates manage permission
+PASS  Routing uses descriptions and capacity
+PASS  Routing excludes only actual approved vacation blocks today
+PASS  Behavior: Helpdesk visible rows honor the selected status
+PASS  Behavior: Helpdesk counter base ignores only status, not other filters
+PASS  Behavior: gap between vacation blocks is not considered absent
+PASS  Behavior: multi-block overlap checks exact blocks instead of bounding range
+PASS  Shared TicketAssigneeSelect component exists
+PASS  Kanban uses shared assignee selector
+PASS  Table uses shared assignee selector
+PASS  Whole assignee selector is clickable via covering select
+PASS  Ticket relation picker has search input
+PASS  Ticket relation search includes status/product/title/key
+PASS  Closed tickets are allowed and sorted after active tickets
+PASS  Already related tickets are protected from duplicate selection
+PASS  Relation picker has styled results dropdown
+PASS  Gantt title and period text share first markup row
+PASS  Gantt five logical controls share one desktop row
+PASS  Gantt responsive turns the five logical controls into stacked rows
+PASS  Gantt keeps all requested time ranges
+PASS  Vacation schema adds return_date
+PASS  Vacation schema adds JSON date_blocks
+PASS  Vacation migration backfills legacy single ranges
+PASS  Vacation guard permits 1-8 blocks and total <=61 days
+PASS  Vacation guard requires return date after each block
+PASS  Vacation overlap validation uses individual JSON blocks
+PASS  Vacation AI is invalidated when blocks change
+PASS  Vacation approval still requires recent AI analysis
+PASS  Vacation UI exposes reincorporation field
+PASS  Vacation UI can add/remove multiple blocks
+PASS  Vacation UI persists date_blocks and return_date
+PASS  Vacation calendar only marks exact blocks as out
+PASS  Vacation out-today uses exact blocks
+PASS  Vacation timeline component exists
+PASS  Vacation timeline supports requested week ranges
+PASS  Vacation timeline supports requested month ranges
+PASS  Vacation timeline draws every block separately
+PASS  Vacation impact assistant models exact date_blocks
+PASS  Vacation impact assistant sums actual absence days
+PASS  Vacation impact assistant filters real overlapping team absences
+PASS  Vacation responsive spacing/layout styles exist
+PASS  RBAC keys remain in frontend
+PASS  RBAC keys remain in invite backend
+PASS  RBAC keys remain in manage backend
+PASS  Admin password reset remains server-side
+PASS  No service role key introduced in frontend
+PASS  No unresolved merge markers
+PASS  SQL dollar quotes are balanced
+PASS  CSS braces are balanced
+
+QA v17.2 summary: 90 passed, 0 failed.

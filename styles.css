@@ -819,3 +819,73 @@ select:not([multiple]){
   .vacation-timeline-controls{grid-template-columns:1fr 1fr 1fr}.vacation-timeline-controls label{grid-column:1/-1}.vacation-timeline-controls select{grid-column:1/-1}.vacation-timeline-controls .secondary-button{width:100%}
   .vacation-timeline-canvas{min-width:calc(190px + (var(--gantt-days) * var(--gantt-day-width)))}.vacation-timeline-canvas .gantt-month-header,.vacation-timeline-canvas .gantt-header,.vacation-timeline-canvas .gantt-row{grid-template-columns:190px auto}
 }
+
+/* ========================================================================== */
+/* Jira Interno TROBBU v17.2 · Knowledge hardening + compact responsive Gantt */
+/* ========================================================================== */
+
+/* Knowledge search is one visual field. The global input system must not draw
+   a second border inside the search shell. */
+.knowledge-toolbar-expanded .knowledge-search{height:42px;padding:0 12px;border:1px solid #B6C2CF;background:#fff;box-sizing:border-box}
+.knowledge-toolbar-expanded .knowledge-search:focus-within{border-color:#0C66E4;box-shadow:0 0 0 3px rgba(12,102,228,.12)}
+.knowledge-toolbar-expanded .knowledge-search input{
+  width:100%!important;min-width:0!important;min-height:0!important;height:40px!important;
+  padding:0 2px!important;border:0!important;border-radius:0!important;background:transparent!important;
+  box-shadow:none!important;outline:0!important
+}
+
+/* Knowledge title blocks keep a stable block type while allowing H1-H5 changes. */
+.knowledge-heading-editor{display:grid;grid-template-columns:minmax(130px,170px) minmax(0,1fr);gap:10px;align-items:end}
+.knowledge-heading-editor label{display:grid;gap:4px;font-size:10px;font-weight:800;color:#626F86}
+.knowledge-heading-editor select{min-height:42px!important}
+.knowledge-heading-editor textarea{min-height:74px!important}
+
+/* Rich text size scale. The editor stores only allowlisted font sizes/families. */
+.knowledge-rich-surface font[size="1"],.knowledge-rich-rendered font[size="1"]{font-size:11px}
+.knowledge-rich-surface font[size="2"],.knowledge-rich-rendered font[size="2"]{font-size:12px}
+.knowledge-rich-surface font[size="3"],.knowledge-rich-rendered font[size="3"]{font-size:14px}
+.knowledge-rich-surface font[size="4"],.knowledge-rich-rendered font[size="4"]{font-size:16px}
+.knowledge-rich-surface font[size="5"],.knowledge-rich-rendered font[size="5"]{font-size:18px}
+.knowledge-rich-surface font[size="6"],.knowledge-rich-rendered font[size="6"]{font-size:24px}
+.knowledge-rich-surface font[size="7"],.knowledge-rich-rendered font[size="7"]{font-size:32px}
+
+/* Page-break block is distinct from the normal visual divider. */
+.knowledge-pagebreak-preview{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:11px 4px;color:#626F86}
+.knowledge-pagebreak-preview>span{height:0;border-top:1px dashed #97A0AF}
+.knowledge-pagebreak-preview small{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;white-space:nowrap}
+.knowledge-page-break{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin:22px 0;color:#7A869A;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.knowledge-page-break:before,.knowledge-page-break:after{content:"";border-top:1px dashed #B6C2CF}
+@media print{
+  .knowledge-page-break{display:block!important;height:0!important;margin:0!important;border:0!important;break-after:page;page-break-after:always}
+  .knowledge-page-break>*{display:none!important}
+}
+
+/* Desktop Gantt: 5 logical controls in one row (date, range, grouping, sprint,
+   navigation). On narrow screens the same five controls become five rows. */
+.jira-timeline-toolbar .gantt-controls-v14{
+  display:grid!important;grid-template-columns:minmax(170px,.85fr) minmax(140px,.72fr) minmax(165px,.82fr) minmax(190px,1fr) auto!important;
+  align-items:end!important;gap:8px!important;width:100%!important;flex-wrap:nowrap!important
+}
+.jira-timeline-toolbar .gantt-controls-v14>.gantt-date-control,
+.jira-timeline-toolbar .gantt-controls-v14>select{width:100%!important;min-width:0!important;margin:0!important}
+.jira-timeline-toolbar .gantt-controls-v14>.gantt-date-control input,
+.jira-timeline-toolbar .gantt-controls-v14>select{height:40px!important;min-height:40px!important}
+.gantt-nav-control{display:grid;grid-template-columns:40px minmax(56px,auto) 40px;gap:6px;align-items:center;justify-self:end}
+.gantt-nav-control .secondary-button{height:40px;min-width:40px;padding:0 10px;justify-content:center}
+
+@media(max-width:900px){
+  .jira-timeline-toolbar .gantt-controls-v14{grid-template-columns:minmax(0,1fr)!important;align-items:stretch!important}
+  .jira-timeline-toolbar .gantt-controls-v14>.gantt-date-control,
+  .jira-timeline-toolbar .gantt-controls-v14>select,
+  .jira-timeline-toolbar .gantt-controls-v14>.gantt-nav-control{grid-column:1!important;width:100%!important;max-width:none!important}
+  .gantt-nav-control{grid-template-columns:1fr 1fr 1fr;justify-self:stretch}
+  .gantt-nav-control .secondary-button{width:100%}
+  .knowledge-heading-editor{grid-template-columns:1fr}
+}
+
+/* v17.2 Knowledge compatibility + relevance evidence */
+.knowledge-legacy-paragraph{display:grid;gap:8px}
+.knowledge-legacy-paragraph .secondary-button{justify-self:start}
+.knowledge-match-terms{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 10px;color:#44546F;font-size:10px}
+.knowledge-match-terms>b{color:#172B4D}
+.knowledge-match-terms>span{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:#E9F2FF;color:#0C66E4;font-weight:800}
