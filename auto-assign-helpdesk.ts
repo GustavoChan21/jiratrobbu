@@ -11,6 +11,8 @@ const tokens=(v:string)=>[...new Set(normalize(v).split(/\s+/).filter(x=>x.lengt
 function localScore(ticket:string,profile:string){const p=normalize(profile);return tokens(ticket).reduce((n,t)=>n+(p.includes(t)?1:0),0)}
 function extractText(payload:any){if(typeof payload?.output_text==="string")return payload.output_text;for(const item of payload?.output||[])for(const c of item?.content||[])if(typeof c?.text==="string")return c.text;return ""}
 function localDateKey(date:Date,timeZone:string){const parts=new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date),map=Object.fromEntries(parts.map(x=>[x.type,x.value]));return `${map.year}-${map.month}-${map.day}`}
+function vacationBlocks(v:any){const raw=Array.isArray(v?.date_blocks)?v.date_blocks:[];const blocks=raw.map((b:any)=>({start_date:String(b?.start_date||"").slice(0,10),end_date:String(b?.end_date||"").slice(0,10)})).filter((b:any)=>b.start_date&&b.end_date);return blocks.length?blocks:(v?.start_date&&v?.end_date?[{start_date:String(v.start_date).slice(0,10),end_date:String(v.end_date).slice(0,10)}]:[])}
+function absentOn(v:any,key:string){return vacationBlocks(v).some((b:any)=>b.start_date<=key&&b.end_date>=key)}
 
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
@@ -32,8 +34,15 @@ Deno.serve(async(req:Request)=>{
     const {data:ticket,error:tErr}=await admin.from("helpdesk_tickets").select("*").eq("id",ticketId).maybeSingle();
     if(tErr)throw tErr;
     if(!ticket)throw new Error("Helpdesk ticket not found");
-    const {data:membership}=await admin.from("workspace_members").select("user_id,active").eq("workspace_id",ticket.workspace_id).eq("user_id",userData.user.id).eq("active",true).maybeSingle();
+    const {data:membership}=await admin.from("workspace_members").select("*").eq("workspace_id",ticket.workspace_id).eq("user_id",userData.user.id).eq("active",true).maybeSingle();
     if(!membership)return new Response(JSON.stringify({error:"Workspace access required"}),{status:403,headers:jsonHeaders});
+    if(body.manual_trigger===true){
+      const {data:callerRole}=membership.role_id?await admin.from("workspace_roles").select("code,base_role,permissions").eq("id",membership.role_id).maybeSingle():{data:null};
+      const explicit=typeof membership.permissions?.manage_helpdesk==="boolean"?membership.permissions.manage_helpdesk:typeof callerRole?.permissions?.manage_helpdesk==="boolean"?callerRole.permissions.manage_helpdesk:null;
+      const base=String(callerRole?.base_role||membership.role||"");
+      const allowed=explicit===null?["superadmin","admin","pm"].includes(base)||callerRole?.code==="superadmin":explicit;
+      if(!allowed)return new Response(JSON.stringify({error:"No tienes permiso para ejecutar la autoasignación manual."}),{status:403,headers:jsonHeaders});
+    }
     if(PROPOSAL.has(ticket.category))return new Response(JSON.stringify({ok:true,assigned:false,skipped:"proposal"}),{headers:jsonHeaders});
     if(ticket.assigned_to)return new Response(JSON.stringify({ok:true,assigned:true,user_id:ticket.assigned_to,skipped:"already_assigned"}),{headers:jsonHeaders});
 
@@ -53,7 +62,7 @@ Deno.serve(async(req:Request)=>{
       roleIds.length?admin.from("workspace_roles").select("id,code,name,description,base_role").in("id",roleIds):Promise.resolve({data:[]}),
       ids.length?admin.from("helpdesk_assignment_log").select("assigned_user_id,created_at").eq("workspace_id",ticket.workspace_id).in("assigned_user_id",ids).gte("created_at",new Date(Date.now()-48*3600*1000).toISOString()):Promise.resolve({data:[]}),
       ids.length?admin.from("helpdesk_tickets").select("assigned_to,status,category").eq("workspace_id",ticket.workspace_id).in("assigned_to",ids).not("status","in","(resolved,closed)"):Promise.resolve({data:[]}),
-      ids.length?admin.from("vacation_requests").select("user_id,start_date,end_date,status").eq("workspace_id",ticket.workspace_id).eq("status","approved").lte("start_date",today).gte("end_date",today).in("user_id",ids):Promise.resolve({data:[]}),
+      ids.length?admin.from("vacation_requests").select("user_id,start_date,end_date,return_date,date_blocks,status").eq("workspace_id",ticket.workspace_id).eq("status","approved").lte("start_date",today).gte("end_date",today).in("user_id",ids):Promise.resolve({data:[]}),
     ]);
     const profileMap=new Map((profiles||[]).map((p:any)=>[p.id,p]));
     const roleMap=new Map((roles||[]).map((r:any)=>[r.id,r]));
@@ -66,7 +75,7 @@ Deno.serve(async(req:Request)=>{
       const role=roleMap.get(m.role_id)||{} as any;
       const profile=profileMap.get(m.user_id)||{} as any;
       const base=String(role.base_role||m.role||"");
-      const absentToday=(vacations||[]).some((v:any)=>v.user_id===m.user_id);
+      const absentToday=(vacations||[]).some((v:any)=>v.user_id===m.user_id&&absentOn(v,today));
       const eligible=!!m.helpdesk_auto_assign_enabled&&!absentToday&&role.code!=="helpdesk_requester"&&base!=="consulta"&&m.user_id!==ticket.requester_user_id;
       const dailyLimit=m.helpdesk_daily_limit==null?defaultDaily:Number(m.helpdesk_daily_limit);
       const activeLimit=m.helpdesk_active_limit==null?defaultActive:Number(m.helpdesk_active_limit);

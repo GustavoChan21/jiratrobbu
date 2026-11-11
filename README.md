@@ -1,3 +1,13 @@
+# Jira Interno TROBBU v17.1
+
+**Base de actualización:** v17.0 → v17.1. Para instalaciones ya en v17.0 ejecuta únicamente `upgrade-v17.1.sql` y despliega los archivos/Edge Functions actualizados.
+
+v17.1 corrige regresiones detectadas en Knowledge y añade: creación inicial atómica de artículos, editor enriquecido, autoasignación manual de Helpdesk existente, counters coherentes con filtros, vacaciones multi-bloque con fecha de reincorporación y timeline, selector rápido de responsable compartido entre Kanban/Tabla, buscador de relaciones de tickets y ajuste de layout del Gantt.
+
+Consulta `RELEASE-v17.1.md` y `QA-v17.1.md` para detalle de despliegue y validación.
+
+---
+
 # Jira Interno TROBBU v17.0
 
 ## v17.0 · Knowledge inteligente, Vacaciones y control operativo

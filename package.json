@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.0.0",
-  "description": "Jira Interno TROBBU v17.0 - Knowledge intelligence, vacation planning, granular RBAC and helpdesk routing",
+  "version": "17.1.0",
+  "description": "Jira Interno TROBBU v17.1 - regression fixes, Knowledge authoring, Helpdesk routing and multi-block vacation planning",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.0.mjs"
+    "qa": "node qa-v17.1.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
