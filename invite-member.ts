@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
 const PROD_APP_URL="https://jiratrobbu.vercel.app/";
-const PERMISSIONS=["view_dashboard","view_tickets","create_tickets","edit_tickets","delete_tickets","manage_sprints","qa_review","manage_helpdesk","manage_staff","manage_products","manage_settings"] as const;
+const PERMISSIONS=["view_dashboard","view_tickets","create_tickets","edit_tickets","delete_tickets","manage_sprints","qa_review","manage_helpdesk","view_knowledge","create_knowledge","edit_knowledge","delete_knowledge","view_vacations","request_vacations","manage_vacations","manage_staff","manage_products","manage_ticket_fields","manage_settings"] as const;
 
 function safeRedirect(value:unknown){
   try{
@@ -45,10 +45,10 @@ function memberPermission(member:any, role:any, permission:string){
   const defaults:any={
     superadmin:Object.fromEntries(PERMISSIONS.map(k=>[k,true])),
     admin:Object.fromEntries(PERMISSIONS.map(k=>[k,true])),
-    pm:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:true,manage_sprints:true,qa_review:true,manage_helpdesk:true},
-    dev:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true},
-    qa:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,qa_review:true},
-    consulta:{view_dashboard:true,view_tickets:true},
+    pm:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:true,manage_sprints:true,qa_review:true,manage_helpdesk:true,view_knowledge:true,create_knowledge:true,edit_knowledge:true,delete_knowledge:false,view_vacations:true,request_vacations:true,manage_vacations:true,manage_ticket_fields:true},
+    dev:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,view_knowledge:true,view_vacations:true,request_vacations:true},
+    qa:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,qa_review:true,view_knowledge:true,view_vacations:true,request_vacations:true},
+    consulta:{view_dashboard:true,view_tickets:true,view_knowledge:true,view_vacations:true},
   };
   return Boolean(defaults[base]?.[permission]);
 }
@@ -144,6 +144,7 @@ Deno.serve(async(req:Request)=>{
 
     const routingDescription=String(body.helpdesk_routing_description??"").trim().slice(0,4000)||null;
     const autoAssign=Boolean(body.helpdesk_auto_assign_enabled)&&role.base_role!=="consulta"&&role.code!=="helpdesk_requester";
+    if(autoAssign&&(!routingDescription||routingDescription.length<12))throw new Error("Describe con al menos 12 caracteres qué temas atiende este usuario para habilitar la autoasignación.");
     const dailyRaw=body.helpdesk_daily_limit;
     const activeRaw=body.helpdesk_active_limit;
     const dailyLimit=dailyRaw===null||dailyRaw===undefined||dailyRaw===""?null:Number(dailyRaw);

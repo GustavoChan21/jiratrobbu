@@ -3,14 +3,14 @@ import { createClient } from "npm:@supabase/supabase-js@2.119.0";
 
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type"};
 const PLATFORM_URL="https://jiratrobbu.vercel.app/";
-const PERMISSIONS=["view_dashboard","view_tickets","create_tickets","edit_tickets","delete_tickets","manage_sprints","qa_review","manage_helpdesk","manage_staff","manage_products","manage_settings"] as const;
+const PERMISSIONS=["view_dashboard","view_tickets","create_tickets","edit_tickets","delete_tickets","manage_sprints","qa_review","manage_helpdesk","view_knowledge","create_knowledge","edit_knowledge","delete_knowledge","view_vacations","request_vacations","manage_vacations","manage_staff","manage_products","manage_ticket_fields","manage_settings"] as const;
 function randomPassword(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";const a=new Uint32Array(18);crypto.getRandomValues(a);return Array.from(a,n=>chars[n%chars.length]).join("")}
 function memberPermission(member:any,role:any,permission:string){
   if(member?.role==="superadmin")return true;
   if(typeof member?.permissions?.[permission]==="boolean")return member.permissions[permission];
   if(typeof role?.permissions?.[permission]==="boolean")return role.permissions[permission];
   const base=role?.base_role||member?.role||"consulta";
-  const defaults:any={superadmin:Object.fromEntries(PERMISSIONS.map(k=>[k,true])),admin:Object.fromEntries(PERMISSIONS.map(k=>[k,true])),pm:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:true,manage_sprints:true,qa_review:true,manage_helpdesk:true},dev:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true},qa:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,qa_review:true},consulta:{view_dashboard:true,view_tickets:true}};
+  const defaults:any={superadmin:Object.fromEntries(PERMISSIONS.map(k=>[k,true])),admin:Object.fromEntries(PERMISSIONS.map(k=>[k,true])),pm:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,delete_tickets:true,manage_sprints:true,qa_review:true,manage_helpdesk:true,view_knowledge:true,create_knowledge:true,edit_knowledge:true,view_vacations:true,request_vacations:true,manage_vacations:true,manage_ticket_fields:true},dev:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,view_knowledge:true,view_vacations:true,request_vacations:true},qa:{view_dashboard:true,view_tickets:true,create_tickets:true,edit_tickets:true,qa_review:true,view_knowledge:true,view_vacations:true,request_vacations:true},consulta:{view_dashboard:true,view_tickets:true,view_knowledge:true,view_vacations:true}};
   return Boolean(defaults[base]?.[permission]);
 }
 Deno.serve(async(req:Request)=>{
@@ -46,6 +46,14 @@ Deno.serve(async(req:Request)=>{
       const {error:profileError}=await admin.from("profiles").update({full_name:fullName||null,job_title:jobTitle||null,updated_at:new Date().toISOString()}).eq("id",targetUserId);
       if(profileError)throw profileError;
       return new Response(JSON.stringify({ok:true,user_id:targetUserId,email:authUser.user?.email||email,full_name:fullName,job_title:jobTitle}),{headers:{...cors,"Content-Type":"application/json"}});
+    }
+    if(action==="set_password"){
+      const newPassword=String(body.new_password||"");
+      if(newPassword.length<10)throw new Error("La nueva contraseña debe tener al menos 10 caracteres.");
+      if(newPassword.length>128)throw new Error("La nueva contraseña es demasiado larga.");
+      const {data:authUser,error:authError}=await admin.auth.admin.updateUserById(targetUserId,{password:newPassword});
+      if(authError)throw authError;
+      return new Response(JSON.stringify({ok:true,user_id:targetUserId,email:authUser.user?.email||body.email||"",password_updated:true,platform_url:PLATFORM_URL}),{headers:{...cors,"Content-Type":"application/json"}});
     }
     if(action==="reset_credentials"){
       const temporaryPassword=randomPassword();

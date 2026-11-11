@@ -1,4 +1,31 @@
-# Jira Interno TROBBU v16.7
+# Jira Interno TROBBU v17.0
+
+## v17.0 · Knowledge inteligente, Vacaciones y control operativo
+
+Esta versión parte de v16.9 y agrega una revisión transversal de Helpdesk, Knowledge, Staff, Sprints, permisos y UI. Los cambios principales son:
+
+- Asistente Knowledge con prefiltrado léxico + validación semántica; puede devolver cero artículos cuando no existe una coincidencia confiable.
+- Filtros de Helpdesk por Nuevo, En revisión, Atendido, Resuelto y Cerrado; en “Ver todo” se prioriza trabajo abierto y se dejan Resuelto/Cerrado al final.
+- Filtro por producto dentro del detalle de Sprint, con métricas calculadas sobre las actividades visibles.
+- Actualización administrativa de contraseña desde Staff mediante Edge Function server-side.
+- Autoasignación de Helpdesk basada en responsabilidades del integrante, límites diarios/activos, overflow y exclusión automática de personas con vacaciones aprobadas.
+- RBAC granular de Knowledge: ver, crear, editar/publicar y eliminar.
+- Categorías de Knowledge por producto/área: Sistemas, Recepción, Operaciones, Políticas, SOP, Reservaciones, Administración y General.
+- Editor enriquecido de Knowledge con H1-H5, negrita, cursiva, subrayado, tamaño de texto y sanitización HTML.
+- Nuevo módulo Vacaciones con solicitudes, calendario, permisos, alertas de ausencias de hoy y análisis de impacto contra sprints/entregables antes de aprobar.
+- La aprobación de vacaciones exige análisis vigente; se invalida si cambian tickets asignados, planeación de sprint, disponibilidad del equipo o pasan más de 12 horas.
+- Normalización visual de inputs, selects y textareas en superficies principales.
+
+### Actualización desde v16.9
+
+1. Ejecuta `upgrade-v17.0.sql` en la base de datos del proyecto.
+2. Despliega las Edge Functions modificadas: `manage-member`, `invite-member`, `auto-assign-helpdesk`, `trobbu-knowledge-assistant`, `translate-knowledge-version` y la nueva `vacation-impact-assistant`.
+3. Publica los archivos estáticos (`index.html`, `app.js`, `styles.css` y demás archivos del paquete).
+4. Configura `OPENAI_API_KEY` o `AI_GATEWAY_API_KEY`. Los modelos pueden sobreescribirse con `TROBBU_OPENAI_MODEL` / `TROBBU_AI_MODEL`.
+5. Ejecuta `npm run qa` antes y después del despliegue de los archivos.
+
+Consulta `RELEASE-v17.0.md` y `QA-v17.0.md` para el detalle de cambios y verificación.
+
 
 
 

@@ -10,7 +10,7 @@ const normalize=(v:string)=>String(v||"").normalize("NFD").replace(/[\u0300-\u03
 const tokens=(v:string)=>[...new Set(normalize(v).split(/\s+/).filter(x=>x.length>=4&&!STOP.has(x)))];
 function localScore(ticket:string,profile:string){const p=normalize(profile);return tokens(ticket).reduce((n,t)=>n+(p.includes(t)?1:0),0)}
 function extractText(payload:any){if(typeof payload?.output_text==="string")return payload.output_text;for(const item of payload?.output||[])for(const c of item?.content||[])if(typeof c?.text==="string")return c.text;return ""}
-function localDateKey(date:Date,timeZone:string){return new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).format(date)}
+function localDateKey(date:Date,timeZone:string){const parts=new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date),map=Object.fromEntries(parts.map(x=>[x.type,x.value]));return `${map.year}-${map.month}-${map.day}`}
 
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
@@ -47,15 +47,16 @@ Deno.serve(async(req:Request)=>{
     if(settings?.helpdesk_auto_assignment_enabled===false)return new Response(JSON.stringify({ok:true,assigned:false,skipped:"disabled"}),{headers:jsonHeaders});
     const ids=(members||[]).map((m:any)=>m.user_id);
     const roleIds=(members||[]).map((m:any)=>m.role_id).filter(Boolean);
-    const [{data:profiles},{data:roles},{data:logs},{data:activeTickets}]=await Promise.all([
+    const tz=settings?.timezone||"America/Merida",today=localDateKey(new Date(),tz);
+    const [{data:profiles},{data:roles},{data:logs},{data:activeTickets},{data:vacations}]=await Promise.all([
       ids.length?admin.from("profiles").select("id,full_name,email,job_title").in("id",ids):Promise.resolve({data:[]}),
       roleIds.length?admin.from("workspace_roles").select("id,code,name,description,base_role").in("id",roleIds):Promise.resolve({data:[]}),
       ids.length?admin.from("helpdesk_assignment_log").select("assigned_user_id,created_at").eq("workspace_id",ticket.workspace_id).in("assigned_user_id",ids).gte("created_at",new Date(Date.now()-48*3600*1000).toISOString()):Promise.resolve({data:[]}),
       ids.length?admin.from("helpdesk_tickets").select("assigned_to,status,category").eq("workspace_id",ticket.workspace_id).in("assigned_to",ids).not("status","in","(resolved,closed)"):Promise.resolve({data:[]}),
+      ids.length?admin.from("vacation_requests").select("user_id,start_date,end_date,status").eq("workspace_id",ticket.workspace_id).eq("status","approved").lte("start_date",today).gte("end_date",today).in("user_id",ids):Promise.resolve({data:[]}),
     ]);
     const profileMap=new Map((profiles||[]).map((p:any)=>[p.id,p]));
     const roleMap=new Map((roles||[]).map((r:any)=>[r.id,r]));
-    const tz=settings?.timezone||"America/Merida",today=localDateKey(new Date(),tz);
     const dailyCount=(uid:string)=>(logs||[]).filter((l:any)=>l.assigned_user_id===uid&&localDateKey(new Date(l.created_at),tz)===today).length;
     const activeCount=(uid:string)=>(activeTickets||[]).filter((h:any)=>h.assigned_to===uid&&!PROPOSAL.has(h.category)).length;
     const ticketContext=[ticket.subject,ticket.description,requestType?.name,department?.name,product?.name,ticket.category,ticket.priority].filter(Boolean).join(" ");
@@ -65,13 +66,14 @@ Deno.serve(async(req:Request)=>{
       const role=roleMap.get(m.role_id)||{} as any;
       const profile=profileMap.get(m.user_id)||{} as any;
       const base=String(role.base_role||m.role||"");
-      const eligible=!!m.helpdesk_auto_assign_enabled&&role.code!=="helpdesk_requester"&&base!=="consulta"&&m.user_id!==ticket.requester_user_id;
+      const absentToday=(vacations||[]).some((v:any)=>v.user_id===m.user_id);
+      const eligible=!!m.helpdesk_auto_assign_enabled&&!absentToday&&role.code!=="helpdesk_requester"&&base!=="consulta"&&m.user_id!==ticket.requester_user_id;
       const dailyLimit=m.helpdesk_daily_limit==null?defaultDaily:Number(m.helpdesk_daily_limit);
       const activeLimit=m.helpdesk_active_limit==null?defaultActive:Number(m.helpdesk_active_limit);
       const d=dailyCount(m.user_id),a=activeCount(m.user_id);
       const available=(dailyLimit===0||d<dailyLimit)&&(activeLimit===0||a<activeLimit);
       const context=[m.helpdesk_routing_description,profile.job_title,role.name,role.description,base].filter(Boolean).join(" ");
-      return {user_id:m.user_id,name:profile.full_name||profile.email||"User",context,eligible,available,daily_count:d,active_count:a,daily_limit:dailyLimit,active_limit:activeLimit,overflow_mode:(m.helpdesk_overflow_mode&&m.helpdesk_overflow_mode!=="inherit")?m.helpdesk_overflow_mode:(settings?.helpdesk_default_overflow_mode||"fallback"),overflow_user_id:m.helpdesk_overflow_user_id||settings?.helpdesk_default_overflow_user_id||null,score:localScore(ticketContext,context)};
+      return {user_id:m.user_id,name:profile.full_name||profile.email||"User",context,eligible,absent_today:absentToday,available,daily_count:d,active_count:a,daily_limit:dailyLimit,active_limit:activeLimit,overflow_mode:(m.helpdesk_overflow_mode&&m.helpdesk_overflow_mode!=="inherit")?m.helpdesk_overflow_mode:(settings?.helpdesk_default_overflow_mode||"fallback"),overflow_user_id:m.helpdesk_overflow_user_id||settings?.helpdesk_default_overflow_user_id||null,score:localScore(ticketContext,context)};
     }).filter((x:any)=>x.eligible);
 
     if(!candidates.length){
@@ -82,13 +84,13 @@ Deno.serve(async(req:Request)=>{
     const apiKey=Deno.env.get("OPENAI_API_KEY");
     if(apiKey){
       try{
-        const model=Deno.env.get("TROBBU_OPENAI_MODEL")||"gpt-5.6-terra";
-        const res=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model,input:[{role:"developer",content:"You route internal TROBBU Helpdesk requests. Choose the ONE staff member whose responsibility description best matches the request. Consider meaning, request type, department and product. Do not choose based on name. Capacity is informational: choose the best functional owner even if at capacity; overflow rules are applied afterwards. Return JSON only: {\"user_id\":\"uuid\",\"reason\":\"short Spanish explanation\",\"confidence\":0.0}. Use only the candidate IDs provided."},{role:"user",content:`Request: ${ticketContext}\nCandidates: ${JSON.stringify(candidates.map((c:any)=>({user_id:c.user_id,responsibilities:c.context,daily_count:c.daily_count,daily_limit:c.daily_limit,active_count:c.active_count,active_limit:c.active_limit})))}`}],text:{format:{type:"json_object"}}})});
+        const model=Deno.env.get("TROBBU_OPENAI_MODEL")||"gpt-6.1-sol";
+        const res=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({model,input:[{role:"developer",content:"You route internal TROBBU Helpdesk requests. Choose the staff member whose responsibility description clearly matches the request. Consider meaning, request type, department and product. Do not choose based on name. If no candidate is a reliable functional match, return user_id null instead of forcing an assignment. Capacity is informational: choose the best functional owner even if at capacity; overflow rules are applied afterwards. Return JSON only: {\"user_id\":\"uuid-or-null\",\"reason\":\"short Spanish explanation\",\"confidence\":0.0}. Use only the candidate IDs provided. Confidence below 0.45 means there is no reliable match."},{role:"user",content:`Request: ${ticketContext}\nCandidates: ${JSON.stringify(candidates.map((c:any)=>({user_id:c.user_id,responsibilities:c.context,daily_count:c.daily_count,daily_limit:c.daily_limit,active_count:c.active_count,active_limit:c.active_limit})))}`}],text:{format:{type:"json_object"}}})});
         const payload=await res.json();
-        if(res.ok){const parsed=JSON.parse(extractText(payload));chosen=candidates.find((c:any)=>c.user_id===parsed.user_id)||null;if(chosen){reason=String(parsed.reason||"").slice(0,900);confidence=Math.max(0,Math.min(1,Number(parsed.confidence)||0));provider=`openai:${model}`}}
+        if(res.ok){const parsed=JSON.parse(extractText(payload));const parsedConfidence=Math.max(0,Math.min(1,Number(parsed.confidence)||0));const candidate=parsed?.user_id?candidates.find((c:any)=>c.user_id===parsed.user_id)||null:null;if(candidate&&parsedConfidence>=0.45){chosen=candidate;reason=String(parsed.reason||"").slice(0,900);confidence=parsedConfidence;provider=`openai:${model}`}else if(parsedConfidence<0.45||!parsed?.user_id){return new Response(JSON.stringify({ok:true,assigned:false,queued:true,provider:`openai:${model}`,reason:"no_routing_match",confidence:parsedConfidence,detail:String(parsed.reason||"No existe una coincidencia funcional suficientemente confiable.").slice(0,900)}),{headers:jsonHeaders})}}
       }catch{}
     }
-    if(!chosen){chosen=[...candidates].sort((a:any,b:any)=>b.score-a.score||a.daily_count-b.daily_count||a.active_count-b.active_count)[0];reason=chosen.score>0?"Coincidencia local entre el contenido de la solicitud y la descripción de responsabilidades.":"No hubo coincidencia semántica suficiente; se usó la regla de respaldo.";confidence=chosen.score>0?Math.min(.75,.35+chosen.score*.08):.2;provider="local"}
+    if(!chosen){chosen=[...candidates].sort((a:any,b:any)=>b.score-a.score||a.daily_count-b.daily_count||a.active_count-b.active_count)[0];if(!chosen||chosen.score<=0)return new Response(JSON.stringify({ok:true,assigned:false,queued:true,provider:"local",reason:"no_routing_match"}),{headers:jsonHeaders});reason="Coincidencia local entre el contenido de la solicitud y la descripción de responsabilidades.";confidence=Math.min(.75,.35+chosen.score*.08);provider="local"}
 
     let target=chosen;
     let source="auto_ai";
@@ -101,7 +103,7 @@ Deno.serve(async(req:Request)=>{
         if(!fb)return new Response(JSON.stringify({ok:true,assigned:false,queued:true,suggested_user_id:chosen.user_id,provider,reason:"fallback_unavailable"}),{headers:jsonHeaders});
         target=fb;source="overflow";reason=`${chosen.name} alcanzó su límite; se asignó al respaldo ${fb.name}. ${reason}`.slice(0,900);confidence=Math.min(confidence,.45);
       }else{
-        const next=[...candidates].filter((c:any)=>c.available&&c.user_id!==chosen.user_id).sort((a:any,b:any)=>b.score-a.score||a.daily_count-b.daily_count)[0];
+        const next=[...candidates].filter((c:any)=>c.available&&c.user_id!==chosen.user_id&&c.score>0).sort((a:any,b:any)=>b.score-a.score||a.daily_count-b.daily_count)[0];
         if(!next)return new Response(JSON.stringify({ok:true,assigned:false,queued:true,suggested_user_id:chosen.user_id,provider,reason:"no_available_candidate"}),{headers:jsonHeaders});
         target=next;source="overflow";reason=`${chosen.name} alcanzó su límite; se asignó al siguiente integrante disponible, ${next.name}. ${reason}`.slice(0,900);confidence=Math.min(confidence,.55);
       }

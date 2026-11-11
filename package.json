@@ -1,10 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "16.9.0",
-  "description": "Jira Interno TROBBU v16.9 - stable RLS-aware counters + private permission loading + unified attachments",
+  "version": "17.0.0",
+  "description": "Jira Interno TROBBU v17.0 - Knowledge intelligence, vacation planning, granular RBAC and helpdesk routing",
   "scripts": {
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "qa": "node qa-v17.0.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"

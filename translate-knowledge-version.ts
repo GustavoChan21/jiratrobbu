@@ -17,19 +17,22 @@ function extractText(payload:any){
 function compactBlocks(blocks:any[]){
   return (blocks||[]).map(b=>({
     id:String(b.id||""),type:String(b.type||"paragraph"),
-    text:typeof b.text==="string"?b.text:"",alt:typeof b.alt==="string"?b.alt:"",caption:typeof b.caption==="string"?b.caption:""
+    text:typeof b.text==="string"?b.text:"",html:typeof b.html==="string"?b.html:"",
+    alt:typeof b.alt==="string"?b.alt:"",caption:typeof b.caption==="string"?b.caption:""
   }));
 }
 function mergeBlocks(source:any[],translated:any[]){
   const byId=new Map((translated||[]).map((x:any)=>[String(x.id||""),x]));
   return (source||[]).map((b:any)=>{const t=byId.get(String(b.id||""))||{};return {...b,
     ...(typeof b.text==="string"?{text:typeof (t as any).text==="string"?(t as any).text:b.text}:{}),
+    ...(typeof b.html==="string"?{html:typeof (t as any).html==="string"?(t as any).html:b.html}:{}),
     ...(typeof b.alt==="string"?{alt:typeof (t as any).alt==="string"?(t as any).alt:b.alt}:{}),
     ...(typeof b.caption==="string"?{caption:typeof (t as any).caption==="string"?(t as any).caption:b.caption}:{})
   }});
 }
+function stripHtml(value:string){return String(value||"").replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p\s*>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim()}
 function plainText(blocks:any[]){
-  return (blocks||[]).map((b:any)=>["paragraph","heading2","heading3","list","quote","callout","code"].includes(b.type)?String(b.text||""):String(b.caption||"")).filter(Boolean).join("\n\n");
+  return (blocks||[]).map((b:any)=>b.type==="richtext"?stripHtml(String(b.html||"")):["paragraph","heading1","heading2","heading3","heading4","heading5","list","quote","callout","code"].includes(b.type)?String(b.text||""):String(b.caption||"")).filter(Boolean).join("\n\n");
 }
 
 Deno.serve(async(req:Request)=>{
@@ -78,8 +81,8 @@ Deno.serve(async(req:Request)=>{
       body:JSON.stringify({
         model,
         input:[
-          {role:"developer",content:`Translate the provided Knowledge article from ${sourceLang} to ${languageName}. Return JSON only. Preserve IDs and block order. Translate only human-readable text: title, summary, tags, and each block's text/alt/caption. Do not translate code syntax, URLs, media IDs, identifiers, or product/module names. Keep technical terminology natural and concise.`},
-          {role:"user",content:`Return JSON with this exact shape: {"title":"...","summary":"...","tags":["..."],"blocks":[{"id":"...","text":"...","alt":"...","caption":"..."}]}. Source JSON: ${JSON.stringify(sourceObject)}`}
+          {role:"developer",content:`Translate the provided Knowledge article from ${sourceLang} to ${languageName}. Return JSON only. Preserve IDs and block order. Translate only human-readable text: title, summary, tags, and each block's text/html/alt/caption. For html, preserve the exact HTML tag hierarchy, attributes, links and formatting; translate only visible human-readable text nodes. Do not translate code syntax, URLs, media IDs, identifiers, or product/module names. Keep technical terminology natural and concise.`},
+          {role:"user",content:`Return JSON with this exact shape: {"title":"...","summary":"...","tags":["..."],"blocks":[{"id":"...","text":"...","html":"...","alt":"...","caption":"..."}]}. Source JSON: ${JSON.stringify(sourceObject)}`}
         ],
         text:{format:{type:"json_object"}}
       })
