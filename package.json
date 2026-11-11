@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.5.0",
-  "description": "Jira Interno TROBBU v17.5 - native Knowledge rich-text editing, preserved inline formatting and configurable executive cover templates",
+  "version": "17.5.1",
+  "description": "Jira Interno TROBBU v17.5.1 - reliable blank rich-text typing, safe writing fallback and aligned Knowledge author actions",
   "scripts": {
     "serve": "python3 -m http.server 8080",
     "qa": "node qa-v17.5.mjs"

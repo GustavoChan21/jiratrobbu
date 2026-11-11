@@ -20,10 +20,10 @@ const hasAll=(text,items)=>items.every(x=>text.includes(x));
 const count=(text,needle)=>text.split(needle).length-1;
 
 // Release integrity
-check('Package version is 17.5.0',pkg.version==='17.5.0');
+check('Package version is 17.5.1',pkg.version==='17.5.1');
 check('QA npm script targets v17.5',pkg.scripts?.qa==='node qa-v17.5.mjs');
-check('Frontend cache bust targets 17.5.0',index.includes('v=17.5.0'));
-check('App release marker is v17.5.0',app.startsWith('/* Jira Interno TROBBU v17.5.0'));
+check('Frontend cache bust targets 17.5.1',index.includes('v=17.5.1'));
+check('App release marker is v17.5.1',app.startsWith('/* Jira Interno TROBBU v17.5.1'));
 check('Incremental v17.5 migration is the final database.sql block',database.endsWith(migration),crypto.createHash('sha256').update(migration).digest('hex'));
 check('No unresolved merge markers',![app,migration,database,styles,index,knowledgeAI,translate].some(t=>/^(<<<<<<<|=======|>>>>>>>)/m.test(t)));
 check('SQL dollar quotes are balanced',count(migration,'$$')%2===0);
@@ -130,10 +130,10 @@ check('Pagebreak is printable as a real page break',hasAll(styles,['break-after:
 check('Rendered blocks cover every editable block family',hasAll(app,['knowledge-rich-rendered','<h1>{b.text}</h1>','<blockquote>','knowledge-callout','knowledge-code-rendered','knowledge-rendered-image','knowledge-video','knowledge-page-break']));
 
 // v17.3.1 continuous-editing regression and executive output
-check('Rich editor input stays outside React state',app.includes("const handleInput=()=>{const raw=el.innerHTML;draftHtmlRef.current=raw;updateStats(raw);saveSelection();onLiveInputRef.current?.(raw)}")&&!/handleInput=.*onChangeRef/.test(app));
+check('Rich editor input stays outside React state',app.includes("const handleInput=()=>{const raw=el.innerHTML;draftHtmlRef.current=normalizeEditorHtml(raw)")&&!/handleInput=.*onChangeRef/.test(app));
 check('Rich editor persists on blur after continuous typing',hasAll(app,["const handleBlur=()=>commit(true)","el.addEventListener('blur',handleBlur)"]));
 check('Rich editor preserves selected ranges across toolbar interaction',hasAll(app,['rangeRef=useRef(null)','range.cloneRange()','restoreSelection()','onMouseDown={preserveSelection}']));
-check('Rich editor formatting actions persist sanitized HTML',hasAll(app,['document.execCommand(cmd,false,value)','saveSelection();commit(false)','sanitizeKnowledgeHtml(readSurface())']));
+check('Rich editor formatting actions persist sanitized HTML',hasAll(app,['document.execCommand(cmd,false,value)','saveSelection();commit(false)','normalizeEditorHtml(readSurface())']));
 check('Partial selection supports bold italic underline and links',hasAll(app,["command('bold')","command('italic')","command('underline')","document.execCommand('createLink'","command('unlink')"]));
 check('Rich text sanitizer preserves font tags and per-selection styling',hasAll(app,["'SPAN','FONT'","child.tagName==='FONT'","font-size:${size[1]}px","font-family:${face}"]));
 check('Canonical heading presets are fixed to 32/28/24/20/16px',hasAll(app,["label:'H1',size:32","label:'H2',size:28","label:'H3',size:24","label:'H4',size:20","label:'H5',size:16"]));
@@ -157,7 +157,7 @@ check('Global input styles cannot double rich editor toolbar controls',hasAll(st
 
 // v17.5 native editor, modal consistency and configurable covers
 check('Rich text surface is created imperatively and owned by native DOM',hasAll(app,["document.createElement('div')","host.replaceChildren(el)","surfaceRef.current=el"]));
-check('React only renders the rich editor host, not the contentEditable node',app.includes('<div ref={hostRef} className="knowledge-rich-surface-host"></div>')&&!app.includes('<div ref={hostRef} contentEditable'));
+check('React only renders the rich editor host, not the contentEditable node',app.includes("ref={hostRef} className={`knowledge-rich-surface-host ${safeWriting?'is-hidden':''}`}")&&!app.includes('<div ref={hostRef} contentEditable'));
 check('Native rich editor registers and removes all lifecycle listeners',hasAll(app,["addEventListener('input',handleInput)","addEventListener('keyup',saveSelection)","addEventListener('paste',handlePaste)","removeEventListener('input',handleInput)","removeEventListener('blur',handleBlur)"]));
 check('Live rich HTML is retained for Save while editor remains focused',hasAll(app,['liveRichHtmlRef=useRef(new Map())','blocksWithLiveHtml','noteRichInput','normalizeKnowledgeBlocks(blocksWithLiveHtml(blocks))']));
 check('Preview consumes unsaved live rich HTML',app.includes('blocks={blocksWithLiveHtml(blocks)}'));
@@ -178,6 +178,17 @@ check('Existing articles are re-normalized in v17.5 migration',migration.include
 check('Existing article versions are re-normalized in v17.5 migration',migration.includes('update public.knowledge_article_versions\nset content_blocks=private.normalize_knowledge_blocks_v3'));
 check('Cover CSS is parameterized with CSS variables',hasAll(styles,['--cover-bg-start','--cover-bg-end','--cover-text','--cover-accent','--cover-title-font','--cover-body-font']));
 check('Cover settings overview is responsive',hasAll(styles,['.knowledge-cover-overview-grid','repeat(3,minmax(0,1fr))','@media(max-width:900px){.knowledge-cover-overview-grid{grid-template-columns:1fr}']));
+
+
+check('Empty rich editor starts with a real paragraph scaffold',hasAll(app,["el.innerHTML=initial||'<p><br></p>'","ensureScaffold(true)","handleBeforeInput"]));
+check('Empty-state placeholder no longer depends on CSS :empty',hasAll(styles,['.knowledge-rich-surface[data-empty="true"]:before','.knowledge-rich-surface:empty:before{content:none!important}']));
+check('Direct typing path does not update React state on input',app.includes("const handleInput=()=>{const raw=el.innerHTML;draftHtmlRef.current=normalizeEditorHtml(raw)")&&!app.includes('handleInput=()=>{setBlocks')&&!app.includes('handleInput=()=>{setSafeWriting'));
+check('Safe writing fallback exists for browser-specific blank-editor issues',hasAll(app,['Modo escritura segura','Escritura segura','Pasar a modo formato','knowledge-safe-writing-area']));
+check('Safe writing uses textarea and preserves line breaks before rich formatting',hasAll(app,['el?.innerText||stripKnowledgeHtml(clean)','escapeKnowledgeText(value)','setSafeWriting(false)']));
+check('Safe writing updates live draft before switching to format mode',hasAll(app,['const updateSafeWriting=value=>','onLiveInputRef.current?.(next)','onChange={e=>updateSafeWriting(e.target.value)}']));
+check('Knowledge author Exit action is aligned with preview/save/publish actions',hasAll(app,['knowledge-exit-action','<Icon name="lucide:log-out"/>Salir','knowledge-author-actions']));
+check('Legacy top Back to Knowledge button was removed from author header',!app.includes('knowledge-back-button" onClick={()=>requestExit(onBack)}'));
+check('Responsive author actions remain usable on small screens',hasAll(styles,['.knowledge-author-actions{display:flex','.knowledge-author-actions{display:grid;grid-template-columns:1fr 1fr','.knowledge-author-actions{grid-template-columns:1fr}']));
 
 // Knowledge assistant semantic regression retained
 check('Knowledge Assistant requires meaningful description context',app.includes('subject.length<3||detail.length<12'));

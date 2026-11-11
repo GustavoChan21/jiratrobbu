@@ -1,43 +1,69 @@
-# RELEASE v17.5 · Jira Interno TROBBU
+# RELEASE v17.5.1 · Jira Interno TROBBU
 
-Base: **v17.3.1 Final Completo**. La distribución conserva exactamente **101 archivos**.
+Base: **v17.5.0 Final Completo**. La distribución conserva exactamente **101 archivos**.
 
-## Knowledge · bloque Texto
+## Corrección prioritaria · Texto Knowledge desde vacío
 
-- Sustitución de la superficie `contentEditable` controlada por React por un editor nativo imperativo dentro de un host React estable.
-- La escritura no ejecuta `setState`/`onChange` por pulsación. El DOM mantiene cursor, selección y HTML mientras se escribe.
-- Guardar y Vista previa mezclan el HTML vivo del editor aunque todavía tenga el foco.
-- Persistencia segura en `blur` y al ejecutar herramientas de formato.
-- Selección restaurable al usar toolbar, fuente, tamaño, colores, links, listas y alineación.
-- Pegado HTML/texto sanitizado; archivos soltados directamente sobre Texto se bloquean.
-- Sanitizador ampliado para conservar `font-weight`, `font-style`, `underline` y `line-through` emitidos por Safari/Chrome en `span style`.
-- Herramientas: Normal/H1-H5, fuente, 11–32 px, undo/redo, negrita, cursiva, subrayado, tachado, color, resaltado, listas, sangría, alineación, links/unlink, limpiar formato e interlineado.
-- Escala H canónica: H1 32 px, H2 28 px, H3 24 px, H4 20 px, H5 16 px.
+El problema identificado no era el formato sobre contenido pegado: el fallo estaba al iniciar un bloque Texto completamente vacío.
 
-## Configuración · Portadas Knowledge
+v17.5.1 cambia el arranque del editor:
 
-- Nuevo apartado visible en Configuración con preview de TROBBU Verde, Marfil y Azul Ejecutivo.
-- Parámetros globales por plantilla: fondo, fondo final, texto, acento, borde, fuente de título y fuente de contenido.
-- Los mismos parámetros se aplican a editor, lector, vista previa e impresión/PDF.
-- Persistencia en `workspace_settings.knowledge_cover_templates`.
-- Los artículos guardan el identificador de plantilla, por lo que los existentes heredan cambios visuales sin modificar sus bloques.
+- el `contentEditable` inicia con `<p><br></p>`;
+- al enfocar un bloque vacío se coloca explícitamente el cursor dentro del párrafo;
+- `beforeinput` protege la primera inserción;
+- el placeholder ya no depende de `:empty`;
+- el primer carácter y los siguientes permanecen dentro del mismo nodo editable;
+- `input` no actualiza estado React;
+- Guardar/Vista previa consumen el HTML vivo incluso con foco activo.
 
-## Migración de contenido existente
+### Fallback adicional
 
-`upgrade-v17.5.sql` vuelve a ejecutar el normalizador canónico v3 sobre artículos y versiones, preservando compatibilidad con bloques anteriores. También agrega y completa la configuración de portadas sin eliminar valores personalizados.
+Se incorpora **Escritura segura** dentro del mismo bloque. Permite escribir en un textarea estándar y después pulsar **Pasar a modo formato** para aplicar todas las herramientas enriquecidas. El texto de este modo también entra al borrador aunque se pulse Guardar directamente.
 
-## Modales / UX
+El modo normal sigue siendo la opción principal: **escribir y dar formato en el trayecto**.
 
-La confirmación al abandonar un artículo con cambios usa la estructura estándar de modales (`form-body` + `form-footer`), respetando paddings, márgenes y acciones del resto del sistema.
+## Toolbar y formato parcial
 
-## Regresiones preservadas
+Se preservan selección y cursor al usar:
 
-Se mantienen CRUD de categorías, creación atómica artículo+v1, borradores/versionado/publicación, multimedia, Knowledge Assistant, autoasignación manual de Helpdesk, counters filtrados, selector de responsable Kanban/Tabla, relaciones de tickets, Gantt responsive y Vacaciones multi-bloque.
+- H1-H5;
+- fuente y tamaño;
+- negrita/cursiva/subrayado/tachado;
+- color/resaltado;
+- listas/sangría;
+- alineación;
+- links/unlink;
+- limpiar formato;
+- interlineado;
+- undo/redo.
+
+La sanitización sigue conservando estilos seguros generados por Safari/Chrome.
+
+## UX de autoría
+
+- `Volver a Knowledge` pasa a llamarse **Salir**.
+- El botón Salir está alineado en el mismo grupo que **Vista previa · Guardar borrador · Publicar artículo**.
+- Se conserva el modal de advertencia para cambios sin guardar.
+- Responsive mantiene acciones apilables sin romper márgenes/paddings.
+
+## Pruebas realizadas
+
+- `npm run qa`: **163/163 PASS**.
+- `app.js` + 8 Edge Functions: parser **0 errores**.
+- Chromium real mediante CDP: escritura carácter por carácter desde vacío **PASS**.
+- Chromium real: selección + negrita, cursiva, subrayado y link **PASS**.
+- CSS balanceado.
+- 101 archivos exactos.
+- Sin marcadores de merge.
 
 ## Despliegue
 
-1. Ejecutar `upgrade-v17.5.sql` sobre la BD que ya está en v17.3.1.
-2. Publicar los archivos estáticos v17.5.
-3. Las Edge Functions no requieren un cambio funcional específico para el editor, pero se incluyen en la distribución completa y fueron revisadas por parser.
-4. Ejecutar `npm run qa`.
-5. En staging, probar con un usuario autorizado: crear artículo, escribir varias líneas sin salir del bloque, seleccionar texto y aplicar cada formato, guardar con foco dentro del editor, recargar/reabrir, crear nueva versión y publicar.
+### Si ya estás en v17.5.0
+
+No hay cambios de BD. Sustituye los archivos estáticos de la v17.5.1. El cache bust `?v=17.5.1` obliga al navegador a descargar el nuevo editor.
+
+### Si vienes desde v17.3.1
+
+1. Ejecuta `upgrade-v17.5.sql` una vez.
+2. Publica los archivos estáticos v17.5.1.
+3. Ejecuta `npm run qa`.
