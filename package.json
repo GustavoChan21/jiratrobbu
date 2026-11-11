@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.2.0",
-  "description": "Jira Interno TROBBU v17.2 - Knowledge regression hardening, rich authoring, semantic relevance and responsive Gantt",
+  "version": "17.3.0",
+  "description": "Jira Interno TROBBU v17.3 - Knowledge category-first CRUD, stable versioned authoring and block schema v3",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.2.mjs"
+    "qa": "node qa-v17.3.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"

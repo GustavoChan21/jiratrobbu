@@ -1,3 +1,13 @@
+# Jira Interno TROBBU v17.3
+
+**Base de actualización:** v17.2 → v17.3. Para instalaciones ya en v17.2 ejecuta únicamente `upgrade-v17.3.sql` y publica los archivos actualizados.
+
+v17.3 corrige la causa real de la pantalla en blanco del editor Knowledge (`useRef` faltante), estabiliza la creación mediante una RPC atómica, corrige los permisos de ejecución del normalizador de bloques y convierte Knowledge a un flujo **Categoría → Artículo → Versión → Bloques**. Incluye CRUD de categorías, migración de artículos existentes a esquema de bloques v3 y editor de texto enriquecido tipo Word por bloque.
+
+Consulta `RELEASE-v17.3.md` y `QA-v17.3.md`. Ejecuta `npm run qa` para las 114 verificaciones automatizadas incluidas.
+
+---
+
 # Jira Interno TROBBU v17.2
 
 **Base de actualización:** v17.1 → v17.2. Para instalaciones ya en v17.1 ejecuta únicamente `upgrade-v17.2.sql` y despliega los archivos/Edge Functions actualizados.
