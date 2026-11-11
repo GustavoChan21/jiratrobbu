@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v17.3 · Knowledge category-first CRUD + stable authoring + block schema v3 */
+/* Jira Interno TROBBU v17.3.1 · Knowledge rich-text stability + safe exit + luxury cover blocks */
 const { useEffect, useMemo, useState, useRef } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -417,7 +417,7 @@ Object.assign(UI_TRANSLATIONS_EN,{
   "· Borrador":"· Draft",
   "Clasificación, resumen y metadatos que usarán los lectores y el asistente de Knowledge.":"Classification, summary, and metadata used by readers and the Knowledge assistant.",
   "Explica en pocas líneas qué resolverá este artículo.":"Explain in a few lines what this article will solve.",
-  "Combina títulos H1–H5, texto enriquecido con fuente/tamaño/estilos, listas, destacados, multimedia, separadores y saltos de página. Los bloques se publican en el mismo orden.":"Combine text, lists, callouts, compressed images, code, and embedded videos. Blocks are published in the same order.",
+  "Combina portada ejecutiva, títulos H1–H5 (32/28/24/20/16 px), texto enriquecido por selección, listas, destacados, multimedia, separadores y saltos de página. Los bloques se publican en el mismo orden.":"Combine text, lists, callouts, compressed images, code, and embedded videos. Blocks are published in the same order.",
   "Workspace activo:":"Active workspace:",
   "Cada colaborador, rol y producto de esta vista pertenece únicamente a este workspace.":"Every member, role, and product in this view belongs only to this workspace.",
   "PRODUCTOS":"PRODUCTS",
@@ -922,6 +922,19 @@ async function uploadEvidenceFiles({workspaceId,scope,parentId,commentId,files,e
   }
 }
 
+const KNOWLEDGE_HEADING_PRESETS=[
+  {type:'heading1',tag:'h1',label:'H1',size:32},
+  {type:'heading2',tag:'h2',label:'H2',size:28},
+  {type:'heading3',tag:'h3',label:'H3',size:24},
+  {type:'heading4',tag:'h4',label:'H4',size:20},
+  {type:'heading5',tag:'h5',label:'H5',size:16}
+]
+const KNOWLEDGE_COVER_TEMPLATES=[
+  {value:'forest',label:'TROBBU Verde',description:'Editorial luxury en verde profundo'},
+  {value:'ivory',label:'Marfil',description:'Documento ejecutivo claro y cálido'},
+  {value:'midnight',label:'Azul Ejecutivo',description:'Portada corporativa de alto contraste'}
+]
+const knowledgeHeadingLabel=type=>{const row=KNOWLEDGE_HEADING_PRESETS.find(x=>x.type===type||x.tag===type);return row?`${row.label} · ${row.size} px`:String(type||'')}
 function knowledgeBlockId(){return crypto.randomUUID()}
 function sanitizeKnowledgeHtml(value){
   const raw=String(value||'')
@@ -975,6 +988,7 @@ function normalizeKnowledgeBlockRuntime(block){
   if(type==='code')return {id,type,text:String(b.text||''),language:String(b.language||'text')}
   if(type==='image')return {id,type,media_id:b.media_id||null,alt:String(b.alt||''),caption:String(b.caption||''),align:['left','center','right','wide'].includes(b.align)?b.align:'center',pending_file:b.pending_file||null}
   if(type==='video')return {id,type,url:String(b.url||''),caption:String(b.caption||'')}
+  if(type==='cover')return {id,type,template:['forest','ivory','midnight'].includes(b.template)?b.template:'forest',eyebrow:String(b.eyebrow||'TROBBU · KNOWLEDGE'),title:String(b.title||''),subtitle:String(b.subtitle||''),meta:String(b.meta||'Documento interno'),show_logo:b.show_logo!==false,page_break:b.page_break!==false}
   if(['divider','pagebreak'].includes(type))return {id,type}
   return {id,type:'richtext',html:`<p>${escapeKnowledgeText(b.text||'')}</p>`,line_height:'1.5'}
 }
@@ -991,6 +1005,7 @@ function knowledgePlainText(blocks){
     if(b.type==='list')return String(b.text||'').split('\n').filter(Boolean).map(x=>`${b.list_style==='ordered'?'#':'•'} ${x}`).join('\n')
     if(b.type==='image')return [b.alt,b.caption].filter(Boolean).join(' ')
     if(b.type==='video')return [b.caption,b.url].filter(Boolean).join(' ')
+    if(b.type==='cover')return [b.eyebrow,b.title,b.subtitle,b.meta].filter(Boolean).join(' ')
     return ''
   }).filter(Boolean).join('\n\n').trim()
 }
@@ -1004,10 +1019,16 @@ function normalizeKnowledgeBlocks(blocks){
     if(b.type==='code')return {...base,text:String(b.text||''),language:String(b.language||'text').slice(0,30)}
     if(b.type==='image')return {...base,media_id:b.media_id||null,alt:String(b.alt||''),caption:String(b.caption||''),align:['left','center','right','wide'].includes(b.align)?b.align:'center'}
     if(b.type==='video')return {...base,url:String(b.url||''),caption:String(b.caption||'')}
+    if(b.type==='cover')return {...base,template:['forest','ivory','midnight'].includes(b.template)?b.template:'forest',eyebrow:String(b.eyebrow||'TROBBU · KNOWLEDGE').slice(0,80),title:String(b.title||'').slice(0,180),subtitle:String(b.subtitle||'').slice(0,360),meta:String(b.meta||'Documento interno').slice(0,140),show_logo:b.show_logo!==false,page_break:b.page_break!==false}
     if(['divider','pagebreak'].includes(b.type))return base
     return {...base,type:'richtext',html:`<p>${escapeKnowledgeText(b.text||'')}</p>`,line_height:'1.5'}
   })
 }
+function knowledgeEditorSnapshot(form,changeNote,blocks){
+  const pending=(blocks||[]).map(raw=>{const b=normalizeKnowledgeBlockRuntime(raw),file=b.pending_file;return b.type==='image'&&file?{id:b.id,name:file.name||'',size:Number(file.size)||0,lastModified:Number(file.lastModified)||0}:null}).filter(Boolean)
+  return JSON.stringify({form:{title:form?.title||'',slug:form?.slug||'',summary:form?.summary||'',tags:form?.tags||'',product_id:form?.product_id||'',module_id:form?.module_id||'',category_id:form?.category_id||'',source_language:form?.source_language||'es'},change_note:changeNote||'',blocks:normalizeKnowledgeBlocks(blocks||[]),pending})
+}
+
 async function signedKnowledgeMedia(rows){
   return Promise.all((rows||[]).map(async row=>{
     const {data,error}=await db.storage.from('jira-evidence').createSignedUrl(row.storage_path,3600)
@@ -1182,6 +1203,8 @@ function WorkspaceApp({session,locale,setLocale}){
   const [toast,setToast]=useState(null)
 
   const showToast=(type,message)=>{setToast({type,message,id:Date.now()}); setTimeout(()=>setToast(null),3500)}
+  const runWithKnowledgeGuard=action=>{const guard=window.__jiraKnowledgeEditorGuard;if(guard?.isDirty?.()){guard.requestExit(action);return false}action();return true}
+  const navigateView=next=>runWithKnowledgeGuard(()=>setView(next))
   useEffect(()=>{if(view!=='knowledge')setKnowledgeScreen(null)},[view])
   useEffect(()=>{const id=new URL(window.location.href).searchParams.get('knowledge');if(!id||!knowledgeArticles.length)return;const article=knowledgeArticles.find(a=>a.id===id);if(article){setView('knowledge');setKnowledgeScreen({mode:'read',article})}},[knowledgeArticles.length,workspace?.id])
   useEffect(()=>{const url=new URL(window.location.href);const ticketId=url.searchParams.get('ticket'),helpId=url.searchParams.get('helpdesk'),sprintId=url.searchParams.get('sprint'),targetView=url.searchParams.get('view');let handled=false;if(ticketId&&tickets.length){const t=tickets.find(x=>x.id===ticketId);if(t){setModal({type:'ticket-detail',ticket:t});url.searchParams.delete('ticket');handled=true}}else if(helpId&&helpdesk.length){const h=helpdesk.find(x=>x.id===helpId);if(h){setView('helpdesk');setModal({type:'help-detail',item:h});url.searchParams.delete('helpdesk');handled=true}}else if(sprintId&&sprints.length){const sp=sprints.find(x=>x.id===sprintId);if(sp){setModal({type:'sprint-detail',sprint:sp});url.searchParams.delete('sprint');handled=true}}else if(targetView==='team'&&canManageStaff){setView('team');url.searchParams.delete('view');handled=true}if(handled)window.history.replaceState({},document.title,url.toString())},[tickets.length,helpdesk.length,sprints.length,workspace?.id])
@@ -1645,8 +1668,8 @@ function WorkspaceApp({session,locale,setLocale}){
         const cleanBlocks=await uploadPending(existingArticle.id)
         const updatedVersion=await updateDraft(existingVersion.id,cleanBlocks)
         await cleanupUnusedKnowledgeMedia(existingArticle.id)
-        if(publish){await publishKnowledgeVersion(existingArticle,updatedVersion);return}
-        await refresh();showToast('success',`Borrador v${updatedVersion.version_number} guardado. La versión pública sigue activa.`);setKnowledgeScreen({mode:'edit',article:{...existingArticle,...row,draft_version_id:updatedVersion.id},version:updatedVersion})
+        if(publish){await publishKnowledgeVersion(existingArticle,updatedVersion);return {published:true,version:updatedVersion,blocks:cleanBlocks}}
+        await refresh();showToast('success',`Borrador v${updatedVersion.version_number} guardado. La versión pública sigue activa.`);const nextArticle={...existingArticle,...row,draft_version_id:updatedVersion.id};setKnowledgeScreen({mode:'edit',article:nextArticle,version:updatedVersion});return {article:nextArticle,version:updatedVersion,blocks:cleanBlocks}
       }catch(err){if(uploaded.length)await deleteKnowledgeMediaRows(uploaded);throw err}
       return
     }
@@ -1660,8 +1683,8 @@ function WorkspaceApp({session,locale,setLocale}){
       const version=await updateDraft(versionId,cleanBlocks)
       const {data:article,error:aError}=await db.from('knowledge_articles').select('*').eq('id',article_id).single()
       if(aError)throw aError
-      if(publish){await publishKnowledgeVersion(article,version);return}
-      await refresh();showToast('success','Artículo creado y guardado como borrador v1.');setKnowledgeScreen({mode:'edit',article,version})
+      if(publish){await publishKnowledgeVersion(article,version);return {published:true,article,version,blocks:cleanBlocks}}
+      await refresh();showToast('success','Artículo creado y guardado como borrador v1.');setKnowledgeScreen({mode:'edit',article,version});return {article,version,blocks:cleanBlocks}
     }catch(err){
       if(uploaded.length)await deleteKnowledgeMediaRows(uploaded)
       if(createdVersionId){
@@ -1686,8 +1709,8 @@ function WorkspaceApp({session,locale,setLocale}){
 
   return <div className="app-shell">
     <Topbar session={session} locale={locale} setLocale={setLocale} unread={unread} search={search} setSearch={setSearch} canSearch={canViewTickets} portalOnly={helpdeskOnly} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} outToday={outTodayPeople}/>
-    <Sidebar workspace={workspace} workspaces={workspaces} products={products} navCounts={navCounts} productId={productId} setProductId={setProductId} view={view} setView={setView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations} outTodayCount={outTodayPeople.length} onWorkspace={()=>setModal({type:'workspace-switch'})}/>
-    <MobileNav view={view} setView={setView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations}/>
+    <Sidebar workspace={workspace} workspaces={workspaces} products={products} navCounts={navCounts} productId={productId} setProductId={setProductId} view={view} setView={navigateView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations} outTodayCount={outTodayPeople.length} onWorkspace={()=>runWithKnowledgeGuard(()=>setModal({type:'workspace-switch'}))}/>
+    <MobileNav view={view} setView={navigateView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations}/>
     <main className="main-area">
       {busy ? <LoadingPanel/> : (knowledgeScreen&&canViewKnowledge) ? (
         <KnowledgeModuleErrorBoundary key={`knowledge-screen:${knowledgeScreen.mode}:${knowledgeScreen.article?.id||'new'}:${knowledgeScreen.version?.id||'new'}`} onReset={()=>setKnowledgeScreen(null)}>
@@ -1715,7 +1738,7 @@ function WorkspaceApp({session,locale,setLocale}){
       </>}
     </main>
     {drawer==='notifications' && <NotificationsDrawer locale={locale} notifications={notifications} onClose={()=>setDrawer(null)} onMark={markNotification} onMarkAll={markAll} onDelete={deleteNotification} onClearRead={clearReadNotifications} onOpen={n=>{setDrawer(null);const meta=n.metadata||{},entity=meta.entity_type;if(n.ticket_id||entity==='ticket'){const id=n.ticket_id||meta.entity_id;const t=tickets.find(x=>x.id===id);if(t)setModal({type:'ticket-detail',ticket:t});else showToast('error',locale==='en'?'The related ticket is no longer available.':'El ticket relacionado ya no está disponible.')}else if(n.helpdesk_ticket_id||entity==='helpdesk'){const id=n.helpdesk_ticket_id||meta.entity_id;const h=helpdesk.find(x=>x.id===id);if(h)setModal({type:'help-detail',item:h});else showToast('error',locale==='en'?'The related request is no longer available.':'La solicitud relacionada ya no está disponible.')}else if(entity==='sprint'){const sp=sprints.find(x=>x.id===meta.entity_id);if(sp)setModal({type:'sprint-detail',sprint:sp});else showToast('error',locale==='en'?'The related sprint is no longer available.':'El sprint relacionado ya no está disponible.')}else if(entity==='knowledge'){const a=knowledgeArticles.find(x=>x.id===(meta.article_id||meta.entity_id));if(a&&canViewKnowledge){setView('knowledge');setKnowledgeScreen({mode:'read',article:a})}else showToast('error',locale==='en'?'The related article is no longer available.':'El artículo relacionado ya no está disponible.')}else if(entity==='vacation'){if(canViewVacations)setView('vacations');else showToast('error','No tienes permiso para consultar Vacaciones.')}else if(entity==='staff'){setView('team')}}}/>}
-    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} helpdeskProducts={helpdeskProducts} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} requestTypes={requestTypes} helpdesk={helpdesk} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} ticketLinks={ticketLinks} customFields={customFields} customFieldProducts={customFieldProducts} customValues={customValues} knowledgeArticles={knowledgeArticles} knowledgeVersions={knowledgeVersions} knowledgeCategories={knowledgeCategories} vacationRequests={vacationRequests} createKnowledgeVersion={createKnowledgeVersion} locale={locale} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canManageTicketFields={canManageTicketFields} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} canCreateWorkspace={canCreateWorkspace} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={setView} toast={showToast}/>}
+    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} helpdeskProducts={helpdeskProducts} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} requestTypes={requestTypes} helpdesk={helpdesk} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} ticketLinks={ticketLinks} customFields={customFields} customFieldProducts={customFieldProducts} customValues={customValues} knowledgeArticles={knowledgeArticles} knowledgeVersions={knowledgeVersions} knowledgeCategories={knowledgeCategories} vacationRequests={vacationRequests} createKnowledgeVersion={createKnowledgeVersion} locale={locale} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canManageTicketFields={canManageTicketFields} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} canCreateWorkspace={canCreateWorkspace} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={navigateView} toast={showToast}/>}
     {toast && <Toast toast={toast}/>}
   </div>
 }
@@ -2113,67 +2136,72 @@ function KnowledgeView({workspace,articles,versions=[],locale='es',products,modu
 }
 
 function KnowledgeRichTextEditor({html,onChange,lineHeight='1.5',onLineHeightChange}){
-  const ref=useRef(null),rangeRef=useRef(null)
-  const [showLink,setShowLink]=useState(false),[linkUrl,setLinkUrl]=useState('https://'),[stats,setStats]=useState({words:0,chars:0})
-  const updateStats=value=>{const text=stripKnowledgeHtml(value);setStats({words:text?text.split(/\s+/).filter(Boolean).length:0,chars:text.length})}
-  useEffect(()=>{if(ref.current&&document.activeElement!==ref.current&&ref.current.innerHTML!==String(html||'')){ref.current.innerHTML=String(html||'');updateStats(html||'')}},[html])
+  const ref=useRef(null),rangeRef=useRef(null),draftHtmlRef=useRef(String(html||'')),statsRef=useRef(null)
+  const [showLink,setShowLink]=useState(false),[linkUrl,setLinkUrl]=useState('https://')
+  const updateStats=value=>{const text=stripKnowledgeHtml(value),words=text?text.split(/\s+/).filter(Boolean).length:0;if(statsRef.current)statsRef.current.textContent=`${words} palabras · ${text.length} caracteres`}
   const saveSelection=()=>{const sel=window.getSelection?.();if(!sel||!sel.rangeCount||!ref.current)return;const range=sel.getRangeAt(0);if(ref.current.contains(range.commonAncestorContainer))rangeRef.current=range.cloneRange()}
   const restoreSelection=()=>{if(!rangeRef.current)return;const sel=window.getSelection?.();if(!sel)return;sel.removeAllRanges();sel.addRange(rangeRef.current)}
-  const emit=()=>{const clean=sanitizeKnowledgeHtml(ref.current?.innerHTML||'');if(ref.current&&document.activeElement!==ref.current)ref.current.innerHTML=clean;onChange(clean);updateStats(clean);saveSelection()}
-  const command=(cmd,value=null)=>{ref.current?.focus();restoreSelection();document.execCommand(cmd,false,value);emit()}
-  const applyLink=()=>{const url=String(linkUrl||'').trim();if(!/^(https?:\/\/|mailto:|tel:)/i.test(url))return;ref.current?.focus();restoreSelection();document.execCommand('createLink',false,url);emit();setShowLink(false)}
-  const onPaste=e=>{setTimeout(()=>{if(!ref.current)return;const clean=sanitizeKnowledgeHtml(ref.current.innerHTML);ref.current.innerHTML=clean;onChange(clean);updateStats(clean);saveSelection()},0)}
+  const readSurface=()=>ref.current?.innerHTML??draftHtmlRef.current??''
+  const commit=(forceDom=false)=>{const clean=sanitizeKnowledgeHtml(readSurface());draftHtmlRef.current=clean;if(forceDom&&ref.current&&ref.current.innerHTML!==clean)ref.current.innerHTML=clean;onChange(clean);updateStats(clean);return clean}
+  useEffect(()=>{const next=String(html||'');draftHtmlRef.current=next;if(ref.current&&document.activeElement!==ref.current&&ref.current.innerHTML!==next)ref.current.innerHTML=next;updateStats(next)},[html])
+  const inputChanged=()=>{const raw=readSurface();draftHtmlRef.current=raw;updateStats(raw);saveSelection()} // no React state update while typing: preserves caret/selection and continuous input
+  const command=(cmd,value=null)=>{ref.current?.focus();restoreSelection();document.execCommand(cmd,false,value);saveSelection();commit(false)}
+  const applyLink=()=>{const url=String(linkUrl||'').trim();if(!/^(https?:\/\/|mailto:|tel:)/i.test(url))return;ref.current?.focus();restoreSelection();document.execCommand('createLink',false,url);saveSelection();commit(false);setShowLink(false)}
+  const onPaste=()=>{setTimeout(()=>{if(!ref.current)return;const clean=sanitizeKnowledgeHtml(ref.current.innerHTML);ref.current.innerHTML=clean;draftHtmlRef.current=clean;saveSelection();commit(false)},0)}
+  const preserveSelection=e=>{e?.preventDefault?.();saveSelection()}
   return <div className="knowledge-rich-editor">
     <div className="knowledge-rich-toolbar" role="toolbar" aria-label="Herramientas del bloque de texto">
-      <select aria-label="Estilo" defaultValue="p" onChange={e=>{command('formatBlock',e.target.value);e.target.value='p'}}><option value="p">Normal</option><option value="h1">Título H1</option><option value="h2">Título H2</option><option value="h3">Título H3</option><option value="h4">Título H4</option><option value="h5">Título H5</option></select>
-      <select aria-label="Fuente" defaultValue="Inter" onChange={e=>command('fontName',e.target.value)}><option>Inter</option><option>Arial</option><option>Verdana</option><option>Georgia</option><option>Times New Roman</option><option>Courier New</option></select>
-      <select aria-label="Tamaño" defaultValue="3" onChange={e=>command('fontSize',e.target.value)}><option value="1">11 px</option><option value="2">12 px</option><option value="3">14 px</option><option value="4">16 px</option><option value="5">18 px</option><option value="6">24 px</option><option value="7">32 px</option></select>
+      <select aria-label="Estilo" defaultValue="p" onMouseDown={saveSelection} onChange={e=>{command('formatBlock',e.target.value);e.target.value='p'}}><option value="p">Normal · 14 px</option>{KNOWLEDGE_HEADING_PRESETS.map(x=><option key={x.tag} value={x.tag}>Título {x.label} · {x.size} px</option>)}</select>
+      <select aria-label="Fuente" defaultValue="Inter" onMouseDown={saveSelection} onChange={e=>command('fontName',e.target.value)}><option>Inter</option><option>Arial</option><option>Verdana</option><option>Georgia</option><option>Times New Roman</option><option>Courier New</option></select>
+      <select aria-label="Tamaño" defaultValue="3" onMouseDown={saveSelection} onChange={e=>command('fontSize',e.target.value)}><option value="1">11 px</option><option value="2">12 px</option><option value="3">14 px</option><option value="4">16 px</option><option value="5">18 px</option><option value="6">24 px</option><option value="7">32 px</option></select>
       <span className="knowledge-toolbar-separator"></span>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('undo')} title="Deshacer"><Icon name="lucide:undo-2"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('redo')} title="Rehacer"><Icon name="lucide:redo-2"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('undo')} title="Deshacer"><Icon name="lucide:undo-2"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('redo')} title="Rehacer"><Icon name="lucide:redo-2"/></button>
       <span className="knowledge-toolbar-separator"></span>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('bold')} title="Negrita"><Icon name="lucide:bold"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('italic')} title="Cursiva"><Icon name="lucide:italic"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('underline')} title="Subrayado"><Icon name="lucide:underline"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('strikeThrough')} title="Tachado"><Icon name="lucide:strikethrough"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('bold')} title="Negrita"><Icon name="lucide:bold"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('italic')} title="Cursiva"><Icon name="lucide:italic"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('underline')} title="Subrayado"><Icon name="lucide:underline"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('strikeThrough')} title="Tachado"><Icon name="lucide:strikethrough"/></button>
       <span className="knowledge-toolbar-separator"></span>
       <label className="knowledge-color-tool" title="Color de texto"><Icon name="lucide:palette"/><input type="color" defaultValue="#172B4D" onMouseDown={saveSelection} onChange={e=>command('foreColor',e.target.value)}/></label>
       <label className="knowledge-color-tool" title="Resaltado"><Icon name="lucide:highlighter"/><input type="color" defaultValue="#FFF0B3" onMouseDown={saveSelection} onChange={e=>command('hiliteColor',e.target.value)}/></label>
       <span className="knowledge-toolbar-separator"></span>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('insertOrderedList')} title="Lista numerada"><Icon name="lucide:list-ordered"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('insertUnorderedList')} title="Lista con viñetas"><Icon name="lucide:list"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('outdent')} title="Reducir sangría"><Icon name="lucide:indent-decrease"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('indent')} title="Aumentar sangría"><Icon name="lucide:indent-increase"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('insertOrderedList')} title="Lista numerada"><Icon name="lucide:list-ordered"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('insertUnorderedList')} title="Lista con viñetas"><Icon name="lucide:list"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('outdent')} title="Reducir sangría"><Icon name="lucide:indent-decrease"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('indent')} title="Aumentar sangría"><Icon name="lucide:indent-increase"/></button>
       <span className="knowledge-toolbar-separator"></span>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('justifyLeft')} title="Alinear izquierda"><Icon name="lucide:align-left"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('justifyCenter')} title="Centrar"><Icon name="lucide:align-center"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('justifyRight')} title="Alinear derecha"><Icon name="lucide:align-right"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('justifyFull')} title="Justificar"><Icon name="lucide:align-justify"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyLeft')} title="Alinear izquierda"><Icon name="lucide:align-left"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyCenter')} title="Centrar"><Icon name="lucide:align-center"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyRight')} title="Alinear derecha"><Icon name="lucide:align-right"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyFull')} title="Justificar"><Icon name="lucide:align-justify"/></button>
       <span className="knowledge-toolbar-separator"></span>
-      <button type="button" className={showLink?'active':''} onMouseDown={e=>{e.preventDefault();saveSelection()}} onClick={()=>setShowLink(x=>!x)} title="Insertar enlace"><Icon name="lucide:link"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('unlink')} title="Quitar enlace"><Icon name="lucide:unlink"/></button>
-      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>command('removeFormat')} title="Limpiar formato"><Icon name="lucide:remove-formatting"/></button>
+      <button type="button" className={showLink?'active':''} onMouseDown={preserveSelection} onClick={()=>setShowLink(x=>!x)} title="Insertar enlace"><Icon name="lucide:link"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('unlink')} title="Quitar enlace"><Icon name="lucide:unlink"/></button>
+      <button type="button" onMouseDown={preserveSelection} onClick={()=>command('removeFormat')} title="Limpiar formato"><Icon name="lucide:remove-formatting"/></button>
     </div>
     {showLink&&<div className="knowledge-link-editor"><Icon name="lucide:link"/><input type="url" value={linkUrl} onChange={e=>setLinkUrl(e.target.value)} placeholder="https://..."/><button type="button" className="primary compact" onClick={applyLink}>Aplicar enlace</button><button type="button" className="icon-button" onClick={()=>setShowLink(false)}><Icon name="lucide:x"/></button></div>}
-    <div ref={ref} className="knowledge-rich-surface" style={{lineHeight}} contentEditable suppressContentEditableWarning onFocus={saveSelection} onMouseUp={saveSelection} onKeyUp={saveSelection} onInput={e=>{onChange(e.currentTarget.innerHTML);updateStats(e.currentTarget.innerHTML);saveSelection()}} onPaste={onPaste} onBlur={e=>{const clean=sanitizeKnowledgeHtml(e.currentTarget.innerHTML);e.currentTarget.innerHTML=clean;onChange(clean);updateStats(clean)}} data-placeholder="Escribe el contenido del documento…"></div>
-    <div className="knowledge-rich-footer"><label>Interlineado:<select value={String(lineHeight||'1.5')} onChange={e=>onLineHeightChange?.(e.target.value)}><option value="1">Sencillo</option><option value="1.15">1.15</option><option value="1.3">1.3</option><option value="1.5">Normal · 1.5</option><option value="1.75">1.75</option><option value="2">Doble</option></select></label><span>{stats.words} palabras · {stats.chars} caracteres</span></div>
+    <div ref={ref} className="knowledge-rich-surface" style={{lineHeight}} contentEditable suppressContentEditableWarning spellCheck="true" onFocus={saveSelection} onMouseUp={saveSelection} onKeyUp={saveSelection} onInput={inputChanged} onPaste={onPaste} onBlur={()=>commit(true)} data-placeholder="Escribe el contenido del documento…"></div>
+    <div className="knowledge-rich-footer"><label>Interlineado:<select value={String(lineHeight||'1.5')} onMouseDown={saveSelection} onChange={e=>{commit(false);onLineHeightChange?.(e.target.value)}}><option value="1">Sencillo</option><option value="1.15">1.15</option><option value="1.3">1.3</option><option value="1.5">Normal · 1.5</option><option value="1.75">1.75</option><option value="2">Doble</option></select></label><span ref={statsRef}>0 palabras · 0 caracteres</span></div>
   </div>
 }
 
-function KnowledgeBlockEditor({blocks,setBlocks,media=[]}){
+function KnowledgeBlockEditor({blocks,setBlocks,media=[],articleTitle=''}){
   const [dragId,setDragId]=useState(null)
-  const defaults=type=>type==='image'?{media_id:null,alt:'',caption:'',align:'center',pending_file:null}:type==='video'?{url:'',caption:''}:type==='richtext'?{html:'<p></p>',line_height:'1.5'}:type==='list'?{text:'',list_style:'unordered'}:type==='quote'?{text:'',author:''}:type==='callout'?{text:'',title:'',tone:'info'}:type==='code'?{text:'',language:'text'}:['divider','pagebreak'].includes(type)?{}:{text:''}
+  const defaults=type=>type==='image'?{media_id:null,alt:'',caption:'',align:'center',pending_file:null}:type==='video'?{url:'',caption:''}:type==='cover'?{template:'forest',eyebrow:'TROBBU · KNOWLEDGE',title:articleTitle||'',subtitle:'',meta:'Documento interno',show_logo:true,page_break:true}:type==='richtext'?{html:'<p></p>',line_height:'1.5'}:type==='list'?{text:'',list_style:'unordered'}:type==='quote'?{text:'',author:''}:type==='callout'?{text:'',title:'',tone:'info'}:type==='code'?{text:'',language:'text'}:['divider','pagebreak'].includes(type)?{}:{text:''}
   const add=type=>setBlocks(x=>[...x,{id:knowledgeBlockId(),type,...defaults(type)}])
   const patch=(id,data)=>setBlocks(x=>x.map(b=>b.id===id?{...b,...data}:b))
   const remove=id=>setBlocks(x=>x.filter(b=>b.id!==id))
   const move=(id,dir)=>setBlocks(x=>{const a=[...x],i=a.findIndex(b=>b.id===id),j=i+dir;if(i<0||j<0||j>=a.length)return a;[a[i],a[j]]=[a[j],a[i]];return a})
   const moveBefore=(id,targetId)=>setBlocks(x=>{const a=[...x],from=a.findIndex(b=>b.id===id),to=a.findIndex(b=>b.id===targetId);if(from<0||to<0||from===to)return a;const [item]=a.splice(from,1);a.splice(from<to?to-1:to,0,item);return a})
-  const label={richtext:'Texto',heading1:'Título H1',heading2:'Título H2',heading3:'Título H3',heading4:'Título H4',heading5:'Título H5',list:'Lista',quote:'Cita',callout:'Destacado',code:'Código',image:'Imagen',video:'Video',divider:'Separador',pagebreak:'Salto de página'}
+  const label={cover:'Portada',richtext:'Texto',heading1:'Título H1',heading2:'Título H2',heading3:'Título H3',heading4:'Título H4',heading5:'Título H5',list:'Lista',quote:'Cita',callout:'Destacado',code:'Código',image:'Imagen',video:'Video',divider:'Separador',pagebreak:'Salto de página'}
   const headingTypes=['heading1','heading2','heading3','heading4','heading5']
+  const hasCover=blocks.some(x=>normalizeKnowledgeBlockRuntime(x).type==='cover')
   return <div className="knowledge-editor-shell">
     <div className="knowledge-editor-toolbar">
+      <button type="button" disabled={hasCover} title={hasCover?'Solo se admite una portada por artículo':'Agregar portada ejecutiva'} onClick={()=>add('cover')}><Icon name="lucide:panel-top"/> Portada</button>
       <button type="button" onClick={()=>add('richtext')}><Icon name="lucide:type"/> Texto</button>
-      <div className="knowledge-heading-add"><Icon name="lucide:heading"/><select defaultValue="" onChange={e=>{if(e.target.value)add(e.target.value);e.target.value='' }}><option value="" disabled>Título</option><option value="heading1">H1</option><option value="heading2">H2</option><option value="heading3">H3</option><option value="heading4">H4</option><option value="heading5">H5</option></select></div>
+      <div className="knowledge-heading-add"><Icon name="lucide:heading"/><select defaultValue="" onChange={e=>{if(e.target.value)add(e.target.value);e.target.value='' }}><option value="" disabled>Título</option>{KNOWLEDGE_HEADING_PRESETS.map(x=><option key={x.type} value={x.type}>{x.label} · {x.size}px</option>)}</select></div>
       <button type="button" onClick={()=>add('list')}><Icon name="lucide:list"/> Lista</button>
       <button type="button" onClick={()=>add('quote')}><Icon name="lucide:quote"/> Cita</button>
       <button type="button" onClick={()=>add('callout')}><Icon name="lucide:message-square-text"/> Destacado</button>
@@ -2185,8 +2213,9 @@ function KnowledgeBlockEditor({blocks,setBlocks,media=[]}){
     </div>
     <div className="knowledge-block-list">{blocks.map((raw,i)=>{const b=normalizeKnowledgeBlockRuntime(raw),currentMedia=media.find(m=>m.id===b.media_id);return <div className={`knowledge-block block-${b.type} ${dragId===b.id?'dragging':''}`} key={b.id} onDragOver={e=>e.preventDefault()} onDrop={()=>{if(dragId&&dragId!==b.id)moveBefore(dragId,b.id);setDragId(null)}}>
       <div className="knowledge-block-head"><span className="knowledge-block-drag" draggable onDragStart={()=>setDragId(b.id)} onDragEnd={()=>setDragId(null)} title="Arrastra para reordenar"><Icon name="lucide:grip-vertical"/><b>#{i+1} – {label[b.type]||'Bloque'}</b></span><div><button type="button" disabled={i===0} onClick={()=>move(b.id,-1)} title="Subir"><Icon name="lucide:chevron-up"/></button><button type="button" disabled={i===blocks.length-1} onClick={()=>move(b.id,1)} title="Bajar"><Icon name="lucide:chevron-down"/></button><button type="button" className="danger-text" onClick={()=>remove(b.id)} title="Eliminar bloque"><Icon name="lucide:trash-2"/></button></div></div>
+      {b.type==='cover'&&<div className="knowledge-cover-editor"><div className={`knowledge-cover-preview template-${b.template||'forest'}`}><div className="knowledge-cover-brand">{b.show_logo!==false&&<><b>TROBBU</b><small>BOUTIQUE COLLECTION</small></>}</div><div className="knowledge-cover-copy"><span>{b.eyebrow||'TROBBU · KNOWLEDGE'}</span><h2>{b.title||articleTitle||'Título ejecutivo del artículo'}</h2><p>{b.subtitle||'Resumen o propósito del documento para una presentación profesional.'}</p><small>{b.meta||'Documento interno'}</small></div></div><div className="knowledge-cover-controls"><label>Plantilla<select value={b.template||'forest'} onChange={e=>patch(b.id,{template:e.target.value})}>{KNOWLEDGE_COVER_TEMPLATES.map(x=><option key={x.value} value={x.value}>{x.label} · {x.description}</option>)}</select></label><label>Eyebrow<input value={b.eyebrow||''} onChange={e=>patch(b.id,{eyebrow:e.target.value})} placeholder="TROBBU · KNOWLEDGE"/></label><label className="knowledge-wide-field">Título de portada<input value={b.title||''} onChange={e=>patch(b.id,{title:e.target.value})} placeholder={articleTitle||'Título del documento'}/></label><label className="knowledge-wide-field">Subtítulo<textarea rows="3" value={b.subtitle||''} onChange={e=>patch(b.id,{subtitle:e.target.value})} placeholder="Objetivo, alcance o descripción ejecutiva…"/></label><label>Pie / clasificación<input value={b.meta||''} onChange={e=>patch(b.id,{meta:e.target.value})} placeholder="Documento interno · 2026"/></label><div className="knowledge-cover-toggles"><label className="switch-line"><input type="checkbox" checked={b.show_logo!==false} onChange={e=>patch(b.id,{show_logo:e.target.checked})}/><span>Mostrar marca TROBBU</span></label><label className="switch-line"><input type="checkbox" checked={b.page_break!==false} onChange={e=>patch(b.id,{page_break:e.target.checked})}/><span>Iniciar contenido en página siguiente al imprimir/PDF</span></label></div></div></div>}
       {b.type==='richtext'&&<KnowledgeRichTextEditor html={b.html||''} lineHeight={b.line_height||'1.5'} onLineHeightChange={line_height=>patch(b.id,{line_height})} onChange={html=>patch(b.id,{html})}/>} 
-      {headingTypes.includes(b.type)&&<div className="knowledge-heading-editor"><label>Nivel<select value={b.type} onChange={e=>patch(b.id,{type:e.target.value})}><option value="heading1">H1</option><option value="heading2">H2</option><option value="heading3">H3</option><option value="heading4">H4</option><option value="heading5">H5</option></select></label><label className="knowledge-heading-text">Texto del título<input value={b.text||''} onChange={e=>patch(b.id,{text:e.target.value})} placeholder="Escribe el título…"/></label></div>}
+      {headingTypes.includes(b.type)&&<div className="knowledge-heading-editor"><label>Nivel<select value={b.type} onChange={e=>patch(b.id,{type:e.target.value})}>{KNOWLEDGE_HEADING_PRESETS.map(x=><option key={x.type} value={x.type}>{x.label} · {x.size}px</option>)}</select></label><label className="knowledge-heading-text">Texto del título<input value={b.text||''} onChange={e=>patch(b.id,{text:e.target.value})} placeholder="Escribe el título…"/></label></div>}
       {b.type==='list'&&<div className="knowledge-list-editor"><label>Tipo de lista<select value={b.list_style||'unordered'} onChange={e=>patch(b.id,{list_style:e.target.value})}><option value="unordered">Viñetas</option><option value="ordered">Numerada</option></select></label><label>Elementos<textarea rows="5" value={b.text||''} onChange={e=>patch(b.id,{text:e.target.value})} placeholder={'Un elemento por línea\nSegundo elemento\nTercer elemento'}/></label></div>}
       {b.type==='quote'&&<div className="knowledge-quote-editor"><label>Cita<textarea rows="4" value={b.text||''} onChange={e=>patch(b.id,{text:e.target.value})} placeholder="Texto de la cita…"/></label><label>Autor / fuente <span className="optional">Opcional</span><input value={b.author||''} onChange={e=>patch(b.id,{author:e.target.value})} placeholder="Nombre o referencia"/></label></div>}
       {b.type==='callout'&&<div className="knowledge-callout-editor"><div className="form-grid"><label>Tipo<select value={b.tone||'info'} onChange={e=>patch(b.id,{tone:e.target.value})}><option value="info">Información</option><option value="success">Éxito</option><option value="warning">Advertencia</option><option value="danger">Crítico</option></select></label><label>Título <span className="optional">Opcional</span><input value={b.title||''} onChange={e=>patch(b.id,{title:e.target.value})} placeholder="Importante"/></label></div><label>Contenido<textarea rows="4" value={b.text||''} onChange={e=>patch(b.id,{text:e.target.value})}/></label></div>}
@@ -2220,6 +2249,7 @@ function KnowledgeRenderedBlocks({blocks,media=[],title='Artículo'}){
     if(b.type==='quote')return <blockquote>{b.text}{b.author&&<cite>— {b.author}</cite>}</blockquote>
     if(b.type==='callout')return <aside className={`knowledge-callout tone-${b.tone||'info'}`}><Icon name={b.tone==='success'?'lucide:circle-check':b.tone==='warning'?'lucide:triangle-alert':b.tone==='danger'?'lucide:shield-alert':'lucide:info'}/><span>{b.title&&<b>{b.title}</b>}<p>{b.text}</p></span></aside>
     if(b.type==='code')return <div className="knowledge-code-rendered">{b.language&&<small>{b.language}</small>}<pre><code>{b.text}</code></pre></div>
+    if(b.type==='cover')return <section className={`knowledge-cover-rendered template-${b.template||'forest'} ${b.page_break!==false?'print-page-break':''}`}><div className="knowledge-cover-brand">{b.show_logo!==false&&<><b>TROBBU</b><small>BOUTIQUE COLLECTION</small></>}</div><div className="knowledge-cover-copy"><span>{b.eyebrow||'TROBBU · KNOWLEDGE'}</span><h1>{b.title||title}</h1>{b.subtitle&&<p>{b.subtitle}</p>}{b.meta&&<small>{b.meta}</small>}</div></section>
     if(b.type==='divider')return <hr/>;if(b.type==='pagebreak')return <div className="knowledge-page-break" role="separator" aria-label="Salto de página"><span>Salto de página</span></div>
     if(b.type==='image')return <div className={`knowledge-rendered-image align-${b.align||'center'}`}><KnowledgePreviewImage block={b} media={media}/></div>
     if(b.type==='video'){const src=knowledgeVideoEmbed(b.url);return src?<figure className="knowledge-video"><iframe src={src} title={b.caption||title} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>{b.caption&&<figcaption>{b.caption}</figcaption>}</figure>:null}
@@ -2230,7 +2260,7 @@ function KnowledgeRenderedBlocks({blocks,media=[],title='Artículo'}){
 function KnowledgeReaderPreview({form,blocks,media,products,modules,categories=[],onExit}){
   const p=products.find(x=>x.id===form.product_id),m=modules.find(x=>x.id===form.module_id),c=categories.find(x=>x.id===form.category_id)
   return <div className="knowledge-preview-shell">
-    <div className="knowledge-preview-banner"><span><Icon name="lucide:eye"/><b>POV lector</b><small>Vista previa local · los cambios aún no se han publicado.</small></span><button type="button" className="secondary-button compact" onClick={onExit}><Icon name="lucide:pencil"/> Volver a editar</button></div>
+    <div className="knowledge-preview-banner"><span><Icon name="lucide:eye"/><b>POV lector</b><small>Vista previa local · los cambios aún no se han publicado.</small></span><div className="knowledge-preview-actions"><button type="button" className="secondary-button compact" onClick={()=>window.print()}><Icon name="lucide:printer"/> Imprimir / PDF</button><button type="button" className="secondary-button compact" onClick={onExit}><Icon name="lucide:pencil"/> Volver a editar</button></div></div>
     <article className="content-card knowledge-reader-card knowledge-preview-card">
       <header className="knowledge-reader-hero"><span className="eyebrow">KNOWLEDGE</span><h1>{form.title.trim()||'Título del artículo'}</h1><p>{form.summary.trim()||'Así verá el lector el resumen y contenido del artículo.'}</p><div className="knowledge-detail-meta"><span><Icon name="lucide:circle-dot"/>{form.status==='published'?'Publicado':form.status==='archived'?'Archivado':'Borrador'}</span>{c&&<span><Icon name={c.icon||'lucide:folder-tree'}/>{c.name}</span>}{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key} · {m.name}</span>}{form.tags.split(',').map(x=>x.trim()).filter(Boolean).slice(0,20).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div></header>
       <div className="knowledge-content knowledge-rendered knowledge-reader-content"><KnowledgeRenderedBlocks blocks={blocks} media={media} title={form.title}/></div>
@@ -2243,9 +2273,18 @@ function KnowledgeArticleEditorPage({article,version,workspace,products,modules,
   const defaultCategory=source.category_id||initialCategoryId||categories.find(c=>c.code==='general')?.id||categories[0]?.id||''
   const [f,setF]=useState({title:source.title||'',slug:source.slug||article?.slug||'',summary:source.summary||'',tags:(source.tags||[]).join(', '),product_id:source.product_id||'',module_id:source.module_id||'',category_id:defaultCategory,source_language:article?.default_language||locale})
   const [changeNote,setChangeNote]=useState(version?.change_note||'Versión inicial')
-  const [blocks,setBlocks]=useState(()=>knowledgeDefaultBlocks(source)),[media,setMedia]=useState([]),[saving,setSaving]=useState(false),[error,setError]=useState(''),[preview,setPreview]=useState(false)
+  const [blocks,setBlocks]=useState(()=>knowledgeDefaultBlocks(source)),[media,setMedia]=useState([]),[saving,setSaving]=useState(false),[error,setError]=useState(''),[preview,setPreview]=useState(false),[exitPrompt,setExitPrompt]=useState(false)
+  const [savedSnapshot,setSavedSnapshot]=useState(()=>knowledgeEditorSnapshot({title:source.title||'',slug:source.slug||article?.slug||'',summary:source.summary||'',tags:(source.tags||[]).join(', '),product_id:source.product_id||'',module_id:source.module_id||'',category_id:defaultCategory,source_language:article?.default_language||locale},version?.change_note||'Versión inicial',blocks))
+  const pendingExitRef=useRef(null),dirtyRef=useRef(false)
   const set=(k,v)=>setF(x=>({...x,[k]:v}))
+  const currentSnapshot=useMemo(()=>knowledgeEditorSnapshot(f,changeNote,blocks),[f,changeNote,blocks])
+  const dirty=currentSnapshot!==savedSnapshot
+  dirtyRef.current=dirty
+  const requestExit=action=>{const next=action||onBack;if(!dirtyRef.current){next?.();return}pendingExitRef.current=next;setExitPrompt(true)}
+  const discardAndExit=()=>{const next=pendingExitRef.current||onBack;pendingExitRef.current=null;setExitPrompt(false);dirtyRef.current=false;next?.()}
+  const keepEditing=()=>{pendingExitRef.current=null;setExitPrompt(false)}
   useEffect(()=>{let cancelled=false;(async()=>{if(!article?.id)return;const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article?.id])
+  useEffect(()=>{const guard={isDirty:()=>dirtyRef.current,requestExit:action=>requestExit(action)};window.__jiraKnowledgeEditorGuard=guard;const before=e=>{if(!dirtyRef.current)return;e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',before);return()=>{window.removeEventListener('beforeunload',before);if(window.__jiraKnowledgeEditorGuard===guard)delete window.__jiraKnowledgeEditorGuard}},[])
   const submit=async(e,publish=false)=>{
     e?.preventDefault?.();setError('')
     try{
@@ -2255,21 +2294,22 @@ function KnowledgeArticleEditorPage({article,version,workspace,products,modules,
       if(!blocks.length)throw new Error('Agrega al menos un bloque de contenido.')
       for(const b of blocks){if(b.type==='image'&&!b.media_id&&!b.pending_file)throw new Error('Selecciona una imagen o elimina el bloque de imagen vacío.');if(b.type==='video'&&b.url&&!knowledgeVideoEmbed(b.url))throw new Error('Solo se admiten URLs válidas de YouTube o Vimeo.')}
       const clean=normalizeKnowledgeBlocks(blocks),plain=knowledgePlainText(clean)
-      if(!plain&&!blocks.some(b=>['image','video','divider','pagebreak'].includes(normalizeKnowledgeBlockRuntime(b).type)))throw new Error('Agrega contenido al artículo.')
+      if(!plain&&!blocks.some(b=>['image','video','divider','pagebreak','cover'].includes(normalizeKnowledgeBlockRuntime(b).type)))throw new Error('Agrega contenido al artículo.')
       setSaving(true)
-      await onSave({article_id:articleId,row:{title:f.title.trim(),slug:(f.slug.trim()||knowledgeSlug(f.title)),summary:f.summary.trim()||null,content:plain,tags:f.tags.split(',').map(x=>x.trim()).filter(Boolean).slice(0,20),product_id:f.product_id||null,module_id:f.module_id||null,category_id:f.category_id||null,content_blocks:clean,default_language:f.source_language},blocks,media,change_note:changeNote,publish})
+      const result=await onSave({article_id:articleId,row:{title:f.title.trim(),slug:(f.slug.trim()||knowledgeSlug(f.title)),summary:f.summary.trim()||null,content:plain,tags:f.tags.split(',').map(x=>x.trim()).filter(Boolean).slice(0,20),product_id:f.product_id||null,module_id:f.module_id||null,category_id:f.category_id||null,content_blocks:clean,default_language:f.source_language},blocks,media,change_note:changeNote,publish})
+      if(!publish){const savedBlocks=result?.blocks||clean;if(result?.blocks)setBlocks(savedBlocks);setSavedSnapshot(knowledgeEditorSnapshot(f,changeNote,savedBlocks));dirtyRef.current=false}
     }catch(err){setError(err.message||String(err))}finally{setSaving(false)}
   }
   const versionNo=version?.version_number||1
   return <div className="page knowledge-author-page">
     <div className="knowledge-author-header">
       <div className="knowledge-author-header-top">
-        <button type="button" className="secondary-button compact knowledge-back-button" onClick={onBack}><Icon name="lucide:arrow-left"/> Volver a Knowledge</button>
+        <button type="button" className="secondary-button compact knowledge-back-button" onClick={()=>requestExit(onBack)}><Icon name="lucide:arrow-left"/> Volver a Knowledge</button>
         <div className="knowledge-author-heading"><span className="page-icon"><Icon name={article?'lucide:file-pen-line':'lucide:file-plus-2'}/></span><div><span className="eyebrow">KNOWLEDGE</span><h1>{article?`Editar borrador v${versionNo}`:'Nuevo artículo'}</h1></div></div>
         <span className="knowledge-version-chip"><Icon name="lucide:git-branch"/> v{versionNo} · Borrador</span>
       </div>
       <div className="knowledge-author-header-bottom">
-        <div><p>La versión pública permanece visible hasta que publiques este borrador.</p>{version?.change_note&&<small className="knowledge-version-reason"><b>Motivo:</b> {version.change_note}</small>}</div>
+        <div><p>La versión pública permanece visible hasta que publiques este borrador.</p>{dirty&&<small className="knowledge-unsaved-indicator"><Icon name="lucide:circle"/> Cambios sin guardar</small>}{version?.change_note&&<small className="knowledge-version-reason"><b>Motivo:</b> {version.change_note}</small>}</div>
         <div className="knowledge-author-actions"><button type="button" className={`secondary-button ${preview?'active':''}`} onClick={()=>setPreview(x=>!x)}><Icon name={preview?'lucide:pencil':'lucide:eye'}/>{preview?'Editar contenido':'Vista previa'}</button><button type="button" className="secondary-button" disabled={saving} onClick={e=>submit(e,false)}><Icon name="lucide:save"/>{saving?'Guardando…':'Guardar borrador'}</button>{canPublish&&<button type="button" className="primary" disabled={saving} onClick={e=>submit(e,true)}><Icon name="lucide:send"/>{article?'Publicar versión':'Publicar artículo'}</button>}</div>
       </div>
     </div>
@@ -2290,11 +2330,12 @@ function KnowledgeArticleEditorPage({article,version,workspace,products,modules,
         </div>
       </section>
       <section className="content-card knowledge-page-section knowledge-content-builder">
-        <div className="knowledge-section-title"><span><Icon name="lucide:blocks"/></span><div><h2>Contenido del artículo</h2><p>Combina títulos H1–H5, texto enriquecido con fuente/tamaño/estilos, listas, destacados, multimedia, separadores y saltos de página. Los bloques se publican en el mismo orden.</p></div></div>
-        <div className="knowledge-page-editor"><KnowledgeBlockEditor blocks={blocks} setBlocks={setBlocks} media={media}/></div>
+        <div className="knowledge-section-title"><span><Icon name="lucide:blocks"/></span><div><h2>Contenido del artículo</h2><p>Combina portada ejecutiva, títulos H1–H5 (32/28/24/20/16 px), texto enriquecido por selección, listas, destacados, multimedia, separadores y saltos de página. Los bloques se publican en el mismo orden.</p></div></div>
+        <div className="knowledge-page-editor"><KnowledgeBlockEditor blocks={blocks} setBlocks={setBlocks} media={media} articleTitle={f.title}/></div>
       </section>
-      <div className="knowledge-page-bottom-actions"><button type="button" className="secondary-button" onClick={onBack}>Cancelar</button><button type="button" className="secondary-button" onClick={()=>setPreview(true)}><Icon name="lucide:eye"/> Vista previa lector</button><button type="submit" className="secondary-button" disabled={saving}><Icon name="lucide:save"/> Guardar borrador</button>{canPublish&&<button type="button" className="primary" disabled={saving} onClick={e=>submit(e,true)}><Icon name="lucide:send"/> {article?'Publicar versión':'Publicar artículo'}</button>}</div>
+      <div className="knowledge-page-bottom-actions"><button type="button" className="secondary-button" onClick={()=>requestExit(onBack)}>Cancelar</button><button type="button" className="secondary-button" onClick={()=>setPreview(true)}><Icon name="lucide:eye"/> Vista previa lector</button><button type="submit" className="secondary-button" disabled={saving}><Icon name="lucide:save"/> Guardar borrador</button>{canPublish&&<button type="button" className="primary" disabled={saving} onClick={e=>submit(e,true)}><Icon name="lucide:send"/> {article?'Publicar versión':'Publicar artículo'}</button>}</div>
     </form>}
+    {exitPrompt&&<Modal title="¿Estás seguro de salir?" subtitle="Tienes cambios sin guardar en este artículo." onClose={keepEditing} size="sm"><div className="knowledge-exit-warning"><span><Icon name="lucide:triangle-alert" size={28}/></span><div><b>Los cambios realizados se perderán.</b><p>Te sugerimos guardar este borrador antes de salir.</p></div></div><div className="knowledge-exit-actions"><button type="button" className="danger-outline" onClick={discardAndExit}><Icon name="lucide:log-out"/> Salir y descartar</button><button type="button" className="primary" onClick={keepEditing}><Icon name="lucide:pencil"/> Continuar editando</button></div></Modal>}
   </div>
 }
 
@@ -2315,7 +2356,7 @@ function KnowledgeArticlePage({article,versions=[],events=[],products,modules,ca
   })();return()=>{cancelled=true}},[article.id,article.active_version_id,locale,activeVersion?.id])
   const history=[...versions].sort((a,b)=>b.version_number-a.version_number)
   return <div className="page knowledge-reader-page" data-i18n-skip>
-    <div className="knowledge-reader-actions"><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> {locale==='en'?'Back to Knowledge':'Volver a Knowledge'}</button><div className="knowledge-reader-action-group"><span className="knowledge-language-badge"><Icon name="lucide:languages"/>{locale.toUpperCase()}{translation.loading?' · …':translation.provider!=='source'?` · ${translation.cached?'cache':'AI'}`:''}</span>{canManage&&<button type="button" className="secondary-button compact" onClick={()=>setHistoryOpen(x=>!x)}><Icon name="lucide:history"/> {locale==='en'?'Versions':'Versiones'} <em>{history.length}</em></button>}{canManage&&<button type="button" className="primary compact" onClick={article.draft_version_id?onEdit:onCreateVersion}><Icon name={article.draft_version_id?'lucide:file-pen-line':'lucide:git-branch-plus'}/> {article.draft_version_id?(locale==='en'?'Edit draft':'Editar borrador'):(locale==='en'?'New version':'Nueva versión')}</button>}</div></div>
+    <div className="knowledge-reader-actions"><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> {locale==='en'?'Back to Knowledge':'Volver a Knowledge'}</button><div className="knowledge-reader-action-group"><button type="button" className="secondary-button compact knowledge-print-action" onClick={()=>window.print()}><Icon name="lucide:printer"/> {locale==='en'?'Print / PDF':'Imprimir / PDF'}</button><span className="knowledge-language-badge"><Icon name="lucide:languages"/>{locale.toUpperCase()}{translation.loading?' · …':translation.provider!=='source'?` · ${translation.cached?'cache':'AI'}`:''}</span>{canManage&&<button type="button" className="secondary-button compact" onClick={()=>setHistoryOpen(x=>!x)}><Icon name="lucide:history"/> {locale==='en'?'Versions':'Versiones'} <em>{history.length}</em></button>}{canManage&&<button type="button" className="primary compact" onClick={article.draft_version_id?onEdit:onCreateVersion}><Icon name={article.draft_version_id?'lucide:file-pen-line':'lucide:git-branch-plus'}/> {article.draft_version_id?(locale==='en'?'Edit draft':'Editar borrador'):(locale==='en'?'New version':'Nueva versión')}</button>}</div></div>
     {translation.error&&locale!==(article.default_language||'es')&&<div className="notice knowledge-translation-notice"><Icon name="lucide:languages"/><span>{locale==='en'?'The saved translation could not be loaded; showing the source language.':'No se pudo cargar la traducción guardada; se muestra el idioma fuente.'}</span></div>}
     <article className="content-card knowledge-reader-card">
       <header className="knowledge-reader-hero"><div className="knowledge-reader-version-line"><span className="knowledge-status published">{locale==='en'?'Published':'Publicado'}</span>{activeVersion&&<span className="knowledge-version-chip"><Icon name="lucide:git-branch"/>v{activeVersion.version_number}</span>}</div><h1>{display.title}</h1>{display.summary&&<p>{display.summary}</p>}<div className="knowledge-detail-meta">{c&&<span><Icon name={c.icon||'lucide:folder-tree'}/>{c.name}</span>}{p&&<span><Icon name="lucide:folder"/>{p.name}</span>}{m&&<span><Icon name="lucide:blocks"/>{m.module_key} · {m.name}</span>}{(display.tags||[]).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div></header>
@@ -2334,7 +2375,7 @@ function KnowledgeListPreviewPage({article,version,products=[],modules=[],catego
   useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id])
   const statusLabel=source.status==='draft'?(locale==='en'?'Draft':'Borrador'):source.status==='archived'?(locale==='en'?'Archived':'Archivado'):(locale==='en'?'Published':'Publicado')
   return <div className="page knowledge-reader-page" data-i18n-skip>
-    <div className="knowledge-preview-banner knowledge-list-preview-banner"><span><Icon name="lucide:scan-eye"/><b>{locale==='en'?'Reader POV preview':'Vista previa POV lector'}</b><small>{locale==='en'?`Previewing ${version?`v${version.version_number} · `:''}${statusLabel}. No content is changed.`:`Visualizando ${version?`v${version.version_number} · `:''}${statusLabel}. No se modifica ningún contenido.`}</small></span><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> {locale==='en'?'Back to Knowledge':'Volver a Knowledge'}</button></div>
+    <div className="knowledge-preview-banner knowledge-list-preview-banner"><span><Icon name="lucide:scan-eye"/><b>{locale==='en'?'Reader POV preview':'Vista previa POV lector'}</b><small>{locale==='en'?`Previewing ${version?`v${version.version_number} · `:''}${statusLabel}. No content is changed.`:`Visualizando ${version?`v${version.version_number} · `:''}${statusLabel}. No se modifica ningún contenido.`}</small></span><div className="knowledge-preview-actions"><button type="button" className="secondary-button compact" onClick={()=>window.print()}><Icon name="lucide:printer"/> {locale==='en'?'Print / PDF':'Imprimir / PDF'}</button><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> {locale==='en'?'Back to Knowledge':'Volver a Knowledge'}</button></div></div>
     <article className="content-card knowledge-reader-card knowledge-preview-card">
       <header className="knowledge-reader-hero"><div className="knowledge-reader-version-line"><span className={`knowledge-status ${source.status||'draft'}`}>{statusLabel}</span>{version&&<span className="knowledge-version-chip"><Icon name="lucide:git-branch"/>v{version.version_number}</span>}</div><h1>{source.title}</h1>{source.summary&&<p>{cleanKnowledgeSnippet(source.summary,420)}</p>}<div className="knowledge-detail-meta">{category&&<span><Icon name={category.icon||'lucide:folder-tree'}/>{category.name}</span>}{product&&<span><Icon name="lucide:folder"/>{product.name}</span>}{module&&<span><Icon name="lucide:blocks"/>{module.module_key} · {module.name}</span>}{(source.tags||[]).map(tag=><span key={tag}><Icon name="lucide:tag"/>{tag}</span>)}</div></header>
       <div className="knowledge-content knowledge-rendered knowledge-reader-content"><KnowledgeRenderedBlocks blocks={blocks} media={media} title={source.title}/></div>

@@ -18,7 +18,9 @@ function compactBlocks(blocks:any[]){
   return (blocks||[]).map(b=>({
     id:String(b.id||""),type:String(b.type||"paragraph"),
     text:typeof b.text==="string"?b.text:"",html:typeof b.html==="string"?b.html:"",
-    alt:typeof b.alt==="string"?b.alt:"",caption:typeof b.caption==="string"?b.caption:""
+    alt:typeof b.alt==="string"?b.alt:"",caption:typeof b.caption==="string"?b.caption:"",
+    eyebrow:typeof b.eyebrow==="string"?b.eyebrow:"",title:typeof b.title==="string"?b.title:"",
+    subtitle:typeof b.subtitle==="string"?b.subtitle:"",meta:typeof b.meta==="string"?b.meta:""
   }));
 }
 function mergeBlocks(source:any[],translated:any[]){
@@ -27,12 +29,16 @@ function mergeBlocks(source:any[],translated:any[]){
     ...(typeof b.text==="string"?{text:typeof (t as any).text==="string"?(t as any).text:b.text}:{}),
     ...(typeof b.html==="string"?{html:typeof (t as any).html==="string"?(t as any).html:b.html}:{}),
     ...(typeof b.alt==="string"?{alt:typeof (t as any).alt==="string"?(t as any).alt:b.alt}:{}),
-    ...(typeof b.caption==="string"?{caption:typeof (t as any).caption==="string"?(t as any).caption:b.caption}:{})
+    ...(typeof b.caption==="string"?{caption:typeof (t as any).caption==="string"?(t as any).caption:b.caption}:{}),
+    ...(typeof b.eyebrow==="string"?{eyebrow:typeof (t as any).eyebrow==="string"?(t as any).eyebrow:b.eyebrow}:{}),
+    ...(typeof b.title==="string"?{title:typeof (t as any).title==="string"?(t as any).title:b.title}:{}),
+    ...(typeof b.subtitle==="string"?{subtitle:typeof (t as any).subtitle==="string"?(t as any).subtitle:b.subtitle}:{}),
+    ...(typeof b.meta==="string"?{meta:typeof (t as any).meta==="string"?(t as any).meta:b.meta}:{})
   }});
 }
 function stripHtml(value:string){return String(value||"").replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p\s*>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/\s+\n/g,"\n").replace(/[ \t]+/g," ").trim()}
 function plainText(blocks:any[]){
-  return (blocks||[]).map((b:any)=>b.type==="richtext"?stripHtml(String(b.html||"")):["paragraph","heading1","heading2","heading3","heading4","heading5","list","quote","callout","code"].includes(b.type)?String(b.text||""):String(b.caption||"")).filter(Boolean).join("\n\n");
+  return (blocks||[]).map((b:any)=>b.type==="richtext"?stripHtml(String(b.html||"")):b.type==="cover"?[b.eyebrow,b.title,b.subtitle,b.meta].filter(Boolean).join(" "):["paragraph","heading1","heading2","heading3","heading4","heading5","list","quote","callout","code"].includes(b.type)?String(b.text||""):String(b.caption||"")).filter(Boolean).join("\n\n");
 }
 
 Deno.serve(async(req:Request)=>{
@@ -81,8 +87,8 @@ Deno.serve(async(req:Request)=>{
       body:JSON.stringify({
         model,
         input:[
-          {role:"developer",content:`Translate the provided Knowledge article from ${sourceLang} to ${languageName}. Return JSON only. Preserve IDs and block order. Translate only human-readable text: title, summary, tags, and each block's text/html/alt/caption. For html, preserve the exact HTML tag hierarchy, attributes, links and formatting; translate only visible human-readable text nodes. Do not translate code syntax, URLs, media IDs, identifiers, or product/module names. Keep technical terminology natural and concise.`},
-          {role:"user",content:`Return JSON with this exact shape: {"title":"...","summary":"...","tags":["..."],"blocks":[{"id":"...","text":"...","html":"...","alt":"...","caption":"..."}]}. Source JSON: ${JSON.stringify(sourceObject)}`}
+          {role:"developer",content:`Translate the provided Knowledge article from ${sourceLang} to ${languageName}. Return JSON only. Preserve IDs and block order. Translate only human-readable text: title, summary, tags, and each block's text/html/alt/caption/eyebrow/title/subtitle/meta. For html, preserve the exact HTML tag hierarchy, attributes, links and formatting; translate only visible human-readable text nodes. Do not translate code syntax, URLs, media IDs, identifiers, or product/module names. Keep technical terminology natural and concise.`},
+          {role:"user",content:`Return JSON with this exact shape: {"title":"...","summary":"...","tags":["..."],"blocks":[{"id":"...","text":"...","html":"...","alt":"...","caption":"...","eyebrow":"...","title":"...","subtitle":"...","meta":"..."}]}. Source JSON: ${JSON.stringify(sourceObject)}`}
         ],
         text:{format:{type:"json_object"}}
       })

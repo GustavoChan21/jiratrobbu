@@ -1,3 +1,11 @@
+# Jira Interno TROBBU v17.3.1
+
+**Patch sobre v17.3 sin archivos adicionales de migración.** Si ya estás en v17.3, vuelve a ejecutar `upgrade-v17.3.sql` (es re-ejecutable) y publica `app.js`, `styles.css`, `index.html` y `translate-knowledge-version.ts`.
+
+v17.3.1 corrige la edición continua del bloque Texto: el `contentEditable` deja de sincronizar React en cada pulsación, conserva cursor/selección y permite aplicar formato parcial a palabras, frases o caracteres. Estandariza H1–H5 en 32/28/24/20/16 px, añade alerta de salida con cambios sin guardar y portadas Luxury TROBBU (Verde, Marfil y Azul Ejecutivo) para impresión/PDF. No se agregan nuevos archivos al proyecto; se reutilizan los artefactos v17.3 existentes. La suite incluida queda ampliada a **132 verificaciones automatizadas**.
+
+---
+
 # Jira Interno TROBBU v17.3
 
 **Base de actualización:** v17.2 → v17.3. Para instalaciones ya en v17.2 ejecuta únicamente `upgrade-v17.3.sql` y publica los archivos actualizados.

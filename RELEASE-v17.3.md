@@ -1,3 +1,28 @@
+# Patch v17.3.1 · Rich Text estable, salida segura y portadas Luxury
+
+Este patch mantiene el nombre de los archivos v17.3 para evitar proliferar archivos en el repositorio. `upgrade-v17.3.sql` sigue siendo acumulativo y re-ejecutable.
+
+## Correcciones y mejoras
+
+- El bloque Texto ya no actualiza estado React en cada pulsación: el DOM editable conserva cursor y selección durante escritura continua. El contenido se sincroniza al hacer blur o ejecutar herramientas de formato.
+- Formato parcial real sobre selección: H1-H5, fuente, tamaño, negrita, cursiva, subrayado, tachado, color, resaltado, listas, sangría, alineación, links, limpieza de formato e interlineado.
+- Escala visual canónica: H1 32 px, H2 28 px, H3 24 px, H4 20 px, H5 16 px y texto normal 14 px en editor, lectura e impresión.
+- Protección de navegación con cambios sin guardar: `Salir y descartar` o `Continuar editando`; también se protege cierre/recarga del navegador.
+- Nuevo bloque Portada con plantillas TROBBU Verde, Marfil y Azul Ejecutivo, contenido editable y salto de página opcional para impresión/PDF.
+- El normalizador SQL v3 conserva bloques `cover` y la traducción de versiones preserva sus campos editables.
+- Guardar borrador devuelve los bloques persistidos y limpia correctamente estados de media pendiente.
+- QA automatizado ampliado a 132 verificaciones sobre Knowledge y regresiones previas.
+
+## Actualización desde v17.3
+
+1. Respaldar la base de datos.
+2. Volver a ejecutar `upgrade-v17.3.sql` incluido en este paquete; es re-ejecutable y actualiza el normalizador para Portada.
+3. Publicar los archivos estáticos actualizados.
+4. Desplegar `translate-knowledge-version.ts` si utilizas traducción de artículos.
+5. Ejecutar `npm run qa`.
+
+---
+
 # Jira Interno TROBBU · Release v17.3
 
 ## Objetivo

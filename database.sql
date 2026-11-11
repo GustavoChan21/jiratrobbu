@@ -9816,9 +9816,9 @@ commit;
 -- ============================================================================
 -- Jira Interno TROBBU v17.3 incremental block (included for fresh installs)
 -- ============================================================================
--- Jira Interno TROBBU v17.3
--- Knowledge module stabilization: category-first UX, atomic authoring/version flow,
--- canonical block schema v3 and migration of legacy articles.
+-- Jira Interno TROBBU v17.3.1 cumulative patch (re-runnable)
+-- Knowledge module stabilization + rich-text runtime fix support + luxury cover blocks.
+-- Keeps the existing v17.3 upgrade filename to avoid adding more project files.
 
 begin;
 
@@ -9951,6 +9951,17 @@ begin
       v_out:=v_out||jsonb_build_array(jsonb_build_object('id',v_id,'type','image','media_id',v_item->'media_id','alt',coalesce(v_item->>'alt',''),'caption',coalesce(v_item->>'caption',''),'align',case when v_item->>'align' in ('left','center','right','wide') then v_item->>'align' else 'center' end));
     elsif v_type='video' then
       v_out:=v_out||jsonb_build_array(jsonb_build_object('id',v_id,'type','video','url',coalesce(v_item->>'url',''),'caption',coalesce(v_item->>'caption','')));
+    elsif v_type='cover' then
+      v_out:=v_out||jsonb_build_array(jsonb_build_object(
+        'id',v_id,'type','cover',
+        'template',case when v_item->>'template' in ('forest','ivory','midnight') then v_item->>'template' else 'forest' end,
+        'eyebrow',left(coalesce(nullif(v_item->>'eyebrow',''),'TROBBU · KNOWLEDGE'),80),
+        'title',left(coalesce(v_item->>'title',''),180),
+        'subtitle',left(coalesce(v_item->>'subtitle',''),360),
+        'meta',left(coalesce(nullif(v_item->>'meta',''),'Documento interno'),140),
+        'show_logo',case when lower(coalesce(v_item->>'show_logo','true'))='false' then false else true end,
+        'page_break',case when lower(coalesce(v_item->>'page_break','true'))='false' then false else true end
+      ));
     elsif v_type in ('divider','pagebreak') then
       v_out:=v_out||jsonb_build_array(jsonb_build_object('id',v_id,'type',v_type));
     else

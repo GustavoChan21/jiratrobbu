@@ -1,3 +1,11 @@
+# QA adicional v17.3.1
+
+Este patch añade pruebas de regresión específicas para escritura continua en `contentEditable`, formato parcial, escala H1-H5, navegación protegida y portadas Luxury. No agrega archivos QA nuevos: amplía `qa-v17.3.mjs`. **Resultado actual: 132/132 aprobadas.**
+
+Criterios críticos: escribir una frase completa no debe provocar re-render de React por pulsación; la selección debe sobrevivir al uso de toolbar; el blur debe persistir el HTML; salir con cambios debe requerir confirmación; y Portada debe sobrevivir normalización SQL, lectura, traducción e impresión.
+
+---
+
 # QA · Jira Interno TROBBU v17.3
 
 ## Resultado automatizado

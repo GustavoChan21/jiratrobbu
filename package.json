@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.3.0",
-  "description": "Jira Interno TROBBU v17.3 - Knowledge category-first CRUD, stable versioned authoring and block schema v3",
+  "version": "17.3.1",
+  "description": "Jira Interno TROBBU v17.3.1 - stable rich-text Knowledge editing, safe exit and luxury cover templates",
   "scripts": {
     "serve": "python3 -m http.server 8080",
     "qa": "node qa-v17.3.mjs"

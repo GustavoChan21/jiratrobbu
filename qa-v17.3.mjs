@@ -20,10 +20,10 @@ const hasAll=(text,items)=>items.every(x=>text.includes(x));
 const count=(text,needle)=>text.split(needle).length-1;
 
 // Release integrity
-check('Package version is 17.3.0',pkg.version==='17.3.0');
+check('Package version is 17.3.1',pkg.version==='17.3.1');
 check('QA npm script targets v17.3',pkg.scripts?.qa==='node qa-v17.3.mjs');
-check('Frontend cache bust targets 17.3.0',index.includes('v=17.3.0')&&!index.includes('v=17.2.0'));
-check('App release marker is v17.3',app.startsWith('/* Jira Interno TROBBU v17.3'));
+check('Frontend cache bust targets 17.3.1',index.includes('v=17.3.1')&&!index.includes('v=17.3.0'));
+check('App release marker is v17.3.1',app.startsWith('/* Jira Interno TROBBU v17.3.1'));
 check('Incremental v17.3 migration is the final database.sql block',database.endsWith(migration),crypto.createHash('sha256').update(migration).digest('hex'));
 check('No unresolved merge markers',![app,migration,database,styles,index,knowledgeAI,translate].some(t=>/^(<<<<<<<|=======|>>>>>>>)/m.test(t)));
 check('SQL dollar quotes are balanced',count(migration,'$$')%2===0);
@@ -106,13 +106,13 @@ check('Rich text supports left/center/right/justify',hasAll(app,["command('justi
 check('Rich text supports links and unlink',hasAll(app,['applyLink',"command('unlink')",'mailto:','tel:']));
 check('Rich text supports remove formatting',app.includes("command('removeFormat')"));
 check('Rich text supports line height',hasAll(app,['Interlineado:','1.15','1.3','1.5','1.75','Doble']));
-check('Rich text reports word/character statistics',app.includes('{stats.words} palabras · {stats.chars} caracteres'));
+check('Rich text reports word/character statistics without React state churn',hasAll(app,['statsRef','palabras · ${text.length} caracteres','<span ref={statsRef}>0 palabras · 0 caracteres</span>']));
 check('Rich text pasted HTML is sanitized',hasAll(app,['const onPaste=','sanitizeKnowledgeHtml(ref.current.innerHTML)']));
 check('Rich text CSS matches Word-like card/tool/footer structure',hasAll(styles,['.knowledge-rich-toolbar','.knowledge-rich-surface{min-height:270px','.knowledge-rich-footer','.knowledge-block-head']));
 
 // Individual block functionality
 check('Block toolbar can add Text',app.includes("onClick={()=>add('richtext')}"));
-check('Block toolbar can add H1-H5 titles',hasAll(app,['value="heading1"','value="heading2"','value="heading3"','value="heading4"','value="heading5"']));
+check('Block toolbar can add H1-H5 titles',hasAll(app,["const KNOWLEDGE_HEADING_PRESETS=[","{type:'heading1'","{type:'heading5'","KNOWLEDGE_HEADING_PRESETS.map(x=><option","add(e.target.value)"]));
 check('Heading block can change H1-H5 after creation',app.includes("onChange={e=>patch(b.id,{type:e.target.value})}"));
 check('Block toolbar can add list/quote/callout/code',hasAll(app,["add('list')","add('quote')","add('callout')","add('code')"]));
 check('Block toolbar can add image/video',hasAll(app,["add('image')","add('video')"]));
@@ -128,6 +128,26 @@ check('Image block keeps compression flow',hasAll(app,['compressEvidenceImage','
 check('Video block validates YouTube/Vimeo',hasAll(app,['knowledgeVideoEmbed','Solo se admiten URLs válidas de YouTube o Vimeo']));
 check('Pagebreak is printable as a real page break',hasAll(styles,['break-after:page','page-break-after:always']));
 check('Rendered blocks cover every editable block family',hasAll(app,['knowledge-rich-rendered','<h1>{b.text}</h1>','<blockquote>','knowledge-callout','knowledge-code-rendered','knowledge-rendered-image','knowledge-video','knowledge-page-break']));
+
+// v17.3.1 continuous-editing regression and executive output
+check('Rich editor never updates parent state on each input event',app.includes("const inputChanged=()=>{const raw=readSurface();draftHtmlRef.current=raw;updateStats(raw);saveSelection()}")&&!app.includes('queueCommit()')&&!app.includes('commitTimerRef'));
+check('Rich editor persists on blur after continuous typing',app.includes('onBlur={()=>commit(true)}'));
+check('Rich editor preserves selected ranges across toolbar interaction',hasAll(app,['rangeRef=useRef(null)','range.cloneRange()','restoreSelection()','onMouseDown={preserveSelection}']));
+check('Rich editor formatting actions persist sanitized HTML',hasAll(app,['document.execCommand(cmd,false,value)','saveSelection();commit(false)','sanitizeKnowledgeHtml(readSurface())']));
+check('Partial selection supports bold italic underline and links',hasAll(app,["command('bold')","command('italic')","command('underline')","document.execCommand('createLink'","command('unlink')"]));
+check('Rich text sanitizer preserves font tags and per-selection styling',hasAll(app,["'SPAN','FONT'","child.tagName==='FONT'","font-size:${size[1]}px","font-family:${face}"]));
+check('Canonical heading presets are fixed to 32/28/24/20/16px',hasAll(app,["label:'H1',size:32","label:'H2',size:28","label:'H3',size:24","label:'H4',size:20","label:'H5',size:16"]));
+check('Canonical heading CSS matches presets in editor/reader',hasAll(styles,['font-size:32px!important','font-size:28px!important','font-size:24px!important','font-size:20px!important','font-size:16px!important']));
+check('Editor tracks saved snapshot and unsaved changes',hasAll(app,['knowledgeEditorSnapshot','savedSnapshot','dirtyRef.current','Cambios sin guardar']));
+check('Browser close/reload is protected when Knowledge is dirty',hasAll(app,["window.addEventListener('beforeunload',before)","e.returnValue=''"]));
+check('Knowledge exit confirmation has requested warning and actions',hasAll(app,['¿Estás seguro de salir?','Los cambios realizados se perderán.','Te sugerimos guardar este borrador antes de salir.','Salir y descartar','Continuar editando']));
+check('Sidebar/mobile/workspace navigation respects Knowledge dirty guard',hasAll(app,['window.__jiraKnowledgeEditorGuard','runWithKnowledgeGuard','setView={navigateView}']));
+check('Luxury cover block can be added only once',hasAll(app,["add('cover')",'hasCover','Solo se admite una portada por artículo']));
+check('Luxury cover includes three executive TROBBU templates',hasAll(app,["value:'forest',label:'TROBBU Verde'","value:'ivory',label:'Marfil'","value:'midnight',label:'Azul Ejecutivo'"]));
+check('Luxury cover fields are editable and printable',hasAll(app,['Título de portada','Subtítulo','Pie / clasificación','Mostrar marca TROBBU','Iniciar contenido en página siguiente al imprimir/PDF','window.print()']));
+check('Luxury cover is preserved by runtime and SQL normalizers',hasAll(app,["if(type==='cover')return",'knowledge-cover-rendered'])&&hasAll(migration,["elsif v_type='cover'","('forest','ivory','midnight')","'show_logo'","'page_break'"]));
+check('Translation pipeline preserves luxury cover metadata and non-translated cover flags',hasAll(translate,['eyebrow','subtitle','meta','return {...b,','plainText'])&&translate.includes('b.type==="cover"'));
+check('No separate v17.3.1 migration/QA/release files are introduced by patch',!fs.existsSync(new URL('./upgrade-v17.3.1.sql',import.meta.url))&&!fs.existsSync(new URL('./QA-v17.3.1.md',import.meta.url))&&!fs.existsSync(new URL('./RELEASE-v17.3.1.md',import.meta.url)));
 
 // Category / editor UI stability
 check('Knowledge search remains a single visual input',hasAll(styles,['.knowledge-toolbar-expanded .knowledge-search input','border:0!important','box-shadow:none!important']));
@@ -155,5 +175,5 @@ check('Helpdesk routing still excludes approved absence blocks',hasAll(routing,[
 check('Vacation impact assistant still consumes date_blocks',hasAll(vacation,['function blocksFor','date_blocks:blocks']));
 check('v17.1 vacation migration remains in package history',migration171.includes('date_blocks'));
 
-console.log(`\nQA v17.3 summary: ${passed} passed, ${failures.length} failed.`);
+console.log(`\nQA v17.3.1 summary: ${passed} passed, ${failures.length} failed.`);
 if(failures.length){for(const f of failures)console.error(` - ${f.name}${f.detail?`: ${f.detail}`:''}`);process.exit(1)}
