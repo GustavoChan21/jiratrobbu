@@ -1,18 +1,43 @@
-# Jira Interno TROBBU v17.3.1
+# Jira Interno TROBBU v17.5
 
-**Patch sobre v17.3 sin archivos adicionales de migración.** Si ya estás en v17.3, vuelve a ejecutar `upgrade-v17.3.sql` (es re-ejecutable) y publica `app.js`, `styles.css`, `index.html` y `translate-knowledge-version.ts`.
+**Base de actualización:** v17.3.1 Final Completo → v17.5. Se conserva la distribución completa de **101 archivos**; no se agregan archivos al proyecto. Los artefactos vigentes se renombran a `upgrade-v17.5.sql`, `qa-v17.5.mjs`, `QA-v17.5.md` y `RELEASE-v17.5.md`.
 
-v17.3.1 corrige la edición continua del bloque Texto: el `contentEditable` deja de sincronizar React en cada pulsación, conserva cursor/selección y permite aplicar formato parcial a palabras, frases o caracteres. Estandariza H1–H5 en 32/28/24/20/16 px, añade alerta de salida con cambios sin guardar y portadas Luxury TROBBU (Verde, Marfil y Azul Ejecutivo) para impresión/PDF. No se agregan nuevos archivos al proyecto; se reutilizan los artefactos v17.3 existentes. La suite incluida queda ampliada a **132 verificaciones automatizadas**.
+## Prioridad de esta versión: Knowledge / bloque Texto
 
----
+El editor de Texto ya no usa un `contentEditable` propiedad del árbol de React. v17.5 crea una superficie editable nativa dentro de un host estable y mantiene el HTML, cursor y selección en el DOM durante la escritura. Esto evita la regresión donde el editor permitía capturar una sola letra o perdía la selección al aplicar formato.
 
-# Jira Interno TROBBU v17.3
+El bloque Texto soporta escritura continua y formato parcial sobre caracteres, palabras, frases o párrafos: Normal/H1-H5, Inter/Arial/Verdana/Georgia/Times New Roman/Courier New, tamaños 11/12/14/16/18/24/32 px, deshacer/rehacer, negrita, cursiva, subrayado, tachado, color, resaltado, listas, sangría, alineación, enlaces, quitar enlace, limpiar formato e interlineado. El contenido vivo se conserva aunque el usuario pulse Guardar sin haber salido del editor.
 
-**Base de actualización:** v17.2 → v17.3. Para instalaciones ya en v17.2 ejecuta únicamente `upgrade-v17.3.sql` y publica los archivos actualizados.
+La escala canónica de títulos se mantiene en **H1 32 px · H2 28 px · H3 24 px · H4 20 px · H5 16 px**, idéntica en edición, lectura, vista previa e impresión/PDF.
 
-v17.3 corrige la causa real de la pantalla en blanco del editor Knowledge (`useRef` faltante), estabiliza la creación mediante una RPC atómica, corrige los permisos de ejecución del normalizador de bloques y convierte Knowledge a un flujo **Categoría → Artículo → Versión → Bloques**. Incluye CRUD de categorías, migración de artículos existentes a esquema de bloques v3 y editor de texto enriquecido tipo Word por bloque.
+## Compatibilidad y migración
 
-Consulta `RELEASE-v17.3.md` y `QA-v17.3.md`. Ejecuta `npm run qa` para las 114 verificaciones automatizadas incluidas.
+Ejecuta `upgrade-v17.5.sql` sobre una base v17.3.1. La migración es re-ejecutable y:
+
+- agrega la configuración global de plantillas de portada a `workspace_settings`;
+- completa valores faltantes sin sobrescribir personalizaciones existentes;
+- vuelve a normalizar todos los `knowledge_articles` y `knowledge_article_versions` mediante el normalizador de bloques v3;
+- conserva párrafos/texto legado, H1-H5, listas, citas, destacados, código, imágenes, video, separadores, saltos de página y portadas.
+
+## Portadas Knowledge
+
+Configuración del sistema incorpora un apartado visible **Plantillas de portada Knowledge**. Las plantillas TROBBU Verde, Marfil y Azul Ejecutivo permiten configurar fondo inicial/final, color de texto, acento, borde, fuente de título y fuente de contenido. Los artículos almacenan la plantilla seleccionada, no una copia de los colores; por ello artículos existentes adoptan la configuración vigente sin reescribir su contenido.
+
+## UI y seguridad de salida
+
+La alerta de cambios sin guardar utiliza el mismo patrón `form-body` / `form-footer` de los demás modales del sistema, con las acciones **Salir y descartar** y **Continuar editando**. Se conserva protección de navegación interna y `beforeunload`.
+
+## Validación
+
+Ejecuta:
+
+```bash
+npm run qa
+```
+
+La suite v17.5 valida **154 casos** de release, creación/edición/versionado de Knowledge, categorías, migración de bloques, editor nativo, formatos, Storage/RLS contractual, portadas, modales y regresiones de Helpdesk/Vacaciones/Gantt. Además, la entrega fue validada con parser JSX/TypeScript para `app.js` y las 8 Edge Functions, estructura CSS y consistencia SQL.
+
+Consulta `RELEASE-v17.5.md` y `QA-v17.5.md` para el detalle.
 
 ---
 

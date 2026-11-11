@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.3.1",
-  "description": "Jira Interno TROBBU v17.3.1 - stable rich-text Knowledge editing, safe exit and luxury cover templates",
+  "version": "17.5.0",
+  "description": "Jira Interno TROBBU v17.5 - native Knowledge rich-text editing, preserved inline formatting and configurable executive cover templates",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.3.mjs"
+    "qa": "node qa-v17.5.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
