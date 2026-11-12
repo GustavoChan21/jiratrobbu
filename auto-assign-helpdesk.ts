@@ -61,7 +61,7 @@ Deno.serve(async(req:Request)=>{
       ids.length?admin.from("profiles").select("id,full_name,email,job_title").in("id",ids):Promise.resolve({data:[]}),
       roleIds.length?admin.from("workspace_roles").select("id,code,name,description,base_role").in("id",roleIds):Promise.resolve({data:[]}),
       ids.length?admin.from("helpdesk_assignment_log").select("assigned_user_id,created_at").eq("workspace_id",ticket.workspace_id).in("assigned_user_id",ids).gte("created_at",new Date(Date.now()-48*3600*1000).toISOString()):Promise.resolve({data:[]}),
-      ids.length?admin.from("helpdesk_tickets").select("assigned_to,status,category").eq("workspace_id",ticket.workspace_id).in("assigned_to",ids).not("status","in","(resolved,closed)"):Promise.resolve({data:[]}),
+      ids.length?admin.from("helpdesk_tickets").select("assigned_to,status,category").eq("workspace_id",ticket.workspace_id).in("assigned_to",ids).neq("status","closed"):Promise.resolve({data:[]}),
       ids.length?admin.from("vacation_requests").select("user_id,start_date,end_date,return_date,date_blocks,status").eq("workspace_id",ticket.workspace_id).eq("status","approved").lte("start_date",today).gte("end_date",today).in("user_id",ids):Promise.resolve({data:[]}),
     ]);
     const profileMap=new Map((profiles||[]).map((p:any)=>[p.id,p]));
