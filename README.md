@@ -1,66 +1,52 @@
-# Jira Interno TROBBU v17.9.0
+# Jira Interno TROBBU v17.9.1
 
-Release sobre v17.8.0 enfocada en **Live Data/counters resilientes**, **modo claro/oscuro**, simplificación del **workflow de Helpdesk** y mejoras de UI en Vacaciones.
+Release correctiva sobre v17.9.0 enfocada en **modo oscuro profesional/luxury**, contraste global, controles inline de Helpdesk completamente clicables y **counters exactos de comentarios/actividad/evidencias**.
 
 ## Principales cambios
 
-### Counters + Realtime
+### Modo oscuro integral
 
-- Snapshot único de counters mediante `get_live_counters`.
-- Patch inmediato al recibir Realtime.
-- Reconciliación de counters cada 20 s.
-- Reconciliación ligera de filas principales cada 60 s para recuperar eventos WebSocket perdidos sin recargar todo el sistema.
-- Comentarios, actividad y adjuntos/evidencias en Ticket, Sprint y Helpdesk se refrescan mientras el modal permanece abierto.
-- Tablas Live relevantes configuradas con `REPLICA IDENTITY FULL`.
+- Se conserva la misma fotografía `auth-bg.webp` en login; solo cambia overlay, card y controles.
+- Logo/isotipo TROBBU se muestra blanco (`#FFFFFF`) en dark mode mediante tratamiento CSS del SVG existente.
+- Nueva paleta oscura coherente: fondo, shell, superficies, bordes, texto, texto secundario y estados semánticos.
+- Se eliminaron “islas blancas” de Backlog/Sprints, notificaciones, validación de permisos, modales, Helpdesk, Staff/Roles, importaciones, Reportes/AI, Gantt, Knowledge, Vacaciones y relaciones de tickets.
+- Inputs, selects, textareas y opciones nativas tienen contraste explícito en dark mode.
+- Estados conservan su significado mediante variantes oscuras: revisión azul, atendido dorado, cerrado verde, rechazado rojo.
 
-### Tema claro / oscuro
+### Helpdesk inline
 
-El botón de tema aparece desde login y en la barra superior. La selección se guarda localmente y, al iniciar sesión, también en `profiles.theme_preference`, por lo que sigue al usuario entre sesiones/dispositivos compatibles.
+- Responsable, estado y decisión conservan el color visual del componente.
+- El `<select>` nativo queda transparente sobre todo el control, por lo que **100% del área visible es clicable**.
+- Los menús nativos usan opciones oscuras cuando el tema activo es dark.
 
-### Helpdesk
+### Counters de detalle
 
-Estados operativos:
+Los badges ya no dependen únicamente del array local cargado en React.
 
-**Nuevo → En revisión → Atendido → Cerrado**
+- Helpdesk: comentarios, seguimiento/actividad y evidencias consultan `COUNT(*)` exacto autorizado por RLS.
+- Ticket: comentarios, actividad y evidencias usan conteos exactos.
+- Sprint: comentarios y evidencias usan conteos exactos.
+- Se mantienen Realtime, `liveRevision` y reconciliación resiliente; los counts exactos son la fuente autoritativa del badge.
+- Después de cambiar un estado Helpdesk, el modal vuelve a cargar inmediatamente el detalle y sus counters.
 
-`Resuelto` deja de existir como estado. Los históricos fueron normalizados a Cerrado.
+Verificación productiva con un solicitante normal:
 
-En la tabla interna ahora se puede:
-
-- reasignar responsable directamente;
-- cambiar estado directamente;
-- decidir requerimientos inline.
-
-Después de `Atendido`, el solicitante puede confirmar la solución y cerrar. Un usuario con permiso `manage_helpdesk` también puede cerrar cuando la solicitud ya está en `Atendido` y el solicitante no lo hace.
-
-### Vacaciones
-
-`Descontar del saldo anual` y `Tipo activo` se muestran como switches en el CRUD de tipos de ausencia.
+- HD-17: 1 comentario y actividad existente visible para el solicitante.
+- HD-18: 1 comentario y actividad existente visible para el solicitante.
 
 ## Base de datos
 
-Aplicar `upgrade-v17.9.sql` si se instala en otro proyecto. En producción TROBBU la migración ya fue aplicada y `database.sql` termina con el mismo bloque consolidado.
-
-## Edge Functions
-
-Archivos incluidos y productivos:
-
-- `trobbu-knowledge-assistant.ts`
-- `vacation-impact-assistant.ts`
-- `auto-assign-helpdesk.ts` — producción v7
-- `process-notifications.ts` — producción v14
-- `translate-knowledge-version.ts`
-- demás funciones existentes del proyecto.
+**No hay una nueva migración v17.9.1.** Esta release utiliza la base v17.9.0 ya aplicada en producción (`upgrade-v17.9.sql`), que contiene Realtime, RLS y el workflow canónico de Helpdesk.
 
 ## QA
 
-**327 PASS / 0 FAIL** con `npm run qa`.
+**347 PASS / 0 FAIL** con `npm run qa`.
 
-Consulta `QA-v17.9.md`, `RELEASE-v17.9.md` y `qa-v17.9-output.txt`.
+Consulta `QA-v17.9.1.md`, `RELEASE-v17.9.1.md` y `qa-v17.9.1-output.txt`.
+
+El Chromium headless del contenedor no puede completar el smoke visual por una limitación DBus del entorno; esa ejecución no se contabiliza como PASS. La suite funcional/estática, integridad de CSS, RLS productivo, CRC y Git sí se verifican en esta entrega.
 
 ## Paquetes
 
-Se entregan dos variantes:
-
-1. **FULL**: mantiene todos los documentos, migraciones, QA y releases históricos como archivos individuales.
-2. **COMPACT**: misma aplicación y funcionalidad; agrupa históricos no necesarios en runtime dentro de `_history-v17.8-and-earlier.zip` para reducir la cantidad de archivos del proyecto.
+1. **FULL**: documentación, releases, QA y migraciones históricas individualizadas.
+2. **COMPACT**: misma aplicación y misma suite QA; documentación histórica agrupada en `_history-v17.9-and-earlier.zip` para mantener el repositorio pequeño.

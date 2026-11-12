@@ -1132,3 +1132,367 @@ html[data-theme="dark"] .status-badge-qa_passed,
 html[data-theme="dark"] .status-badge-closed{background:#173B2C;color:#7EE2A8}
 html[data-theme="dark"] .modal-backdrop,
 html[data-theme="dark"] .drawer-backdrop{background:rgba(2,6,10,.76)}
+
+/* ========================================================================== */
+/* v17.9.1 · Luxury dark-mode contrast hardening + full-click inline controls */
+/* ========================================================================== */
+.table-inline-control.full-click-select{position:relative;isolation:isolate;overflow:hidden;grid-template-columns:auto minmax(0,1fr) auto;min-height:38px;padding:0 10px}
+.table-inline-control.full-click-select>iconify-icon,.table-inline-control.full-click-select>.table-inline-value{pointer-events:none;position:relative;z-index:1}
+.table-inline-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:800;color:inherit}
+.table-inline-control .table-inline-native{position:absolute!important;inset:0!important;z-index:3!important;width:100%!important;height:100%!important;min-height:100%!important;margin:0!important;padding:0!important;border:0!important;opacity:0!important;cursor:pointer!important;appearance:auto!important;-webkit-appearance:auto!important}
+.table-inline-control .table-inline-native:disabled{cursor:not-allowed!important}
+.table-inline-control.full-click-select:has(.table-inline-native:disabled){opacity:.68;cursor:not-allowed}
+.section-counter{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:5px;border-radius:999px;background:#E9F2FF;color:#0C66E4;font-style:normal;font-size:9px;font-weight:850;vertical-align:middle}
+
+html[data-theme="dark"]{
+  --dark-bg:#0B1117;
+  --dark-shell:#0E151D;
+  --dark-surface:#131C25;
+  --dark-surface-2:#18232E;
+  --dark-surface-3:#202D39;
+  --dark-border:#314151;
+  --dark-text:#F3F6F9;
+  --dark-muted:#A7B4C3;
+  --dark-blue:#79AEFF;
+  --dark-green:#7EE2A8;
+  --dark-gold:#E6C18E;
+  --dark-danger:#FF9C8F;
+  --text:var(--dark-text);
+  --muted:var(--dark-muted);
+  --border:var(--dark-border);
+  --gray-50:#0F171F;
+  --gray-100:#18232E;
+  --gray-150:#202D39;
+  --gray-200:#2A3947;
+  --gray-300:#405264;
+  --white:#131C25;
+  --navy:#DCE8F1;
+  --charcoal:#EDF3F8;
+}
+html[data-theme="dark"],html[data-theme="dark"] body{background:var(--dark-bg);color:var(--dark-text);color-scheme:dark}
+html[data-theme="dark"] .app-shell,html[data-theme="dark"] .main-area{background:var(--dark-shell);color:var(--dark-text)}
+html[data-theme="dark"] .page{color:var(--dark-text)}
+html[data-theme="dark"] :where(h1,h2,h3,h4,h5,h6,b,strong){color:var(--dark-text)}
+html[data-theme="dark"] :where(p,span,label,small,time){border-color:var(--dark-border)}
+html[data-theme="dark"] :where(.muted,.field-help,.breadcrumbs,.page-title-row p,.panel-toolbar p,.backlog-head p,.sprint-card-head p,.sprint-dates,.task-cell small,.comment small,.activity-item small){color:var(--dark-muted)!important}
+
+/* TROBBU identity: white mark in dark surfaces. */
+html[data-theme="dark"] .topbar-brand img,
+html[data-theme="dark"] .auth-logo,
+html[data-theme="dark"] .empty-state>img{filter:brightness(0) invert(1)!important;opacity:1}
+html[data-theme="dark"] .workspace-icon{background:#213342!important;color:#fff!important}
+
+/* Header / sidebar / navigation */
+html[data-theme="dark"] .global-topbar{background:#0F1821!important;border-color:var(--dark-border)!important;box-shadow:0 1px 0 rgba(255,255,255,.02)}
+html[data-theme="dark"] .sidebar{background:#101922!important;border-color:var(--dark-border)!important}
+html[data-theme="dark"] .workspace-card{background:#151F29!important;border-color:#324454!important;color:var(--dark-text)!important}
+html[data-theme="dark"] .side-nav button,html[data-theme="dark"] .product-nav,html[data-theme="dark"] .footer-nav{color:#C2CEDA!important}
+html[data-theme="dark"] .side-nav button:hover,html[data-theme="dark"] .product-nav:hover,html[data-theme="dark"] .footer-nav:hover{background:#1B2936!important;color:#F5F8FB!important}
+html[data-theme="dark"] .side-nav button.active,html[data-theme="dark"] .product-nav.active,html[data-theme="dark"] .footer-nav.active{background:#183B67!important;color:#A8CBFF!important;box-shadow:inset 3px 0 #579DFF}
+html[data-theme="dark"] .side-nav button em,html[data-theme="dark"] .product-nav em{background:#263746!important;color:#D4DEE8!important}
+html[data-theme="dark"] .product-dot.all{background:#33295B!important;color:#C1B7FF!important}
+html[data-theme="dark"] .product-dot.p0{background:#173B67!important;color:#91BFFF!important}
+html[data-theme="dark"] .product-dot.p1{background:#173D2D!important;color:#83E6AC!important}
+html[data-theme="dark"] .product-dot.p2{background:#4D3022!important;color:#FFAF7A!important}
+html[data-theme="dark"] .product-dot.p3{background:#482528!important;color:#FFAAA0!important}
+html[data-theme="dark"] .global-search{background:#0D151D!important;border-color:#394A5B!important;color:var(--dark-text)!important}
+html[data-theme="dark"] .global-search input{background:transparent!important;color:var(--dark-text)!important}
+html[data-theme="dark"] .global-search input::placeholder{color:#7E8C9B!important}
+html[data-theme="dark"] .global-search kbd{background:#1A2732!important;border-color:#3A4A5A!important;color:#AAB6C4!important}
+html[data-theme="dark"] .language-switcher,html[data-theme="dark"] .theme-toggle,html[data-theme="dark"] .auth-preferences select{background:#131D27!important;border-color:#354758!important;color:#F0F4F8!important}
+html[data-theme="dark"] .top-user b{color:#F4F7FA!important}html[data-theme="dark"] .top-user small{color:#A7B4C3!important}
+html[data-theme="dark"] .live-sync-indicator{background:#15202A!important;border-color:#354758!important;color:#C4CFDA!important}
+html[data-theme="dark"] .live-sync-indicator.live{background:#153425!important;border-color:#2B6F4D!important;color:#9AE6BA!important}
+
+/* Generic panels and operational surfaces */
+html[data-theme="dark"] :where(.workspace-panel,.panel,.content-card,.metric-card,.settings-card,.entity-row,.request-card,.knowledge-card,.knowledge-category-card,.vacation-balance-panel,.vacation-balance-admin,.vacation-types-admin,.member-card,.roles-card,.catalog-card,.report-card,.dashboard-filters,.readonly-chip,.ticket-card,.modal,.drawer){background:var(--dark-surface)!important;color:var(--dark-text)!important;border-color:var(--dark-border)!important}
+html[data-theme="dark"] :where(.panel-toolbar,.settings-tabs,.modal-head,.drawer-head,.drawer-toolbar,.table .tr.th){background:#101922!important;color:var(--dark-text)!important;border-color:var(--dark-border)!important}
+html[data-theme="dark"] .tr:not(.th):hover{background:#17232D!important}
+html[data-theme="dark"] .metric-card{box-shadow:0 1px 2px rgba(0,0,0,.35)!important}
+html[data-theme="dark"] .page-icon{background:#193B66!important;color:#8FBFFF!important}
+html[data-theme="dark"] .mini-stats{background:#111B24!important}html[data-theme="dark"] .mini-stats>span{background:#18242F!important;color:#AEBAC7!important}
+html[data-theme="dark"] .section-counter,html[data-theme="dark"] .detail-tabs button em{background:#26394A!important;color:#D8E4EE!important}
+html[data-theme="dark"] .detail-tabs button.active em{background:#2A5B91!important;color:#DDEBFF!important}
+
+/* Forms / inputs: no light islands. */
+html[data-theme="dark"] :where(.page,.modal,.workspace-panel,.settings-card,.auth-card,.drawer,.knowledge-author-page,.knowledge-reader-page,.backlog-filterbar,.bulk-sprint-bar,.gantt-toolbar,.calendar-layout) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+html[data-theme="dark"] :where(.page,.modal,.workspace-panel,.settings-card,.auth-card,.drawer,.knowledge-author-page,.knowledge-reader-page,.backlog-filterbar,.bulk-sprint-bar,.gantt-toolbar,.calendar-layout) select,
+html[data-theme="dark"] :where(.page,.modal,.workspace-panel,.settings-card,.auth-card,.drawer,.knowledge-author-page,.knowledge-reader-page,.backlog-filterbar,.bulk-sprint-bar,.gantt-toolbar,.calendar-layout) textarea{
+  background:#0D151D!important;color:#F1F5F9!important;border-color:#3A4B5C!important;box-shadow:none!important
+}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#718293!important;opacity:1}
+html[data-theme="dark"] :where(input,select,textarea):focus{border-color:#579DFF!important;box-shadow:0 0 0 3px rgba(87,157,255,.14)!important}
+html[data-theme="dark"] select option{background:#101922!important;color:#F1F5F9!important}
+html[data-theme="dark"] :where(input,select,textarea):disabled,html[data-theme="dark"] :where(input,textarea)[readonly]{background:#1A2631!important;color:#8D9CAB!important;border-color:#314151!important}
+html[data-theme="dark"] input[type="checkbox"]{accent-color:#579DFF}
+
+/* Full-click Helpdesk selects: visual state controls color; native select is transparent hit target. */
+html[data-theme="dark"] .table-inline-control{border-color:#3A4C5D!important;color:#E9EFF5!important;box-shadow:none!important}
+html[data-theme="dark"] .table-inline-control:hover{border-color:#6A9FE4!important;filter:brightness(1.08)}
+html[data-theme="dark"] .table-inline-control .table-inline-native{background:transparent!important;color:transparent!important;border:0!important;box-shadow:none!important;opacity:0!important}
+html[data-theme="dark"] .table-inline-control.status-created,html[data-theme="dark"] .table-inline-control.decision-inline.pending,html[data-theme="dark"] .table-inline-control.assignee-inline{background:#1A2631!important;color:#D7E0E9!important}
+html[data-theme="dark"] .table-inline-control.status-review{background:#183C68!important;color:#9CC6FF!important;border-color:#2C5E93!important}
+html[data-theme="dark"] .table-inline-control.status-attended{background:#4A3C15!important;color:#F7D76D!important;border-color:#6B581D!important}
+html[data-theme="dark"] .table-inline-control.status-closed,html[data-theme="dark"] .table-inline-control.decision-inline.accepted_backlog{background:#163D2C!important;color:#8EE3B3!important;border-color:#276044!important}
+html[data-theme="dark"] .table-inline-control.decision-inline.rejected{background:#482629!important;color:#FFAAA0!important;border-color:#6A383C!important}
+
+/* Backlog / Sprints */
+html[data-theme="dark"] .backlog-filterbar{background:#131D27!important;border-color:#334454!important;color:var(--dark-text)!important}
+html[data-theme="dark"] .backlog-filterbar>div{color:#DCE4EC!important}
+html[data-theme="dark"] .bulk-sprint-bar{background:#121C25!important;border-color:#344454!important}
+html[data-theme="dark"] .bulk-sprint-bar.active{background:#142B43!important;border-color:#35689C!important}
+html[data-theme="dark"] .backlog-column,html[data-theme="dark"] .sprint-stack{background:#111A23!important;border-color:#314151!important}
+html[data-theme="dark"] .backlog-head>b{background:#263745!important;color:#D8E2EB!important}
+html[data-theme="dark"] .backlog-ticket{background:#17212B!important;border-color:#344554!important}
+html[data-theme="dark"] .backlog-ticket.selected{background:#17314A!important;border-color:#4B79AB!important}
+html[data-theme="dark"] .backlog-ticket-main>b{color:#F1F5F9!important}
+html[data-theme="dark"] .sprint-card{background:#17212B!important;border-color:#344554!important}
+html[data-theme="dark"] .sprint-preview{border-color:#2E3D4B!important}
+html[data-theme="dark"] .sprint-preview button{background:#17212B!important;border-color:#2E3D4B!important;color:#EEF3F7!important}
+html[data-theme="dark"] .sprint-preview button:hover,html[data-theme="dark"] .completed-sprints button:hover{background:#202D39!important}
+html[data-theme="dark"] .sprint-progress>div{background:#2A3947!important}
+html[data-theme="dark"] .sprint-detail-aside{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .sprint-side-stat{background:#17212B!important;border-color:#344554!important}
+html[data-theme="dark"] .sprint-ticket-row,html[data-theme="dark"] .sprint-backlog-button{background:#17212B!important;color:#D7E0E9!important;border-color:#344554!important}
+html[data-theme="dark"] .sprint-ticket-open:hover,html[data-theme="dark"] .sprint-ticket-row:hover{background:#202D39!important}
+html[data-theme="dark"] .sprint-detail-hero p{color:#B7C4D1!important}
+
+/* Helpdesk detail + comments/activity */
+html[data-theme="dark"] .detail-main{background:var(--dark-surface)!important;border-color:var(--dark-border)!important}
+html[data-theme="dark"] .detail-aside{background:#101922!important;border-color:var(--dark-border)!important;color:var(--dark-text)!important}
+html[data-theme="dark"] .detail-description p,html[data-theme="dark"] .activity-item p{color:#C1CCD7!important}
+html[data-theme="dark"] .comment{background:transparent!important}
+html[data-theme="dark"] .comment p{background:#1B2732!important;color:#E8EEF4!important;border:1px solid #2C3A48!important}
+html[data-theme="dark"] .helpdesk-comment-create{background:var(--dark-surface)!important;border-color:var(--dark-border)!important}
+html[data-theme="dark"] .helpdesk-comment-card{border-color:#283746!important}
+html[data-theme="dark"] .comment-author-email{color:#8FA0B1!important}
+html[data-theme="dark"] .activity-item{background:transparent!important}
+html[data-theme="dark"] .evidence-card{background:#17212B!important;border-color:#344554!important}
+html[data-theme="dark"] .evidence-card>a,html[data-theme="dark"] .evidence-missing{background:#0E171F!important}
+html[data-theme="dark"] .evidence-card figcaption{background:#17212B!important;color:#E8EEF4!important}
+html[data-theme="dark"] .requirement-detail-hero{background:linear-gradient(135deg,#1E1930,#211D34)!important;border-color:#443A67!important}
+html[data-theme="dark"] .requirement-detail-hero h3{color:#E5DDFF!important}html[data-theme="dark"] .requirement-detail-hero p{color:#BDB3D9!important}
+
+/* Notification Center */
+html[data-theme="dark"] .notification-drawer{background:#101922!important}
+html[data-theme="dark"] .notification-filterbar{background:#0E171F!important;border-color:#314151!important}
+html[data-theme="dark"] .notification-filterbar button{background:#17212B!important;border-color:#354655!important;color:#C7D2DD!important}
+html[data-theme="dark"] .notification-filterbar button:hover{background:#202D39!important;border-color:#527AA5!important}
+html[data-theme="dark"] .notification-filterbar button.active{background:#173A64!important;border-color:#4E83BE!important;color:#A9CDFF!important}
+html[data-theme="dark"] .notification-filterbar em{background:#263745!important;color:#D9E3EC!important}
+html[data-theme="dark"] .notification-filterbar button.active em{background:#285B91!important;color:#E5F0FF!important}
+html[data-theme="dark"] .notification-list{background:#101922!important}
+html[data-theme="dark"] .notification-item{background:#131D27!important;border-color:#2C3C4B!important}
+html[data-theme="dark"] .notification-main{background:transparent!important;color:#EEF3F7!important}
+html[data-theme="dark"] .notification-main:hover{background:#1A2834!important}
+html[data-theme="dark"] .notification-item.unread .notification-main{background:#152E49!important}
+html[data-theme="dark"] .notification-main b{color:#F2F6FA!important}html[data-theme="dark"] .notification-main p{color:#B8C5D2!important}
+html[data-theme="dark"] .notification-actions{background:#111A23!important;border-color:#314151!important}
+html[data-theme="dark"] .notification-icon{box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+html[data-theme="dark"] .notification-item.category-helpdesk .notification-icon{background:#302A55!important;color:#C2B9FF!important}
+html[data-theme="dark"] .notification-item.category-sprints .notification-icon{background:#493B18!important;color:#F7D76D!important}
+html[data-theme="dark"] .notification-item.category-knowledge .notification-icon{background:#173D2D!important;color:#89E5AE!important}
+html[data-theme="dark"] .notification-item.category-staff .notification-icon{background:#4D3022!important;color:#FFB17D!important}
+html[data-theme="dark"] .notification-item.category-system .notification-icon{background:#263745!important;color:#D5E0E9!important}
+
+/* Access validation / skeleton */
+html[data-theme="dark"] .access-validation-shell{background:#0E151D!important}
+html[data-theme="dark"] .access-validation-card{background:#151F29!important;border-color:#344554!important;color:#F1F5F9!important}
+html[data-theme="dark"] .access-validation-card.error{background:#2F1D20!important;border-color:#69393F!important}
+html[data-theme="dark"] .access-validation-icon{background:#183A64!important;color:#9BC6FF!important}
+html[data-theme="dark"] .access-validation-card.error .access-validation-icon{background:#4A2528!important;color:#FFAAA0!important}
+html[data-theme="dark"] .skeleton-shimmer{background:#25323E!important}
+html[data-theme="dark"] .skeleton-shimmer:after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent)!important}
+
+/* Login: keep the same luxury photograph, only darken the overlay/card. */
+html[data-theme="dark"] .auth-shell{
+  background:
+    linear-gradient(90deg,rgba(5,12,16,.28) 0%,rgba(5,12,16,.38) 42%,rgba(5,12,16,.72) 72%,rgba(5,12,16,.84) 100%),
+    linear-gradient(0deg,rgba(4,11,14,.74) 0%,rgba(4,11,14,.14) 52%),
+    url('./auth-bg.webp') center/cover no-repeat!important;
+}
+html[data-theme="dark"] .auth-shell:after{background:radial-gradient(circle at 34% 34%,transparent 0 30%,rgba(2,8,11,.34) 100%)!important}
+html[data-theme="dark"] .luxury-auth-card{background:rgba(16,24,32,.965)!important;border:1px solid rgba(209,170,135,.22)!important;box-shadow:0 34px 90px rgba(0,0,0,.55),0 4px 18px rgba(0,0,0,.3)!important;backdrop-filter:blur(16px)}
+html[data-theme="dark"] .auth-brand h1{color:#F3F6F8!important}html[data-theme="dark"] .auth-brand p{color:#AEBBC8!important}
+html[data-theme="dark"] .auth-eyebrow-row{color:#D1AA87!important}html[data-theme="dark"] .auth-eyebrow-row i{background:linear-gradient(90deg,transparent,#8E745E)!important}html[data-theme="dark"] .auth-eyebrow-row i:last-child{background:linear-gradient(90deg,#8E745E,transparent)!important}
+html[data-theme="dark"] .auth-form label{color:#DDE5EC!important}
+html[data-theme="dark"] .auth-input{background:#0D151D!important;border-color:#3B4B5A!important;color:#92A4B5!important}
+html[data-theme="dark"] .auth-input:focus-within{background:#101B24!important;border-color:#579DFF!important;box-shadow:0 0 0 3px rgba(87,157,255,.16)!important}
+html[data-theme="dark"] .auth-input input{background:transparent!important;color:#F1F5F9!important;border:0!important;box-shadow:none!important}
+html[data-theme="dark"] .auth-input input::placeholder{color:#748596!important}
+html[data-theme="dark"] .auth-eye{color:#91A2B2!important}
+html[data-theme="dark"] .auth-legal{color:#8E9BA8!important}
+html[data-theme="dark"] .auth-divider{color:#D1AA87!important}html[data-theme="dark"] .auth-divider i{background:#43505C!important}
+html[data-theme="dark"] .auth-switch{color:#80B4F5!important}
+html[data-theme="dark"] .auth-visual-copy{color:#fff!important;text-shadow:0 3px 28px rgba(0,0,0,.6)}
+
+/* Calendar, Gantt, Knowledge, Vacations and secondary screens */
+html[data-theme="dark"] .calendar-layout{background:#0E171F!important}
+html[data-theme="dark"] .calendar-main,html[data-theme="dark"] .calendar-aside>div,html[data-theme="dark"] .calendar-day,html[data-theme="dark"] .calendar-side-card>button{background:#151F29!important;border-color:#314151!important;color:#EAF0F5!important}
+html[data-theme="dark"] .calendar-weekdays,html[data-theme="dark"] .calendar-day.outside{background:#101922!important}
+html[data-theme="dark"] .calendar-ticket{background:#183A64!important;color:#B9D6FF!important}
+html[data-theme="dark"] .calendar-ticket:hover{background:#214C7D!important}
+html[data-theme="dark"] .calendar-ticket i{background:#0F1821!important;color:#D8E5F1!important}
+html[data-theme="dark"] .calendar-legend span{color:#BAC7D3!important}
+html[data-theme="dark"] .gantt-toolbar,html[data-theme="dark"] .jira-timeline-toolbar,html[data-theme="dark"] .jira-timeline-canvas{background:#111A23!important;border-color:#314151!important}
+html[data-theme="dark"] .gantt-kpis button{background:#17212B!important;border-color:#344554!important;color:#AEBBC8!important}
+html[data-theme="dark"] .gantt-kpis button:hover{background:#202D39!important}html[data-theme="dark"] .gantt-kpis button.active{background:#173A64!important;color:#A8CCFF!important;border-color:#4F80B5!important}
+html[data-theme="dark"] .gantt-filter-results{background:#132131!important;border-color:#314151!important}html[data-theme="dark"] .gantt-filter-results button{background:#17212B!important;color:#D8E2EB!important;border-color:#42678E!important}
+html[data-theme="dark"] .knowledge-version-row,html[data-theme="dark"] .knowledge-safe-writing-area,html[data-theme="dark"] .knowledge-rich-modebar,html[data-theme="dark"] .knowledge-rich-surface,html[data-theme="dark"] .knowledge-block,html[data-theme="dark"] .knowledge-version-history{background:#151F29!important;border-color:#344554!important;color:#EDF3F8!important}
+html[data-theme="dark"] .knowledge-version-row.active{background:#153426!important;border-color:#2C6C4D!important}html[data-theme="dark"] .knowledge-version-row.draft{background:#15304A!important;border-color:#356A9E!important}
+html[data-theme="dark"] .knowledge-suggestion-guidance,html[data-theme="dark"] .versioning-info{background:#142B43!important;border-color:#315B83!important;color:#B9D7FF!important}
+html[data-theme="dark"] .vacation-balance-grid>div,html[data-theme="dark"] .vacation-type-admin-card,html[data-theme="dark"] .vacation-type-counters>span,html[data-theme="dark"] .vacation-type-badge,html[data-theme="dark"] .vacation-request-tabs button,html[data-theme="dark"] .vacation-section-tabs{background:#151F29!important;border-color:#344554!important;color:#C6D1DC!important}
+html[data-theme="dark"] .vacation-request-tabs,html[data-theme="dark"] .vacation-section-tabs{background:#101922!important}
+html[data-theme="dark"] .vacation-request-tabs button.active,html[data-theme="dark"] .vacation-section-tabs button.active{background:#173A64!important;border-color:#4D7DAF!important;color:#A7CBFF!important}
+html[data-theme="dark"] .vacation-request-balance-preview,html[data-theme="dark"] .vacation-decision-note{background:#142636!important;border-color:#31546E!important;color:#C6D2DE!important}
+html[data-theme="dark"] .vacation-balance-grid b,html[data-theme="dark"] .vacation-balance-row>b,html[data-theme="dark"] .vacation-request-type-line>b,html[data-theme="dark"] .vacation-type-counters strong{color:#EEF3F7!important}
+
+/* Buttons / footer / toasts / mobile */
+html[data-theme="dark"] .secondary-button,html[data-theme="dark"] .filter-button,html[data-theme="dark"] .danger-outline,html[data-theme="dark"] .action-sheet button,html[data-theme="dark"] .help-grid>button,html[data-theme="dark"] .shortcut-card{background:#151F29!important;border-color:#354655!important;color:#D8E2EB!important}
+html[data-theme="dark"] .secondary-button:hover,html[data-theme="dark"] .filter-button:hover,html[data-theme="dark"] .action-sheet button:hover,html[data-theme="dark"] .help-grid>button:hover{background:#202D39!important}
+html[data-theme="dark"] .toast{background:#151F29!important;border-color:#344554!important;color:#E8EEF4!important}
+html[data-theme="dark"] .mobile-nav{background:rgba(15,24,33,.98)!important;border-color:#314151!important;box-shadow:0 -4px 14px rgba(0,0,0,.3)!important}
+html[data-theme="dark"] .mobile-nav button{color:#AAB7C4!important}html[data-theme="dark"] .mobile-nav button.active{background:#173A64!important;color:#A8CCFF!important}
+html[data-theme="dark"] .static-footer{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .empty-state{background:#0E151D!important;color:#EAF0F5!important}
+
+/* v17.9.1 · full-system dark surface audit
+   Secondary screens previously retained light hard-coded surfaces. */
+html[data-theme="dark"] select option{background:#151F29;color:#F3F6F9}
+html[data-theme="dark"] :where(.kanban-shell,.workspace-list>button,.requester-ticket-list>button,.role-guide>div,.rollover-summary>span,.sprint-ticket-table>button,.form-footer,.role-admin-card,.jira-timeline-scroll,.import-preview,.custom-values-panel,.relations-panel,.report-kpi,.product-report-card,.helpdesk-type-stat-grid button,.modern-table .tr.ticket-table-row,.helpdesk-evidence-selection>div,.knowledge-search,.knowledge-suggestion-list article,.member-credential-tools,.knowledge-editor-toolbar,.knowledge-author-header,.notification-coverage-grid>div,.vacation-day,.vacation-approval-card,.vacation-impact-metrics span,.ticket-relation-search,.ticket-relation-options,.vacation-timeline-toolbar,.knowledge-icon-picker button,.knowledge-rich-editor,.knowledge-rich-surface-host){
+  background:#151F29!important;border-color:#344554!important;color:#EAF0F5!important;
+}
+html[data-theme="dark"] :where(.staff-table-head,.role-matrix-head,.gantt-label-head,.gantt-group-title,.gantt-month-header,.gantt-month-grid>span,.custom-value-grid>div,.knowledge-editor-shell,.knowledge-rich-toolbar,.knowledge-rich-footer,.vacation-calendar-week,.vacation-request-block,.vacation-timeline-legend,.knowledge-cover-toggles,.knowledge-cover-setting-card,.knowledge-cover-overview-card,.toggle-row,.staff-products>span,.role-admin-meta span,.ticket-relation-selected,.member-card.inactive){
+  background:#101922!important;border-color:#314151!important;color:#C4D0DB!important;
+}
+html[data-theme="dark"] :where(.gantt-embedded,.gantt-canvas,.gantt-header,.gantt-label){background:#111A23!important;border-color:#314151!important;color:#EAF0F5!important}
+html[data-theme="dark"] :where(.gantt-days-head>span.weekend,.gantt-track>i.weekend){background:#0D151D!important}
+html[data-theme="dark"] :where(.gantt-days-head>span.today,.gantt-track>i.today){background:#142B43!important}
+html[data-theme="dark"] .gantt-ticket-label>span em{background:#263745!important;color:#D8E2EB!important}
+html[data-theme="dark"] .gantt-unscheduled{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .gantt-unscheduled button{background:#17212B!important;border-color:#3B4C5B!important;color:#DCE5ED!important}
+html[data-theme="dark"] .gantt-date-control input,
+html[data-theme="dark"] .gantt-controls select,
+html[data-theme="dark"] .vacation-year-control select,
+html[data-theme="dark"] .vacation-timeline-controls input,
+html[data-theme="dark"] .knowledge-author-actions select,
+html[data-theme="dark"] .knowledge-details-grid input,
+html[data-theme="dark"] .knowledge-toolbar>select{background:#0F1821!important;border-color:#3B4C5B!important;color:#F0F4F8!important}
+
+/* Forms and generic interactive surfaces outside page/modal wrappers. */
+html[data-theme="dark"] .form input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+html[data-theme="dark"] .form select,
+html[data-theme="dark"] .form textarea,
+html[data-theme="dark"] .comment-form textarea,
+html[data-theme="dark"] .quick-assignee-select,
+html[data-theme="dark"] .helpdesk-status-filter{
+  background:#0F1821!important;border-color:#3B4C5B!important;color:#F0F4F8!important;
+}
+html[data-theme="dark"] .form input::placeholder,
+html[data-theme="dark"] .form textarea::placeholder,
+html[data-theme="dark"] .comment-form textarea::placeholder{color:#718396!important}
+html[data-theme="dark"] .form-footer{box-shadow:0 -1px 0 #314151!important}
+html[data-theme="dark"] .switch i{background:#425261!important;border-color:#526575!important}
+html[data-theme="dark"] .switch input:checked+i{background:#2F74C0!important}
+
+/* Staff, permissions and roles. */
+html[data-theme="dark"] .staff-tabs button,
+html[data-theme="dark"] .scope-choice>button,
+html[data-theme="dark"] .staff-access-mode>button,
+html[data-theme="dark"] .credential-mode-choice>button,
+html[data-theme="dark"] .decision-choice button,
+html[data-theme="dark"] .check-chip-grid button,
+html[data-theme="dark"] .product-checkbox-grid button,
+html[data-theme="dark"] .tag-choice,
+html[data-theme="dark"] .tag-display{
+  background:#151F29!important;border-color:#354655!important;color:#D6E0E8!important;
+}
+html[data-theme="dark"] :where(.staff-tabs button.active,.scope-choice>button.active,.staff-access-mode>button.active,.credential-mode-choice>button.active,.check-chip-grid button.active,.product-checkbox-grid button.active,.tag-choice.active){background:#173A64!important;border-color:#4B7EB4!important;color:#A9CEFF!important}
+html[data-theme="dark"] .permission-grid>label.on{background:#132B41!important;border-color:#365C7C!important}
+html[data-theme="dark"] .portal-access-summary span{background:#17212B!important;border-color:#344554!important;color:#D4DEE7!important}
+html[data-theme="dark"] .credential-card code{background:#0D151D!important;color:#C7D5E2!important}
+
+/* Ticket, Kanban, relation and import/report surfaces. */
+html[data-theme="dark"] .kanban-shell{background:#0E151D!important}
+html[data-theme="dark"] .kanban-tag-row>span{background:#1D2A35!important;border-color:#3A4C5B!important;color:#CAD6DF!important}
+html[data-theme="dark"] .kanban-assignee-badge{background:#1A2732!important;border-color:#3B4D5B!important;color:#DCE5ED!important}
+html[data-theme="dark"] .ticket-relation-options button{color:#DCE5ED!important;border-color:#314151!important}
+html[data-theme="dark"] .ticket-relation-options button:hover{background:#202D39!important}
+html[data-theme="dark"] .ticket-relation-options button.already-related{background:#101922!important;color:#7F8E9C!important}
+html[data-theme="dark"] .import-kpis>span{background:#151F29!important;border-color:#344554!important;color:#DCE5ED!important}
+html[data-theme="dark"] .import-errors{background:#3B2326!important;border-color:#6A373C!important;color:#FFB8B0!important}
+html[data-theme="dark"] .blocked-banner,
+html[data-theme="dark"] .warning-panel{background:#3A311B!important;border-color:#6C5924!important;color:#F6D76D!important}
+html[data-theme="dark"] .ai-answer{background:#101922!important;border-color:#314151!important;color:#DCE6EF!important}
+html[data-theme="dark"] .module-count-metrics span{background:#101922!important;border-color:#314151!important;color:#BBC8D4!important}
+
+/* Helpdesk semantic chips/statuses. */
+html[data-theme="dark"] .help-in_progress,
+html[data-theme="dark"] .help-attended,
+html[data-theme="dark"] .priority-high,
+html[data-theme="dark"] .out-today-badge,
+html[data-theme="dark"] .assignment-queue-badge{background:#4A3C15!important;color:#F7D76D!important;border-color:#6B581D!important}
+html[data-theme="dark"] .help-waiting_requester{background:#4A2E20!important;color:#FFB486!important;border-color:#6D432A!important}
+html[data-theme="dark"] .helpdesk-routing-summary{background:#2E2A18!important;border-color:#5B5127!important;color:#E8D98A!important}
+html[data-theme="dark"] .assignment-source-badge.overflow{background:#432B20!important;color:#FFB68B!important;border-color:#69422D!important}
+html[data-theme="dark"] .request-stepper i{background:#25323E!important;color:#B4C1CD!important;border-color:#3A4B5A!important}
+html[data-theme="dark"] .request-stepper .done i,
+html[data-theme="dark"] .request-stepper .current i{background:#183D2D!important;color:#91E6B5!important;border-color:#2E6A4D!important}
+html[data-theme="dark"] .requirement-pending{background:#3A311B!important;color:#F5D46D!important;border-color:#665723!important}
+html[data-theme="dark"] .requirement-rejected{background:#45262A!important;color:#FFAAA0!important;border-color:#69383E!important}
+
+/* Status, priority and role badges retain meaning without bright islands. */
+html[data-theme="dark"] .status-badge-backlog,
+html[data-theme="dark"] .priority-medium,
+html[data-theme="dark"] .product-badge,
+html[data-theme="dark"] .role-consulta,
+html[data-theme="dark"] .evidence-kind,
+html[data-theme="dark"] .vacation-status.cancelled,
+html[data-theme="dark"] .vacation-risk.none,
+html[data-theme="dark"] .knowledge-status.archived,
+html[data-theme="dark"] .knowledge-tags span,
+html[data-theme="dark"] .knowledge-filter-summary em,
+html[data-theme="dark"] .knowledge-category-chip,
+html[data-theme="dark"] .vacation-type-admin-meta span,
+html[data-theme="dark"] .neutral-notice{background:#263541!important;color:#C9D5DF!important;border-color:#3A4C5B!important}
+html[data-theme="dark"] .status-badge-in_progress,
+html[data-theme="dark"] .evidence-fix,
+html[data-theme="dark"] .role-superadmin,
+html[data-theme="dark"] .vacation-risk.medium,
+html[data-theme="dark"] .vacation-out-today{background:#4A3C15!important;color:#F7D76D!important;border-color:#6B581D!important}
+html[data-theme="dark"] .role-qa{background:#493124!important;color:#FFC19A!important;border-color:#6B4730!important}
+
+/* Knowledge authoring/reader contrast. */
+html[data-theme="dark"] .knowledge-card-main:hover{background:#1B2935!important}
+html[data-theme="dark"] .knowledge-status{background:#493B18!important;color:#F7D76D!important;border-color:#66551E!important}
+html[data-theme="dark"] .knowledge-heading-add{background:#151F29!important;border-color:#354655!important;color:#D8E2EA!important}
+html[data-theme="dark"] .knowledge-block-head button:hover:not(:disabled),
+html[data-theme="dark"] .knowledge-color-tool:hover,
+html[data-theme="dark"] .knowledge-category-main strong,
+html[data-theme="dark"] .knowledge-category-actions button:hover{background:#263541!important;color:#EAF0F5!important}
+html[data-theme="dark"] .knowledge-image-editor>img{background:#0D151D!important;border-color:#344554!important}
+html[data-theme="dark"] .knowledge-link-editor{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .knowledge-rich-rendered code{background:#0D151D!important;color:#D5E0EA!important}
+html[data-theme="dark"] .knowledge-callout.tone-warning{background:#3A311B!important;border-color:#6B5923!important;color:#F7DA79!important}
+html[data-theme="dark"] .knowledge-crash-state code,
+html[data-theme="dark"] .danger-card{background:#3B2225!important;border-color:#6B373D!important;color:#FFB4AC!important}
+html[data-theme="dark"] .knowledge-exit-warning{background:#3D3020!important;border-color:#6A522A!important;color:#F4D59B!important}
+html[data-theme="dark"] .knowledge-exit-action:hover,
+html[data-theme="dark"] .danger-text-button:hover,
+html[data-theme="dark"] .gantt-row-actions button.danger-text:hover{background:#452529!important;color:#FFAAA0!important}
+
+/* Vacations calendar, AI and timeline. */
+html[data-theme="dark"] .vacation-return-marker svg{background:#0E151D!important}
+html[data-theme="dark"] .vacation-ai-analysis.risk-high,
+html[data-theme="dark"] .vacation-ai-analysis.risk-critical{background:#392326!important;border-color:#6A373D!important;color:#FFB5AD!important}
+html[data-theme="dark"] .vacation-ai-analysis.risk-medium,
+html[data-theme="dark"] .vacation-ai-pending.optional{background:#372F1D!important;border-color:#625327!important;color:#F5D986!important}
+html[data-theme="dark"] .vacation-timeline-legend{box-shadow:none!important}
+html[data-theme="dark"] .vacation-request-block{box-shadow:none!important}
+
+/* Muted/support copy must remain readable on the dark surfaces. */
+html[data-theme="dark"] :where(.comment small,.activity-row small,.detail-description p,.section-heading p,.sprint-detail-hero p,.requester-ticket-list small,.role-guide small,.helpdesk-evidence-picker small,.knowledge-card-main small,.vacation-type-admin-card small,.report-kpi small,.product-report-card small){color:#A8B6C4!important}
+html[data-theme="dark"] .settings-status.off,
+html[data-theme="dark"] .role-pill{background:#263541!important;color:#CBD6DF!important;border-color:#3A4C5B!important}
+html[data-theme="dark"] .gantt-dependency-line em{background:#3A311B!important;color:#F4D76F!important;border-color:#665623!important}
+html[data-theme="dark"] .metric-card.orange .metric-icon{background:#4A2E20!important;color:#FFB486!important}
