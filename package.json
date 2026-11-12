@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.6.0",
-  "description": "Jira Interno TROBBU v17.6.0 - production drift repair, Vacation AI/balance stabilization and Knowledge version/RPC hardening",
+  "version": "17.8.0",
+  "description": "Jira Interno TROBBU v17.8.0 - proactive Knowledge Assistant title matching, actionable Helpdesk KPI filters and resilient Live Data",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.6.mjs"
+    "qa": "node qa-v17.8.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"

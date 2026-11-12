@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v17.5.4 · URL state, Vacation tabs, Knowledge relevance + workflow stabilization */
+/* Jira Interno TROBBU v17.8.0 · Knowledge Assistant title matching, Helpdesk KPI filters and resilient Live Data */
 const { useEffect, useMemo, useState, useRef } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -766,9 +766,19 @@ const statusLabel = value => STATUS.find(x=>x[0]===value)?.[1] || value
 const statusIcon = value => STATUS.find(x=>x[0]===value)?.[2] || 'lucide:circle'
 const helpStatusLabel = value => HELP_STATUS.find(x=>x[0]===value)?.[1] || value
 const helpStatusIcon = value => HELP_STATUS.find(x=>x[0]===value)?.[2] || 'lucide:circle'
+const helpdeskQuickMatches=(h,quick='all')=>{
+  const mode=quick||'all',proposal=isProposalCategory(h.category),done=['resolved','closed'].includes(h.status)
+  if(mode==='all')return true
+  if(mode==='open')return !proposal&&['created','review','attended'].includes(h.status)
+  if(mode==='pending_requirements')return proposal&&(h.proposal_status||'pending')==='pending'
+  if(mode==='overdue')return !proposal&&!!h.due_at&&!done&&new Date(h.due_at)<new Date()
+  if(mode==='closed')return !proposal&&done
+  return true
+}
 const helpdeskMatchesFilters=(h,filters={},includeStatus=true)=>{
   const f=filters||{}
-  return (!includeStatus||f.status==='all'||!f.status||h.status===f.status)
+  return helpdeskQuickMatches(h,f.quick||'all')
+    &&(!includeStatus||f.status==='all'||!f.status||h.status===f.status)
     &&((f.requestType||'all')==='all'||h.request_type_id===f.requestType)
     &&((f.department||'all')==='all'||h.department_id===f.department)
     &&((f.product||'all')==='all'||h.product_id===f.product)
@@ -1210,7 +1220,7 @@ function WorkspaceApp({session,locale,setLocale}){
   const [productId,setProductId]=useState('all')
   const [search,setSearch]=useState('')
   const [filters,setFilters]=useState({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})
-  const [helpFilters,setHelpFilters]=useState({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all'})
+  const [helpFilters,setHelpFilters]=useState({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all',quick:'all'})
   const [helpdeskAutoAssigning,setHelpdeskAutoAssigning]=useState(false)
   const [busy,setBusy]=useState(true)
   const [accessReady,setAccessReady]=useState(false)
@@ -1219,17 +1229,80 @@ function WorkspaceApp({session,locale,setLocale}){
   const [modal,setModal]=useState(null)
   const [drawer,setDrawer]=useState(null)
   const [toast,setToast]=useState(null)
+  const [liveStatus,setLiveStatus]=useState('connecting')
+  const [liveRevision,setLiveRevision]=useState({tickets:0,sprints:0,helpdesk:0,knowledge:0,vacations:0,staff:0,settings:0,notifications:0})
+  const workspaceRef=useRef(workspace)
+  const workspaceLoadSeqRef=useRef(0)
+  const liveLastSyncRef=useRef(0)
+  const liveRefreshTimerRef=useRef(null)
+  const liveDerivedTimerRef=useRef(null)
+  useEffect(()=>{workspaceRef.current=workspace},[workspace?.id])
 
   const showToast=(type,message)=>{setToast({type,message,id:Date.now()}); setTimeout(()=>setToast(null),3500)}
+  const bumpLiveRevision=domain=>setLiveRevision(prev=>({...prev,[domain]:(prev[domain]||0)+1}))
+  const liveSorters={
+    tickets:(a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')),
+    sprints:(a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')),
+    products:(a,b)=>Number(a.board_order||0)-Number(b.board_order||0)||String(a.name||'').localeCompare(String(b.name||'')),
+    helpdesk:(a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')),
+    notifications:(a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')),
+    modules:(a,b)=>String(a.name||'').localeCompare(String(b.name||'')),
+    tags:(a,b)=>String(a.name||'').localeCompare(String(b.name||'')),
+    knowledgeArticles:(a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||'')),
+    knowledgeVersions:(a,b)=>Number(b.version_number||0)-Number(a.version_number||0),
+    knowledgeEvents:(a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')),
+    knowledgeCategories:(a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name||'').localeCompare(String(b.name||'')),
+    vacationRequests:(a,b)=>String(a.start_date||'').localeCompare(String(b.start_date||'')),
+    departments:(a,b)=>String(a.name||'').localeCompare(String(b.name||'')),
+    requestTypes:(a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name||'').localeCompare(String(b.name||''))
+  }
+  const reconcileLiveArray=(setter,payload,sorter=null,keyOf=row=>row?.id)=>{
+    const event=payload?.eventType||payload?.type
+    const incoming=event==='DELETE'?(payload?.old||{}):(payload?.new||{})
+    const key=keyOf(incoming)
+    if(key===undefined||key===null)return
+    setter(prev=>{
+      const current=Array.isArray(prev)?prev:[]
+      if(event==='DELETE')return current.filter(row=>keyOf(row)!==key)
+      const index=current.findIndex(row=>keyOf(row)===key)
+      const next=index>=0?current.map((row,i)=>i===index?{...row,...incoming}:row):[incoming,...current]
+      return sorter?[...next].sort(sorter):next
+    })
+  }
   const runWithKnowledgeGuard=action=>{const guard=window.__jiraKnowledgeEditorGuard;if(guard?.isDirty?.()){guard.requestExit(action);return false}action();return true}
   const writeViewUrl=(next,{replace=false,keepTab=false}={})=>{try{const url=new URL(window.location.href);url.searchParams.set('view',next);if(!keepTab)url.searchParams.delete('tab');if(!['board','mytasks'].includes(next))url.searchParams.delete('mode');const method=replace?'replaceState':'pushState';window.history[method]({view:next},document.title,url.toString())}catch{}}
   const navigateView=next=>runWithKnowledgeGuard(()=>{writeViewUrl(next);setView(next)})
   useEffect(()=>{if(view!=='knowledge')setKnowledgeScreen(null)},[view])
-  useEffect(()=>{if(!workspace?.id)return;try{const url=new URL(window.location.href);if(url.searchParams.get('view')!==view){url.searchParams.set('view',view);window.history.replaceState({view},document.title,url.toString())}}catch{}},[view,workspace?.id])
+  useEffect(()=>{if(!workspace?.id)return;try{const url=new URL(window.location.href);let changed=false;if(url.searchParams.get('view')!==view){url.searchParams.set('view',view);changed=true}if(!['team','settings','vacations'].includes(view)&&url.searchParams.has('tab')){url.searchParams.delete('tab');changed=true}if(!['board','mytasks'].includes(view)&&url.searchParams.has('mode')){url.searchParams.delete('mode');changed=true}if(changed)window.history.replaceState({view},document.title,url.toString())}catch{}},[view,workspace?.id])
   useEffect(()=>{if(!workspace?.id||!['board','mytasks'].includes(view))return;try{const url=new URL(window.location.href);if(url.searchParams.get('mode')!==boardMode){url.searchParams.set('mode',boardMode);window.history.replaceState({view,mode:boardMode},document.title,url.toString())}}catch{}},[boardMode,view,workspace?.id])
-  useEffect(()=>{const onPop=()=>{try{const url=new URL(window.location.href),next=url.searchParams.get('view')||'board',mode=url.searchParams.get('mode');runWithKnowledgeGuard(()=>{setView(next);if(['table','kanban','calendar','gantt'].includes(mode||''))setBoardMode(mode)})}catch{}};window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop)},[])
+  useEffect(()=>{const onPop=()=>{try{const url=new URL(window.location.href),next=url.searchParams.get('view')||'board',mode=url.searchParams.get('mode');runWithKnowledgeGuard(()=>{setView(next);setBoardMode(['table','kanban','calendar','gantt'].includes(mode||'')?mode:'table')})}catch{}};window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop)},[])
   useEffect(()=>{const id=new URL(window.location.href).searchParams.get('knowledge');if(!id||!knowledgeArticles.length)return;const article=knowledgeArticles.find(a=>a.id===id);if(article){setView('knowledge');setKnowledgeScreen({mode:'read',article})}},[knowledgeArticles.length,workspace?.id])
   useEffect(()=>{const url=new URL(window.location.href);const ticketId=url.searchParams.get('ticket'),helpId=url.searchParams.get('helpdesk'),sprintId=url.searchParams.get('sprint');let handled=false;if(ticketId&&tickets.length){const t=tickets.find(x=>x.id===ticketId);if(t){setModal({type:'ticket-detail',ticket:t});url.searchParams.delete('ticket');handled=true}}else if(helpId&&helpdesk.length){const h=helpdesk.find(x=>x.id===helpId);if(h){setView('helpdesk');setModal({type:'help-detail',item:h});url.searchParams.delete('helpdesk');handled=true}}else if(sprintId&&sprints.length){const sp=sprints.find(x=>x.id===sprintId);if(sp){setModal({type:'sprint-detail',sprint:sp});url.searchParams.delete('sprint');handled=true}}if(handled)window.history.replaceState({},document.title,url.toString())},[tickets.length,helpdesk.length,sprints.length,workspace?.id])
+
+  useEffect(()=>{
+    setModal(current=>{
+      if(!current)return current
+      if(current.ticket?.id){
+        const fresh=tickets.find(row=>row.id===current.ticket.id)
+        if(fresh&&fresh!==current.ticket)return {...current,ticket:fresh}
+      }
+      if(current.item?.id){
+        const fresh=helpdesk.find(row=>row.id===current.item.id)
+        if(fresh&&fresh!==current.item)return {...current,item:fresh}
+      }
+      if(current.sprint?.id){
+        const fresh=sprints.find(row=>row.id===current.sprint.id)
+        if(fresh&&fresh!==current.sprint)return {...current,sprint:fresh}
+      }
+      return current
+    })
+  },[tickets,helpdesk,sprints])
+  useEffect(()=>{
+    if(!knowledgeScreen?.article?.id||knowledgeScreen.mode==='edit')return
+    const fresh=knowledgeArticles.find(row=>row.id===knowledgeScreen.article.id)
+    const freshVersion=knowledgeScreen.mode==='preview'&&knowledgeScreen.version?.id?knowledgeVersions.find(row=>row.id===knowledgeScreen.version.id):null
+    if((fresh&&fresh!==knowledgeScreen.article)||(freshVersion&&freshVersion!==knowledgeScreen.version))setKnowledgeScreen(current=>current?{...current,...(fresh?{article:fresh}:{}),...(freshVersion?{version:freshVersion}:{})}:current)
+  },[knowledgeArticles,knowledgeVersions,knowledgeScreen?.article?.id,knowledgeScreen?.version?.id,knowledgeScreen?.mode])
 
   const loadMemberships=async(preferredId=null)=>{
     const {data,error}=await db.from('workspace_members').select('workspace_id,role,role_id,active,permissions,all_products,workspaces(id,name,slug,created_by)').eq('user_id',session.user.id).eq('active',true)
@@ -1242,38 +1315,41 @@ function WorkspaceApp({session,locale,setLocale}){
   }
 
   const loadWorkspaceData=async(silent=false)=>{
-    if(!workspace){if(!silent)setBusy(false);return}
+    const workspaceId=workspace?.id
+    if(!workspaceId){if(!silent)setBusy(false);return}
+    const loadSeq=++workspaceLoadSeqRef.current
     if(!silent)setBusy(true)
     const [p,s,t,m,mp,wr,ws,d,rt,h,n,q,mods,tagsQ,tagLinks,links,fields,fieldProducts,values,ka,kv,ke,kc,vr,hp,ms,nc]=await Promise.all([
-      db.rpc('list_authorized_products',{p_workspace:workspace.id}),
-      db.from('sprints').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
-      db.from('tickets').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
-      db.from('workspace_members').select('user_id,role,role_id,active,joined_at,permissions,all_products,helpdesk_routing_description,helpdesk_auto_assign_enabled,helpdesk_daily_limit,helpdesk_active_limit,helpdesk_overflow_mode,helpdesk_overflow_user_id').eq('workspace_id',workspace.id).order('joined_at'),
-      db.from('workspace_member_products').select('user_id,product_id').eq('workspace_id',workspace.id),
-      db.from('workspace_roles').select('*').eq('workspace_id',workspace.id).order('created_at'),
-      db.from('workspace_settings').select('*').eq('workspace_id',workspace.id).maybeSingle(),
-      db.from('helpdesk_departments').select('*').eq('workspace_id',workspace.id).order('name'),
-      db.from('helpdesk_request_types').select('*').eq('workspace_id',workspace.id).order('sort_order').order('name'),
-      db.from('helpdesk_tickets').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
-      db.from('notifications').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
-      db.from('notification_outbox').select('id,event_type,status,attempts,last_error,created_at,sent_at,recipient_user_id').eq('workspace_id',workspace.id).order('created_at',{ascending:false}).limit(100),
-      db.from('ticket_modules').select('*').eq('workspace_id',workspace.id).order('name'),
-      db.from('ticket_tags').select('*').eq('workspace_id',workspace.id).order('name'),
-      db.from('ticket_tag_links').select('*').eq('workspace_id',workspace.id),
-      db.from('ticket_links').select('*').eq('workspace_id',workspace.id).order('created_at'),
-      db.from('custom_ticket_fields').select('*').eq('workspace_id',workspace.id).order('sort_order').order('name'),
-      db.from('custom_ticket_field_products').select('*').eq('workspace_id',workspace.id),
-      db.from('ticket_custom_field_values').select('*').eq('workspace_id',workspace.id),
-      db.from('knowledge_articles').select('*').eq('workspace_id',workspace.id).order('updated_at',{ascending:false}),
-      db.from('knowledge_article_versions').select('*').eq('workspace_id',workspace.id).order('version_number',{ascending:false}),
-      db.from('knowledge_version_events').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}),
-      db.from('knowledge_categories').select('*').eq('workspace_id',workspace.id).eq('active',true).order('sort_order').order('name'),
-      db.from('vacation_requests').select('*').eq('workspace_id',workspace.id).order('start_date',{ascending:true}),
-      db.rpc('list_helpdesk_products',{p_workspace:workspace.id}),
-      db.rpc('list_module_counts',{p_workspace:workspace.id}),
-      db.rpc('get_navigation_counts',{p_workspace:workspace.id})
+      db.rpc('list_authorized_products',{p_workspace:workspaceId}),
+      db.from('sprints').select('*').eq('workspace_id',workspaceId).order('created_at',{ascending:false}),
+      db.from('tickets').select('*').eq('workspace_id',workspaceId).order('updated_at',{ascending:false}),
+      db.from('workspace_members').select('user_id,role,role_id,active,joined_at,permissions,all_products,helpdesk_routing_description,helpdesk_auto_assign_enabled,helpdesk_daily_limit,helpdesk_active_limit,helpdesk_overflow_mode,helpdesk_overflow_user_id').eq('workspace_id',workspaceId).order('joined_at'),
+      db.from('workspace_member_products').select('user_id,product_id').eq('workspace_id',workspaceId),
+      db.from('workspace_roles').select('*').eq('workspace_id',workspaceId).order('created_at'),
+      db.from('workspace_settings').select('*').eq('workspace_id',workspaceId).maybeSingle(),
+      db.from('helpdesk_departments').select('*').eq('workspace_id',workspaceId).order('name'),
+      db.from('helpdesk_request_types').select('*').eq('workspace_id',workspaceId).order('sort_order').order('name'),
+      db.from('helpdesk_tickets').select('*').eq('workspace_id',workspaceId).order('updated_at',{ascending:false}),
+      db.from('notifications').select('*').eq('workspace_id',workspaceId).order('created_at',{ascending:false}),
+      db.from('notification_outbox').select('id,event_type,status,attempts,last_error,created_at,sent_at,recipient_user_id').eq('workspace_id',workspaceId).order('created_at',{ascending:false}).limit(100),
+      db.from('ticket_modules').select('*').eq('workspace_id',workspaceId).order('name'),
+      db.from('ticket_tags').select('*').eq('workspace_id',workspaceId).order('name'),
+      db.from('ticket_tag_links').select('*').eq('workspace_id',workspaceId),
+      db.from('ticket_links').select('*').eq('workspace_id',workspaceId).order('created_at'),
+      db.from('custom_ticket_fields').select('*').eq('workspace_id',workspaceId).order('sort_order').order('name'),
+      db.from('custom_ticket_field_products').select('*').eq('workspace_id',workspaceId),
+      db.from('ticket_custom_field_values').select('*').eq('workspace_id',workspaceId),
+      db.from('knowledge_articles').select('*').eq('workspace_id',workspaceId).order('updated_at',{ascending:false}),
+      db.from('knowledge_article_versions').select('*').eq('workspace_id',workspaceId).order('version_number',{ascending:false}),
+      db.from('knowledge_version_events').select('*').eq('workspace_id',workspaceId).order('created_at',{ascending:false}),
+      db.from('knowledge_categories').select('*').eq('workspace_id',workspaceId).eq('active',true).order('sort_order').order('name'),
+      db.from('vacation_requests').select('*').eq('workspace_id',workspaceId).order('start_date',{ascending:true}),
+      db.rpc('list_helpdesk_products',{p_workspace:workspaceId}),
+      db.rpc('list_module_counts',{p_workspace:workspaceId}),
+      db.rpc('get_navigation_counts',{p_workspace:workspaceId})
     ])
 
+    if(loadSeq!==workspaceLoadSeqRef.current||workspaceRef.current?.id!==workspaceId){if(!silent)setBusy(false);return}
     const permissionError=wr.error||ws.error
     if(permissionError){
       if(silent){console.warn('No se pudo revalidar el acceso del workspace:',permissionError.message);return}
@@ -1291,6 +1367,7 @@ function WorkspaceApp({session,locale,setLocale}){
       const pr=await db.from('profiles').select('*').in('id',ids)
       if(!pr.error)(pr.data||[]).forEach(x=>profileMap[x.id]=x)
     }
+    if(loadSeq!==workspaceLoadSeqRef.current||workspaceRef.current?.id!==workspaceId){if(!silent)setBusy(false);return}
     const roles=initial(wr)
     apply(p,setProducts,[]);apply(s,setSprints,[]);apply(t,setTickets,[]);setRoleTemplates(roles);setSettings(row(ws))
     apply(d,setDepartments,[]);apply(rt,setRequestTypes,[]);apply(h,setHelpdesk,[]);apply(hp,setHelpdeskProducts,[]);apply(n,setNotifications,[]);apply(q,setEmailQueue,[]);apply(mp,setMemberProductAccess,[])
@@ -1357,35 +1434,128 @@ function WorkspaceApp({session,locale,setLocale}){
     setProductId('all')
     setSearch('')
     setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})
-    setHelpFilters({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all'})
+    setHelpFilters({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all',quick:'all'})
     setDrawer(null)
     setModal(null)
   },[workspace?.id])
   useEffect(()=>{
-    if(!workspace?.id) return
-    let active=true
-    const poll=async()=>{
-      const {data}=await db.from('notifications').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false})
-      if(active && data) setNotifications(data)
-    }
-    const timer=setInterval(poll,15000)
-    const onFocus=()=>poll()
-    window.addEventListener('focus',onFocus)
-    return ()=>{active=false;clearInterval(timer);window.removeEventListener('focus',onFocus)}
-  },[workspace?.id])
-  useEffect(()=>{
     if(!workspace?.id)return
-    let timer=null
-    const queueRefresh=()=>{clearTimeout(timer);timer=setTimeout(()=>loadWorkspaceData(true),220)}
-    const scopedTables=['tickets','sprints','products','ticket_modules','ticket_tags','ticket_tag_links','ticket_links','ticket_attachments','sprint_attachments','workspace_members','workspace_member_products','workspace_roles','helpdesk_tickets','helpdesk_attachments','notifications','notification_outbox','knowledge_articles','knowledge_media','knowledge_article_versions','knowledge_version_events','knowledge_version_translations','knowledge_categories','vacation_requests','vacation_types','vacation_balances','custom_ticket_fields','custom_ticket_field_products','ticket_custom_field_values']
-    const relatedTables=['profiles','ticket_comments','ticket_activity','sprint_comments','helpdesk_comments']
-    let channel=db.channel(`workspace-live-${workspace.id}`),realtimeHealthy=false,realtimeWarned=false
-    scopedTables.forEach(table=>{channel=channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`workspace_id=eq.${workspace.id}`},queueRefresh)})
-    relatedTables.forEach(table=>{channel=channel.on('postgres_changes',{event:'*',schema:'public',table},queueRefresh)})
-    channel=channel.subscribe(status=>{if(status==='SUBSCRIBED'){realtimeHealthy=true;realtimeWarned=false;return}if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){realtimeHealthy=false;if(!realtimeWarned){realtimeWarned=true;showToast('error','La sincronización en tiempo real perdió conexión; se activó el refresco de respaldo.')}}})
-    const fallback=setInterval(()=>{if(!realtimeHealthy)queueRefresh()},15000)
-    return ()=>{clearTimeout(timer);clearInterval(fallback);db.removeChannel(channel)}
-  },[workspace?.id])
+    const workspaceId=workspace.id
+    setLiveStatus('connecting')
+    liveLastSyncRef.current=Date.now()
+    let realtimeHealthy=false,realtimeWarned=false,disposed=false,subscribedOnce=false
+    const scheduleRevalidate=(delay=320)=>{
+      clearTimeout(liveRefreshTimerRef.current)
+      liveRefreshTimerRef.current=setTimeout(async()=>{
+        if(disposed||workspaceRef.current?.id!==workspaceId)return
+        await loadWorkspaceData(true)
+        liveLastSyncRef.current=Date.now()
+      },delay)
+    }
+    const scheduleDerived=(delay=180)=>{
+      clearTimeout(liveDerivedTimerRef.current)
+      liveDerivedTimerRef.current=setTimeout(async()=>{
+        if(disposed||workspaceRef.current?.id!==workspaceId)return
+        const [moduleCounts,navigationCounts]=await Promise.all([
+          db.rpc('list_module_counts',{p_workspace:workspaceId}),
+          db.rpc('get_navigation_counts',{p_workspace:workspaceId})
+        ])
+        if(disposed||workspaceRef.current?.id!==workspaceId)return
+        if(!moduleCounts.error)setModuleStats(moduleCounts.data||[])
+        if(!navigationCounts.error)setNavCounts(navigationCounts.data||null)
+      },delay)
+    }
+    const fullRevalidateTables=new Set(['workspace_members','workspace_member_products','workspace_roles','profiles','products','workspaces'])
+    const patch=(table,payload)=>{
+      if(disposed||workspaceRef.current?.id!==workspaceId)return
+      liveLastSyncRef.current=Date.now()
+      if(table==='tickets'){reconcileLiveArray(setTickets,payload,liveSorters.tickets);bumpLiveRevision('tickets')}
+      else if(table==='sprints'){reconcileLiveArray(setSprints,payload,liveSorters.sprints);bumpLiveRevision('sprints')}
+      else if(table==='products')reconcileLiveArray(setProducts,payload,liveSorters.products)
+      else if(table==='ticket_modules')reconcileLiveArray(setModules,payload,liveSorters.modules)
+      else if(table==='ticket_tags')reconcileLiveArray(setTags,payload,liveSorters.tags)
+      else if(table==='ticket_tag_links')reconcileLiveArray(setTicketTagLinks,payload,null,row=>`${row?.ticket_id||''}:${row?.tag_id||''}`)
+      else if(table==='ticket_links')reconcileLiveArray(setTicketLinks,payload)
+      else if(table==='custom_ticket_fields')reconcileLiveArray(setCustomFields,payload,(a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name||'').localeCompare(String(b.name||'')))
+      else if(table==='custom_ticket_field_products')reconcileLiveArray(setCustomFieldProducts,payload,null,row=>`${row?.field_id||''}:${row?.product_id||''}`)
+      else if(table==='ticket_custom_field_values')reconcileLiveArray(setCustomValues,payload,null,row=>`${row?.ticket_id||''}:${row?.field_id||''}`)
+      else if(table==='workspace_roles'){reconcileLiveArray(setRoleTemplates,payload,(a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||'')));bumpLiveRevision('staff')}
+      else if(table==='helpdesk_tickets'){reconcileLiveArray(setHelpdesk,payload,liveSorters.helpdesk);bumpLiveRevision('helpdesk')}
+      else if(table==='notifications'){reconcileLiveArray(setNotifications,payload,liveSorters.notifications);bumpLiveRevision('notifications')}
+      else if(table==='notification_outbox')reconcileLiveArray(setEmailQueue,payload,liveSorters.notifications)
+      else if(table==='knowledge_articles'){reconcileLiveArray(setKnowledgeArticles,payload,liveSorters.knowledgeArticles);bumpLiveRevision('knowledge')}
+      else if(table==='knowledge_article_versions'){reconcileLiveArray(setKnowledgeVersions,payload,liveSorters.knowledgeVersions);bumpLiveRevision('knowledge')}
+      else if(table==='knowledge_version_events'){reconcileLiveArray(setKnowledgeVersionEvents,payload,liveSorters.knowledgeEvents);bumpLiveRevision('knowledge')}
+      else if(table==='knowledge_categories'){reconcileLiveArray(setKnowledgeCategories,payload,liveSorters.knowledgeCategories);bumpLiveRevision('knowledge')}
+      else if(table==='vacation_requests'){reconcileLiveArray(setVacationRequests,payload,liveSorters.vacationRequests);bumpLiveRevision('vacations')}
+      else if(table==='workspace_settings'){
+        const event=payload?.eventType||payload?.type
+        if(event!=='DELETE'&&payload?.new)setSettings(prev=>({...prev,...payload.new}))
+        bumpLiveRevision('settings')
+      }
+      else if(table==='helpdesk_departments'){reconcileLiveArray(setDepartments,payload,liveSorters.departments);bumpLiveRevision('settings')}
+      else if(table==='helpdesk_request_types'){reconcileLiveArray(setRequestTypes,payload,liveSorters.requestTypes);bumpLiveRevision('settings')}
+      else if(table==='workspaces'){
+        const event=payload?.eventType||payload?.type
+        if(event!=='DELETE'&&payload?.new?.id===workspaceId)setWorkspace(prev=>prev?{...prev,...payload.new}:payload.new)
+        bumpLiveRevision('settings')
+      }
+      else if(['ticket_comments','ticket_activity','ticket_attachments'].includes(table))bumpLiveRevision('tickets')
+      else if(['sprint_comments','sprint_attachments'].includes(table))bumpLiveRevision('sprints')
+      else if(['helpdesk_comments','helpdesk_activity','helpdesk_attachments','helpdesk_assignment_queue','helpdesk_assignment_log'].includes(table))bumpLiveRevision('helpdesk')
+      else if(['knowledge_media','knowledge_version_translations'].includes(table))bumpLiveRevision('knowledge')
+      else if(['vacation_types','vacation_balances'].includes(table))bumpLiveRevision('vacations')
+      else if(['workspace_members','workspace_member_products','profiles'].includes(table))bumpLiveRevision('staff')
+      if(table==='workspace_members'){
+        const changedUser=payload?.new?.user_id||payload?.old?.user_id
+        if(changedUser===session.user.id)loadMemberships(workspaceId)
+      }
+      scheduleDerived()
+      const eventType=payload?.eventType||payload?.type
+      if(eventType==='DELETE')scheduleRevalidate(120)
+      else if(fullRevalidateTables.has(table))scheduleRevalidate(260)
+    }
+
+    const scopedTables=['tickets','sprints','products','ticket_modules','ticket_tags','ticket_tag_links','ticket_links','ticket_attachments','sprint_attachments','workspace_members','workspace_member_products','workspace_roles','workspace_settings','helpdesk_departments','helpdesk_request_types','helpdesk_tickets','helpdesk_attachments','helpdesk_assignment_queue','helpdesk_assignment_log','notifications','notification_outbox','knowledge_articles','knowledge_media','knowledge_article_versions','knowledge_version_events','knowledge_version_translations','knowledge_categories','vacation_requests','vacation_types','vacation_balances','custom_ticket_fields','custom_ticket_field_products','ticket_custom_field_values']
+    const relatedTables=['profiles','ticket_comments','ticket_activity','sprint_comments','helpdesk_comments','helpdesk_activity']
+    let channel=db.channel(`workspace-live-v2-${workspaceId}`)
+    scopedTables.forEach(table=>{channel=channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`workspace_id=eq.${workspaceId}`},payload=>patch(table,payload))})
+    relatedTables.forEach(table=>{channel=channel.on('postgres_changes',{event:'*',schema:'public',table},payload=>patch(table,payload))})
+    channel=channel.on('postgres_changes',{event:'*',schema:'public',table:'workspaces',filter:`id=eq.${workspaceId}`},payload=>patch('workspaces',payload))
+    channel=channel.subscribe(status=>{
+      if(disposed)return
+      if(status==='SUBSCRIBED'){
+        const recovering=subscribedOnce
+        subscribedOnce=true
+        realtimeHealthy=true;realtimeWarned=false;setLiveStatus('live')
+        scheduleRevalidate(recovering?40:80)
+        return
+      }
+      if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){
+        realtimeHealthy=false;setLiveStatus('degraded')
+        if(!realtimeWarned){realtimeWarned=true;showToast('error','La sincronización Live perdió conexión; se activó la recuperación automática.')}
+      }
+    })
+    const fallback=setInterval(()=>{if(!realtimeHealthy&&document.visibilityState==='visible')scheduleRevalidate(0)},15000)
+    const resume=()=>{
+      if(document.visibilityState&&document.visibilityState!=='visible')return
+      const stale=Date.now()-liveLastSyncRef.current>5000
+      if(stale)scheduleRevalidate(0)
+    }
+    window.addEventListener('focus',resume)
+    window.addEventListener('online',resume)
+    document.addEventListener('visibilitychange',resume)
+    return ()=>{
+      disposed=true
+      clearTimeout(liveRefreshTimerRef.current)
+      clearTimeout(liveDerivedTimerRef.current)
+      clearInterval(fallback)
+      window.removeEventListener('focus',resume)
+      window.removeEventListener('online',resume)
+      document.removeEventListener('visibilitychange',resume)
+      db.removeChannel(channel)
+    }
+  },[workspace?.id,session.user.id])
   useEffect(()=>{
     if(!workspace?.id) return
     let cancelled=false
@@ -1732,17 +1902,17 @@ function WorkspaceApp({session,locale,setLocale}){
   if(workspace&&!accessReady) return <AccessValidationShell session={session} locale={locale} setLocale={setLocale} error={workspaceLoadError} onRetry={()=>{setWorkspaceLoadError('');setBusy(true);loadWorkspaceData()}}/>
 
   return <div className="app-shell">
-    <Topbar session={session} locale={locale} setLocale={setLocale} unread={unread} search={search} setSearch={setSearch} canSearch={canViewTickets} portalOnly={helpdeskOnly} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} outToday={outTodayPeople}/>
+    <Topbar session={session} locale={locale} setLocale={setLocale} liveStatus={liveStatus} unread={unread} search={search} setSearch={setSearch} canSearch={canViewTickets} portalOnly={helpdeskOnly} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} outToday={outTodayPeople}/>
     <Sidebar workspace={workspace} workspaces={workspaces} products={products} navCounts={navCounts} productId={productId} setProductId={setProductId} view={view} setView={navigateView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations} outTodayCount={outTodayPeople.length} onWorkspace={()=>runWithKnowledgeGuard(()=>setModal({type:'workspace-switch'}))}/>
     <MobileNav view={view} setView={navigateView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations}/>
     <main className="main-area">
       {busy ? <LoadingPanel/> : (knowledgeScreen&&canViewKnowledge) ? (
         <KnowledgeModuleErrorBoundary key={`knowledge-screen:${knowledgeScreen.mode}:${knowledgeScreen.article?.id||'new'}:${knowledgeScreen.version?.id||'new'}`} onReset={()=>setKnowledgeScreen(null)}>
           {knowledgeScreen.mode==='read'
-            ? <KnowledgeArticlePage article={knowledgeScreen.article} versions={knowledgeVersions.filter(v=>v.article_id===knowledgeScreen.article.id)} events={knowledgeVersionEvents.filter(e=>e.article_id===knowledgeScreen.article.id)} products={products} modules={modules} categories={knowledgeCategories} members={members} settings={settings} locale={locale} canManage={canEditKnowledge} onBack={()=>setKnowledgeScreen(null)} onEdit={()=>openKnowledgeEdit(knowledgeScreen.article)} onCreateVersion={()=>setModal({type:'knowledge-new-version',article:knowledgeScreen.article})} onPublishVersion={version=>publishKnowledgeVersion(knowledgeScreen.article,version)}/>
+            ? <KnowledgeArticlePage liveRevision={liveRevision.knowledge} article={knowledgeScreen.article} versions={knowledgeVersions.filter(v=>v.article_id===knowledgeScreen.article.id)} events={knowledgeVersionEvents.filter(e=>e.article_id===knowledgeScreen.article.id)} products={products} modules={modules} categories={knowledgeCategories} members={members} settings={settings} locale={locale} canManage={canEditKnowledge} onBack={()=>setKnowledgeScreen(null)} onEdit={()=>openKnowledgeEdit(knowledgeScreen.article)} onCreateVersion={()=>setModal({type:'knowledge-new-version',article:knowledgeScreen.article})} onPublishVersion={version=>publishKnowledgeVersion(knowledgeScreen.article,version)}/>
             : knowledgeScreen.mode==='preview'
-              ? <KnowledgeListPreviewPage article={knowledgeScreen.article} version={knowledgeScreen.version} products={helpdeskProducts.length?helpdeskProducts:products} modules={modules} categories={knowledgeCategories} settings={settings} locale={locale} onBack={()=>setKnowledgeScreen(null)}/>
-            : <KnowledgeArticleEditorPage key={`${knowledgeScreen.article?.id||'new'}:${knowledgeScreen.version?.id||'new'}`} article={knowledgeScreen.article||null} version={knowledgeScreen.version||null} workspace={workspace} products={products} modules={modules} categories={knowledgeCategories} initialCategoryId={knowledgeScreen.categoryId||null} settings={settings} session={session} locale={locale} canPublish={canEditKnowledge} onBack={()=>setKnowledgeScreen(null)} onSave={payload=>saveKnowledgeArticle(payload,knowledgeScreen.article||null,knowledgeScreen.version||null)}/>}
+              ? <KnowledgeListPreviewPage liveRevision={liveRevision.knowledge} article={knowledgeScreen.article} version={knowledgeScreen.version} products={helpdeskProducts.length?helpdeskProducts:products} modules={modules} categories={knowledgeCategories} settings={settings} locale={locale} onBack={()=>setKnowledgeScreen(null)}/>
+            : <KnowledgeArticleEditorPage liveRevision={liveRevision.knowledge} key={`${knowledgeScreen.article?.id||'new'}:${knowledgeScreen.version?.id||'new'}`} article={knowledgeScreen.article||null} version={knowledgeScreen.version||null} workspace={workspace} products={products} modules={modules} categories={knowledgeCategories} initialCategoryId={knowledgeScreen.categoryId||null} settings={settings} session={session} locale={locale} canPublish={canEditKnowledge} onBack={()=>setKnowledgeScreen(null)} onSave={payload=>saveKnowledgeArticle(payload,knowledgeScreen.article||null,knowledgeScreen.version||null)}/>}
         </KnowledgeModuleErrorBoundary>
       ) : <>
         {view==='overview' && canViewDashboard && <Overview workspace={workspace} tickets={tickets} helpdesk={helpdesk} products={products} sprints={sprints}/>}
@@ -1751,26 +1921,26 @@ function WorkspaceApp({session,locale,setLocale}){
         {view==='backlog' && canViewDashboard && <BacklogView workspace={workspace} tickets={tickets} products={products} sprints={sprints} members={members} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} canPlan={canPlan} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onPlan={ticket=>setModal({type:'ticket-plan',ticket})} onBulkMove={bulkMoveTickets} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onCloseSprint={sprint=>setModal({type:'sprint-rollover',sprint})} onCreateSprint={()=>setModal({type:'sprint-create'})} onImport={()=>setModal({type:'backlog-import'})}/>}
         {view==='mytasks' && <TicketWorkspace workspace={workspace} title="Mis tareas" subtitle="Tickets que reportaste o que tienes asignados." tickets={myTickets} allTickets={myTickets} products={products} members={members} sprints={sprints} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} boardMode={boardMode} setBoardMode={setBoardMode} filters={filters} onFilter={()=>setModal({type:'ticket-filters'})} onClearFilters={()=>setFilters({status:'all',assignee:'all',sprint:'all',priority:'all',type:'all',module:'all',tag:'all'})} canWork={canWork} canPlan={canPlan} canDelete={canDeleteTicket} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onActions={ticket=>setModal({type:'ticket-actions',ticket})} onOpen={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={ticket=>setModal({type:'ticket-edit',ticket})} onDelete={ticket=>setModal({type:'ticket-delete',ticket})} onBacklog={ticket=>planTicket(ticket,null)} onSprint={sprint=>setModal({type:'sprint-detail',sprint})} onMove={moveTicket} onQuickAssign={quickAssignTicket} currentUserId={session.user.id}/>}
         {view==='helpdesk' && helpdeskEnabled && (helpdeskStaff
-          ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} requestTypes={requestTypes} products={helpdeskProducts} members={members} currentUserId={session.user.id} canPlan={canPlan} canAssign={canManageHelpdesk} autoAssigning={helpdeskAutoAssigning} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onStatusChange={status=>setHelpFilters(f=>({...f,status}))} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})} onDecision={item=>setModal({type:'help-requirement-decision',item})} onAssign={item=>setModal({type:'help-assign',item})} onAutoAssign={autoAssignExistingHelpdesk}/>
+          ? <HelpdeskView items={filteredHelpdesk} allItems={helpdesk} departments={departments} requestTypes={requestTypes} products={helpdeskProducts} members={members} currentUserId={session.user.id} canPlan={canPlan} canAssign={canManageHelpdesk} autoAssigning={helpdeskAutoAssigning} filters={helpFilters} onFilter={()=>setModal({type:'help-filters'})} onStatusChange={status=>setHelpFilters(f=>({...f,status,quick:'all'}))} onQuickFilter={quick=>setHelpFilters({status:'all',requestType:'all',department:'all',product:'all',assignee:'all',priority:'all',quick})} onCreate={()=>setModal({type:'help-create'})} onActions={item=>setModal({type:'help-actions',item})} onOpen={item=>setModal({type:'help-detail',item})} onDecision={item=>setModal({type:'help-requirement-decision',item})} onAssign={item=>setModal({type:'help-assign',item})} onAutoAssign={autoAssignExistingHelpdesk}/>
           : <HelpdeskPortal items={helpdesk} departments={departments} requestTypes={requestTypes} products={helpdeskProducts} onCreate={()=>setModal({type:'help-create'})} onOpen={item=>setModal({type:'help-detail',item})}/>)}
         {view==='reports' && canViewDashboard && <ReportsView workspace={workspace} products={products} modules={modules} tickets={tickets} sprints={sprints} toast={showToast}/>}
         {view==='knowledge' && canViewKnowledge && <KnowledgeModuleErrorBoundary onReset={()=>setKnowledgeScreen(null)}><KnowledgeView workspace={workspace} articles={knowledgeArticles} versions={knowledgeVersions} locale={locale} products={products} modules={modules} categories={knowledgeCategories} canCreate={canCreateKnowledge} canEdit={canEditKnowledge} canDelete={canDeleteKnowledge} currentUserId={session.user.id} onCreate={categoryId=>setKnowledgeScreen({mode:'create',article:null,version:null,categoryId})} onEdit={openKnowledgeEdit} onOpen={article=>setKnowledgeScreen({mode:'read',article})} onPreview={(article,version)=>setKnowledgeScreen({mode:'preview',article,version})} onDelete={article=>setModal({type:'knowledge-delete',article})} onCategoryCreate={()=>setModal({type:'knowledge-category-create'})} onCategoryEdit={category=>setModal({type:'knowledge-category-edit',category})} onCategoryDelete={category=>setModal({type:'knowledge-category-delete',category})}/></KnowledgeModuleErrorBoundary>}
-        {view==='vacations' && canViewVacations && <VacationsView workspace={workspace} requests={vacationRequests} members={members} tickets={tickets} sprints={sprints} session={session} settings={settings} canRequest={canRequestVacations} canViewProjection={canViewVacationProjection} canManage={canManageVacations} onRefresh={refresh} toast={showToast}/>}
+        {view==='vacations' && canViewVacations && <VacationsView liveRevision={liveRevision.vacations} workspace={workspace} requests={vacationRequests} members={members} tickets={tickets} sprints={sprints} session={session} settings={settings} canRequest={canRequestVacations} canViewProjection={canViewVacationProjection} canManage={canManageVacations} onRefresh={refresh} toast={showToast}/>}
         {view==='catalogs' && canManageTicketFields && <TicketCatalogsView workspace={workspace} modules={modules} moduleStats={moduleStats} tags={tags} customFields={customFields} tickets={tickets} ticketTagLinks={ticketTagLinks} canManage={canManageTicketFields} onModuleCreate={()=>setModal({type:'module-create'})} onModuleEdit={module=>setModal({type:'module-edit',module})} onModuleDelete={module=>setModal({type:'module-delete',module})} onTagCreate={()=>setModal({type:'tag-create'})} onTagEdit={tag=>setModal({type:'tag-edit',tag})} onTagDelete={tag=>setModal({type:'tag-delete',tag})} onFieldCreate={()=>setModal({type:'field-create'})} onFieldEdit={field=>setModal({type:'field-edit',field})} onFieldDelete={field=>setModal({type:'field-delete',field})}/>}
         {view==='team' && canManageStaff && <StaffRolesView workspace={workspace} members={members} products={products} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} canManage={canManageStaff} isSuperadmin={isSuperadmin} session={session} onInvite={()=>setModal({type:'invite'})} onMember={member=>setModal({type:'member-edit',member})} onRoleCreate={()=>setModal({type:'role-create'})} onRoleEdit={role=>setModal({type:'role-edit',role})} onRoleDelete={role=>setModal({type:'role-delete',role})}/>}
         {view==='settings' && (canManageSettings||canManageProducts) && <SettingsView workspace={workspace} settings={settings} products={products} sprints={sprints} departments={departments} requestTypes={requestTypes} emailQueue={emailQueue} emailProviderStatus={emailProviderStatus} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canPlan={canPlan} canDeleteWorkspace={isSuperadmin} onWorkspaceEdit={()=>setModal({type:'workspace-edit'})} onWorkspaceConfig={()=>setModal({type:'workspace-config'})} onWorkspaceDelete={()=>setModal({type:'workspace-delete'})} onSettingsSaved={refresh} onProductCreate={()=>setModal({type:'product-create'})} onProductEdit={product=>setModal({type:'product-edit',product})} onProductDelete={product=>setModal({type:'product-delete',product})} onSprintCreate={()=>setModal({type:'sprint-create'})} onSprintEdit={sprint=>setModal({type:'sprint-edit',sprint})} onSprintDelete={sprint=>setModal({type:'sprint-delete',sprint})} onDepartmentCreate={()=>setModal({type:'department-create'})} onDepartmentEdit={department=>setModal({type:'department-edit',department})} onDepartmentDelete={department=>setModal({type:'department-delete',department})} onRequestTypeCreate={()=>setModal({type:'request-type-create'})} onRequestTypeEdit={requestType=>setModal({type:'request-type-edit',requestType})} onRequestTypeDelete={requestType=>setModal({type:'request-type-delete',requestType})} onProcessEmails={processEmails} toast={showToast}/>}
       </>}
     </main>
     {drawer==='notifications' && <NotificationsDrawer locale={locale} notifications={notifications} onClose={()=>setDrawer(null)} onMark={markNotification} onMarkAll={markAll} onDelete={deleteNotification} onClearRead={clearReadNotifications} onOpen={n=>{setDrawer(null);const meta=n.metadata||{},entity=meta.entity_type;if(n.ticket_id||entity==='ticket'){const id=n.ticket_id||meta.entity_id;const t=tickets.find(x=>x.id===id);if(t)setModal({type:'ticket-detail',ticket:t});else showToast('error',locale==='en'?'The related ticket is no longer available.':'El ticket relacionado ya no está disponible.')}else if(n.helpdesk_ticket_id||entity==='helpdesk'){const id=n.helpdesk_ticket_id||meta.entity_id;const h=helpdesk.find(x=>x.id===id);if(h)setModal({type:'help-detail',item:h});else showToast('error',locale==='en'?'The related request is no longer available.':'La solicitud relacionada ya no está disponible.')}else if(entity==='sprint'){const sp=sprints.find(x=>x.id===meta.entity_id);if(sp)setModal({type:'sprint-detail',sprint:sp});else showToast('error',locale==='en'?'The related sprint is no longer available.':'El sprint relacionado ya no está disponible.')}else if(entity==='knowledge'){const a=knowledgeArticles.find(x=>x.id===(meta.article_id||meta.entity_id));if(a&&canViewKnowledge){setView('knowledge');setKnowledgeScreen({mode:'read',article:a})}else showToast('error',locale==='en'?'The related article is no longer available.':'El artículo relacionado ya no está disponible.')}else if(entity==='vacation'){if(canViewVacations)setView('vacations');else showToast('error','No tienes permiso para consultar Vacaciones.')}else if(entity==='staff'){setView('team')}}}/>}
-    {modal && <ModalRouter modal={modal} setModal={setModal} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} helpdeskProducts={helpdeskProducts} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} requestTypes={requestTypes} helpdesk={helpdesk} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} ticketLinks={ticketLinks} customFields={customFields} customFieldProducts={customFieldProducts} customValues={customValues} knowledgeArticles={knowledgeArticles} knowledgeVersions={knowledgeVersions} knowledgeCategories={knowledgeCategories} vacationRequests={vacationRequests} createKnowledgeVersion={createKnowledgeVersion} locale={locale} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canManageTicketFields={canManageTicketFields} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} canCreateWorkspace={canCreateWorkspace} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={navigateView} toast={showToast}/>}
+    {modal && <ModalRouter modal={modal} setModal={setModal} liveRevision={liveRevision} workspace={workspace} workspaces={workspaces} memberships={memberships} products={products} helpdeskProducts={helpdeskProducts} sprints={sprints} tickets={tickets} members={members} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} departments={departments} requestTypes={requestTypes} helpdesk={helpdesk} modules={modules} tags={tags} ticketTagLinks={ticketTagLinks} ticketLinks={ticketLinks} customFields={customFields} customFieldProducts={customFieldProducts} customValues={customValues} knowledgeArticles={knowledgeArticles} knowledgeVersions={knowledgeVersions} knowledgeCategories={knowledgeCategories} vacationRequests={vacationRequests} createKnowledgeVersion={createKnowledgeVersion} locale={locale} settings={settings} session={session} myRole={myRole} myPermissions={myPermissions} isSuperadmin={isSuperadmin} isAdmin={canAdminWorkspace} canManage={canPlan} canAdminWorkspace={canAdminWorkspace} canManageStaff={canManageStaff} canManageHelpdesk={canManageHelpdesk} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canManageTicketFields={canManageTicketFields} canDeleteTicket={canDeleteTicket} canPlan={canPlan} canWork={canWork} canCreateTicket={canCreateTicket} filters={filters} setFilters={setFilters} helpFilters={helpFilters} setHelpFilters={setHelpFilters} canCreateWorkspace={canCreateWorkspace} createWorkspace={createWorkspace} saveTicket={saveTicket} deleteTicket={deleteTicket} saveHelpdesk={saveHelpdesk} deleteHelpdesk={deleteHelpdesk} decideRequirement={decideRequirement} closeSprintAndRollover={closeSprintAndRollover} planTicket={planTicket} refresh={refresh} loadMemberships={loadMemberships} setWorkspace={setWorkspace} setView={navigateView} toast={showToast}/>}
     {toast && <Toast toast={toast}/>}
   </div>
 }
 
-function Topbar({session,locale='es',setLocale,unread,search,setSearch,canSearch=true,portalOnly=false,canCreate,onCreate,onNotifications,outToday=[]}){return <header className="global-topbar">
+function Topbar({session,locale='es',setLocale,liveStatus='connecting',unread,search,setSearch,canSearch=true,portalOnly=false,canCreate,onCreate,onNotifications,outToday=[]}){return <header className="global-topbar">
   <div className="topbar-brand"><img src="./logo.svg" alt="TROBBU"/><span></span><b>Jira Interno</b></div>
   {canSearch?<div className="global-search"><Icon name="lucide:search"/><input id="global-ticket-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar tickets por clave, título o descripción"/><kbd>⌘ K</kbd></div>:<div className="portal-topbar-context"><Icon name="lucide:life-buoy"/><span><b>Portal de solicitudes</b><small>{portalOnly?'Seguimiento personal de Helpdesk':'Workspace interno'}</small></span></div>}
-  <div className="topbar-actions">{outToday.length>0&&<button type="button" className="out-today-badge" title={outToday.map(x=>x.name).join(', ')}><Icon name="lucide:calendar-off"/><span>{outToday.length} fuera hoy</span></button>}<select className="language-switcher" value={locale} onChange={e=>setLocale?.(e.target.value)} aria-label="Idioma / Language"><option value="es">ES</option><option value="en">EN</option></select>{canCreate&&<button className="primary create-button" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button>}<button className="icon-button bell" onClick={onNotifications} title="Notificaciones"><Icon name="lucide:bell"/>{unread>0&&<em>{unread>9?'9+':unread}</em>}</button><div className="top-user"><span className="avatar sm">{initials(session.user.user_metadata?.full_name||session.user.email)}</span><div><b>{session.user.user_metadata?.full_name||'Usuario'}</b><small>{session.user.email}</small></div></div></div>
+  <div className="topbar-actions"><span className={`live-sync-indicator ${liveStatus}`} title={liveStatus==='live'?'Datos sincronizados en tiempo real':liveStatus==='degraded'?'Realtime degradado · recuperación automática activa':'Conectando sincronización Live'}><i></i><span>{liveStatus==='live'?'En vivo':liveStatus==='degraded'?'Reconectando':'Conectando'}</span></span>{outToday.length>0&&<button type="button" className="out-today-badge" title={outToday.map(x=>x.name).join(', ')}><Icon name="lucide:calendar-off"/><span>{outToday.length} fuera hoy</span></button>}<select className="language-switcher" value={locale} onChange={e=>setLocale?.(e.target.value)} aria-label="Idioma / Language"><option value="es">ES</option><option value="en">EN</option></select>{canCreate&&<button className="primary create-button" onClick={onCreate}><Icon name="lucide:plus"/> Crear</button>}<button className="icon-button bell" onClick={onNotifications} title="Notificaciones"><Icon name="lucide:bell"/>{unread>0&&<em>{unread>9?'9+':unread}</em>}</button><div className="top-user"><span className="avatar sm">{initials(session.user.user_metadata?.full_name||session.user.email)}</span><div><b>{session.user.user_metadata?.full_name||'Usuario'}</b><small>{session.user.email}</small></div></div></div>
 </header>}
 
 function AccessValidationShell({session,locale='es',setLocale,error,onRetry}){
@@ -2107,7 +2277,7 @@ function HelpdeskPortal({items,departments,requestTypes=[],products=[],onCreate,
     <section className="request-list">{items.length===0&&<div className="empty-state-inline"><Icon name="lucide:life-buoy" size={34}/><h3>No tienes solicitudes</h3><p>Cuando necesites acceso, reportar un error o proponer un requerimiento, créalo desde aquí.</p><button className="primary compact" onClick={onCreate}>Crear solicitud</button></div>}{items.map(item=>{const dept=departments.find(d=>d.id===item.department_id),requestType=requestTypes.find(x=>x.id===item.request_type_id),product=products.find(x=>x.id===item.product_id),isRequirement=isProposalCategory(item.category),idx=Math.max(0,order.indexOf(item.status));return <article className={`request-card ${isRequirement?'requirement-card':''}`} key={item.id}><button type="button" className="request-card-main" onClick={()=>onOpen(item)}><div className="request-card-title"><span className="request-icon"><Icon name={isRequirement?'lucide:lightbulb':'lucide:headphones'}/></span><div><small>{item.ticket_key} · {dept?.name||'Sin área'} · {requestType?.name||helpCategoryLabel(item.category)}{product?` · ${product.name}`:''}</small><h3>{item.subject}</h3><p>{item.description||'Sin descripción.'}</p></div>{isRequirement?<RequirementBadge status={item.proposal_status}/>:<HelpStatusBadge status={item.status}/>}</div>{isRequirement?<div className="requirement-flow"><span className="requirement-flow-node done"><i><Icon name="lucide:send" size={12}/></i><b>Solicitado</b></span><span className={`requirement-flow-line ${(item.proposal_status||'pending')!=='pending'?'done':''}`}></span><span className={`requirement-flow-node ${(item.proposal_status||'pending')==='pending'?'current':'done'}`}><i><Icon name={(item.proposal_status||'pending')==='pending'?'lucide:clock-3':item.proposal_status==='accepted_backlog'?'lucide:list-plus':'lucide:circle-x'} size={12}/></i><b>{requirementStatusLabel(item.proposal_status)}</b></span>{item.converted_ticket_key&&<span className="converted-ticket-chip"><Icon name="lucide:ticket-check"/>{item.converted_ticket_key}</span>}</div>:<div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<idx?'done':''} ${i===idx?'current':''}`}><i>{i<idx?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div>}<div className="request-meta"><span><Icon name="lucide:calendar"/> Creado {formatDateTime(item.created_at)}</span>{!isRequirement&&item.due_at&&<span><Icon name="lucide:clock"/> Objetivo {formatDateTime(item.due_at)}</span>}{isRequirement&&item.decision_at&&<span><Icon name="lucide:gavel"/> Decisión {formatDateTime(item.decision_at)}</span>}<span><Icon name="lucide:refresh-cw"/> Actualizado {formatDateTime(item.updated_at)}</span></div></button></article>})}</section>
   </div>
 }
-function HelpdeskView({items,allItems,departments,requestTypes=[],products=[],members,currentUserId,canPlan,canAssign,autoAssigning=false,filters,onFilter,onStatusChange,onCreate,onActions,onOpen,onDecision,onAssign,onAutoAssign}){
+function HelpdeskView({items,allItems,departments,requestTypes=[],products=[],members,currentUserId,canPlan,canAssign,autoAssigning=false,filters,onFilter,onStatusChange,onQuickFilter,onCreate,onActions,onOpen,onDecision,onAssign,onAutoAssign}){
   const counterBase=allItems.filter(h=>helpdeskMatchesFilters(h,filters,false))
   const normal=allItems.filter(h=>!isProposalCategory(h.category))
   const requirements=allItems.filter(h=>isProposalCategory(h.category))
@@ -2116,16 +2286,12 @@ function HelpdeskView({items,allItems,departments,requestTypes=[],products=[],me
   const closed=normal.filter(h=>h.status==='closed').length
   const pendingRequirements=requirements.filter(h=>(h.proposal_status||'pending')==='pending').length
   const overdue=normal.filter(h=>h.due_at && !['resolved','closed'].includes(h.status) && new Date(h.due_at)<new Date()).length
-  const withResponse=normal.filter(h=>h.first_response_at)
-  const avgFirst=withResponse.length?Math.round(withResponse.reduce((a,h)=>a+(new Date(h.first_response_at)-new Date(h.created_at))/36e5,0)/withResponse.length*10)/10:null
-  const resolvedRows=normal.filter(h=>h.resolved_at),slaRows=resolvedRows.filter(h=>h.due_at)
-  const slaPct=slaRows.length?Math.round(slaRows.filter(h=>new Date(h.resolved_at)<=new Date(h.due_at)).length/slaRows.length*100):100
   const typeStats=requestTypes.map(type=>({type,total:allItems.filter(h=>h.request_type_id===type.id).length,open:allItems.filter(h=>h.request_type_id===type.id&&!['resolved','closed'].includes(h.status)).length,done:allItems.filter(h=>h.request_type_id===type.id&&['resolved','closed'].includes(h.status)).length})).filter(x=>x.total)
   const queued=normal.filter(h=>!h.assigned_to&&h.assignment_source==='queue').length
   const active=Object.values(filters).filter(v=>v!=='all').length
   const statusCounts=Object.fromEntries(HELP_STATUS.map(([status])=>[status,counterBase.filter(h=>h.status===status).length]))
   return <div className="page"><PageHeader eyebrow="Servicio interno" title="Helpdesk" subtitle="Atiende solicitudes operativas y decide qué nuevos requerimientos pasan al Backlog." icon="lucide:life-buoy" action={<button className="primary" onClick={onCreate}><Icon name="lucide:plus"/> Nueva solicitud</button>}/>
-    <div className="metric-grid six"><Metric label="Solicitudes" value={allItems.length} icon="lucide:inbox" tone="blue"/><Metric label="Abiertas" value={open} icon="lucide:loader-circle" tone="orange"/><Metric label="Requerimientos por decidir" value={pendingRequirements} icon="lucide:lightbulb" tone="purple"/><Metric label="Vencidas" value={overdue} icon="lucide:alarm-clock" tone="red"/><Metric label="Resueltas / cerradas" value={resolved+closed} icon="lucide:circle-check" tone="green"/><Metric label="SLA cumplido" value={`${slaPct}%`} icon="lucide:gauge" tone="navy"/></div>
+    <div className="metric-grid helpdesk-kpi-grid" role="group" aria-label="Filtros rápidos de Helpdesk"><Metric label="Solicitudes" value={allItems.length} icon="lucide:inbox" tone="blue" active={(filters.quick||'all')==='all'&&Object.entries(filters).filter(([key])=>key!=='quick').every(([,value])=>value==='all')} onClick={()=>onQuickFilter?.('all')}/><Metric label="Abiertas" value={open} icon="lucide:loader-circle" tone="orange" active={filters.quick==='open'} onClick={()=>onQuickFilter?.('open')}/><Metric label="Requerimientos por decidir" value={pendingRequirements} icon="lucide:lightbulb" tone="purple" active={filters.quick==='pending_requirements'} onClick={()=>onQuickFilter?.('pending_requirements')}/><Metric label="Vencidas" value={overdue} icon="lucide:alarm-clock" tone="red" active={filters.quick==='overdue'} onClick={()=>onQuickFilter?.('overdue')}/><Metric label="Resueltas / cerradas" value={resolved+closed} icon="lucide:circle-check" tone="green" active={filters.quick==='closed'} onClick={()=>onQuickFilter?.('closed')}/></div>
     {queued>0&&<div className="helpdesk-routing-summary"><Icon name="lucide:route"/><span><b>{queued} {queued===1?'solicitud en cola':'solicitudes en cola'}</b><small>Se asignarán automáticamente en cuanto exista capacidad según las reglas configuradas.</small></span></div>}
     {typeStats.length>0&&<section className="panel helpdesk-type-stats"><div className="panel-heading"><div><h3>Solicitudes por tipo</h3><p>Segmentación usando el catálogo configurable de Helpdesk.</p></div></div><div className="helpdesk-type-stat-grid">{typeStats.map(x=><button type="button" key={x.type.id} onClick={()=>onFilter?.()}><span className="request-type-icon" style={{background:`${x.type.color||'#0D47A1'}18`,color:x.type.color||'#0D47A1'}}><Icon name={x.type.icon||'lucide:ticket'}/></span><span><b>{x.type.name}</b><small>{x.open} abiertas · {x.done} resueltas/cerradas</small></span><strong>{x.total}</strong></button>)}</div></section>}
     <div className="helpdesk-status-filter" role="group" aria-label="Filtrar Helpdesk por estatus"><button type="button" className={filters.status==='all'?'active':''} onClick={()=>onStatusChange?.('all')}><Icon name="lucide:layers-3"/> Ver todo <em>{counterBase.length}</em></button>{HELP_STATUS.map(([status,label,icon])=><button type="button" key={status} className={filters.status===status?'active':''} onClick={()=>onStatusChange?.(status)}><Icon name={icon}/>{label}<em>{statusCounts[status]||0}</em></button>)}</div>
@@ -2148,7 +2314,7 @@ function KnowledgeView({workspace,articles,versions=[],locale='es',products,modu
   const displayArticle=a=>localized[a.id]?{...a,title:localized[a.id].title||a.title,summary:localized[a.id].summary??a.summary,content:localized[a.id].content||a.content,tags:localized[a.id].tags||a.tags}:a
   const categoryCounts=Object.fromEntries(categories.map(c=>[c.id,articles.filter(a=>a.category_id===c.id).length]))
   const visible=articles.filter(a=>{const d=displayArticle(a),text=`${d.title} ${d.summary||''} ${(d.tags||[]).join(' ')} ${d.content||''}`.toLowerCase();return (scope==='all'||a.status===scope||scope==='draft'&&a.draft_version_id)&&(productFilter==='all'||a.product_id===productFilter)&&(selectedCategory==='all'||a.category_id===selectedCategory)&&(!q.trim()||text.includes(q.trim().toLowerCase()))})
-  const activeVersion=a=>versions.find(v=>v.id===a.active_version_id)||versions.filter(v=>v.article_id===a.id&&v.status==='published').sort((x,y)=>y.version_number-x.version_number)[0]
+  const activeVersion=a=>versions.find(v=>v.id===a.active_version_id&&v.article_id===a.id)||versions.filter(v=>v.article_id===a.id&&v.status==='published').sort((x,y)=>Number(y.version_number||0)-Number(x.version_number||0))[0]
   const draftVersion=a=>versions.find(v=>v.id===a.draft_version_id)||versions.find(v=>v.article_id===a.id&&v.status==='draft')
   const canManageAny=canCreate||canEdit||canDelete,selected=categories.find(c=>c.id===selectedCategory)||null
   const createInContext=()=>selected&&onCreate?.(selected.id)
@@ -2309,7 +2475,7 @@ function KnowledgeReaderPreview({form,blocks,media,products,modules,categories=[
   </div>
 }
 
-function KnowledgeArticleEditorPage({article,version,workspace,products,modules,categories=[],initialCategoryId=null,settings=null,session,locale='es',canPublish=false,onBack,onSave}){
+function KnowledgeArticleEditorPage({liveRevision=0,article,version,workspace,products,modules,categories=[],initialCategoryId=null,settings=null,session,locale='es',canPublish=false,onBack,onSave}){
   const source=version||article||{},[articleId]=useState(()=>article?.id||crypto.randomUUID())
   const defaultCategory=source.category_id||initialCategoryId||categories.find(c=>c.code==='general')?.id||categories[0]?.id||''
   const [f,setF]=useState({title:source.title||'',slug:source.slug||article?.slug||'',summary:source.summary||'',tags:(source.tags||[]).join(', '),product_id:source.product_id||'',module_id:source.module_id||'',category_id:defaultCategory,source_language:article?.default_language||locale})
@@ -2326,7 +2492,7 @@ function KnowledgeArticleEditorPage({article,version,workspace,products,modules,
   const requestExit=action=>{const next=action||onBack;if(!dirtyRef.current){next?.();return}pendingExitRef.current=next;setExitPrompt(true)}
   const discardAndExit=()=>{const next=pendingExitRef.current||onBack;pendingExitRef.current=null;setExitPrompt(false);dirtyRef.current=false;next?.()}
   const keepEditing=()=>{pendingExitRef.current=null;setExitPrompt(false)}
-  useEffect(()=>{let cancelled=false;(async()=>{if(!article?.id)return;const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article?.id])
+  useEffect(()=>{let cancelled=false;(async()=>{if(!article?.id)return;const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article?.id,liveRevision])
   useEffect(()=>{const guard={isDirty:()=>dirtyRef.current,requestExit:action=>requestExit(action)};window.__jiraKnowledgeEditorGuard=guard;const before=e=>{if(!dirtyRef.current)return;e.preventDefault();e.returnValue=''};window.addEventListener('beforeunload',before);return()=>{window.removeEventListener('beforeunload',before);if(window.__jiraKnowledgeEditorGuard===guard)delete window.__jiraKnowledgeEditorGuard}},[])
   const submit=async(e,publish=false)=>{
     e?.preventDefault?.();setError('')
@@ -2381,12 +2547,12 @@ function KnowledgeArticleEditorPage({article,version,workspace,products,modules,
   </div>
 }
 
-function KnowledgeArticlePage({article,versions=[],events=[],products,modules,categories=[],members=[],settings=null,locale='es',canManage,onBack,onEdit,onCreateVersion,onPublishVersion}){
+function KnowledgeArticlePage({liveRevision=0,article,versions=[],events=[],products,modules,categories=[],members=[],settings=null,locale='es',canManage,onBack,onEdit,onCreateVersion,onPublishVersion}){
   const [media,setMedia]=useState([]),[display,setDisplay]=useState(article),[translation,setTranslation]=useState({loading:false,cached:false,provider:'source',error:''}),[historyOpen,setHistoryOpen]=useState(false)
-  const activeVersion=versions.find(v=>v.id===article.active_version_id)||versions.find(v=>v.status==='published')||null
+  const activeVersion=versions.find(v=>v.id===article.active_version_id&&v.article_id===article.id)||versions.filter(v=>v.article_id===article.id&&v.status==='published').sort((a,b)=>Number(b.version_number||0)-Number(a.version_number||0))[0]||null
   const p=products.find(x=>x.id===display.product_id),m=modules.find(x=>x.id===display.module_id),c=categories.find(x=>x.id===display.category_id),blocks=knowledgeDefaultBlocks(display)
   const nameFor=id=>members.find(x=>x.user_id===id)?.profile?.full_name||members.find(x=>x.user_id===id)?.profile?.email||'Usuario'
-  useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id])
+  useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id,liveRevision])
   useEffect(()=>{let cancelled=false;(async()=>{
     const source=activeVersion?{...article,...activeVersion,status:'published'}:article
     if(locale===(article.default_language||'es')||!activeVersion?.id){setDisplay(source);setTranslation({loading:false,cached:true,provider:'source',error:''});return}
@@ -2409,12 +2575,12 @@ function KnowledgeArticlePage({article,versions=[],events=[],products,modules,ca
 }
 
 
-function KnowledgeListPreviewPage({article,version,products=[],modules=[],categories=[],settings=null,locale='es',onBack}){
+function KnowledgeListPreviewPage({liveRevision=0,article,version,products=[],modules=[],categories=[],settings=null,locale='es',onBack}){
   const [media,setMedia]=useState([])
   const source=version?{...article,...version}:article
   const product=products.find(x=>x.id===source.product_id),module=modules.find(x=>x.id===source.module_id),category=categories.find(x=>x.id===source.category_id)
   const blocks=knowledgeDefaultBlocks(source)
-  useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id])
+  useEffect(()=>{let cancelled=false;(async()=>{const {data,error}=await db.from('knowledge_media').select('*').eq('article_id',article.id).order('created_at');if(!cancelled&&!error)setMedia(await signedKnowledgeMedia(data||[]))})();return()=>{cancelled=true}},[article.id,liveRevision])
   const statusLabel=source.status==='draft'?(locale==='en'?'Draft':'Borrador'):source.status==='archived'?(locale==='en'?'Archived':'Archivado'):(locale==='en'?'Published':'Publicado')
   return <div className="page knowledge-reader-page" data-i18n-skip>
     <div className="knowledge-preview-banner knowledge-list-preview-banner"><span><Icon name="lucide:scan-eye"/><b>{locale==='en'?'Reader POV preview':'Vista previa POV lector'}</b><small>{locale==='en'?`Previewing ${version?`v${version.version_number} · `:''}${statusLabel}. No content is changed.`:`Visualizando ${version?`v${version.version_number} · `:''}${statusLabel}. No se modifica ningún contenido.`}</small></span><div className="knowledge-preview-actions"><button type="button" className="secondary-button compact" onClick={()=>window.print()}><Icon name="lucide:printer"/> {locale==='en'?'Print / PDF':'Imprimir / PDF'}</button><button type="button" className="secondary-button compact" onClick={onBack}><Icon name="lucide:arrow-left"/> {locale==='en'?'Back to Knowledge':'Volver a Knowledge'}</button></div></div>
@@ -2426,28 +2592,30 @@ function KnowledgeListPreviewPage({article,version,products=[],modules=[],catego
 }
 
 function KnowledgeSuggestions({workspace,locale='es',title,description,articles=[],productId=null,departmentId=null,requestTypeId=null}){
-  const [state,setState]=useState({loading:false,message:'',articles:[],provider:'',error:false}),[expanded,setExpanded]=useState(null)
+  const [state,setState]=useState({loading:false,message:'',articles:[],provider:'',error:false,mode:'title'}),[expanded,setExpanded]=useState(null)
   useEffect(()=>{
-    const subject=String(title||'').trim(),detail=String(description||'').trim()
-    // Do not recommend from a short subject alone. Semantic validation starts only
-    // when the requester has provided enough problem context in the description.
-    if(subject.length<3||detail.length<12){setState({loading:false,message:'',articles:[],provider:'',error:false});return}
+    const subject=String(title||'').trim(),detail=String(description||'').trim(),titleReady=subject.length>=5,detailReady=detail.length>=12
+    // v17.8: restore proactive matching while the requester types the title.
+    // Description, product, department and request type enrich the same search when available.
+    if(!titleReady&&!detailReady){setState({loading:false,message:'',articles:[],provider:'',error:false,mode:'title'});return}
     let cancelled=false
+    setState({loading:false,message:'',articles:[],provider:'',error:false,mode:detailReady?'full':'title'})
     const timer=setTimeout(async()=>{
-      setState(x=>({...x,loading:true,error:false}))
+      if(!cancelled)setState(x=>({...x,loading:true,error:false}))
       try{
         const {data,error}=await db.functions.invoke('trobbu-knowledge-assistant',{body:{workspace_id:workspace.id,title,description,product_id:productId||null,department_id:departmentId||null,request_type_id:requestTypeId||null,language:locale}})
         if(error||data?.error)throw new Error(await functionErrorMessage(error,data))
-        if(!cancelled)setState({loading:false,message:data.message||'',articles:(data.articles||[]).map(a=>({...a,summary:cleanKnowledgeSnippet(a.summary||a.content_preview,200)})),provider:data.provider||'',error:false})
+        if(!cancelled)setState({loading:false,message:data.message||'',articles:(data.articles||[]).map(a=>({...a,summary:cleanKnowledgeSnippet(a.summary||a.content_preview,200)})),provider:data.provider||'',error:false,mode:data.mode||(detailReady?'full':'title')})
       }catch(err){
-        // Deliberately do not guess locally. A failed semantic validation must never surface an unrelated article.
-        if(!cancelled)setState({loading:false,message:locale==='en'?'I could not validate reliable Knowledge matches right now. You can continue creating the request.':'No pude validar coincidencias confiables de Knowledge en este momento. Puedes continuar creando la solicitud.',articles:[],provider:'unavailable',error:true})
+        if(!cancelled)setState({loading:false,message:detailReady?(locale==='en'?'I could not validate reliable Knowledge matches right now. You can continue creating the request.':'No pude validar coincidencias confiables de Knowledge en este momento. Puedes continuar creando la solicitud.'):'',articles:[],provider:'unavailable',error:detailReady,mode:detailReady?'full':'title'})
       }
-    },500)
+    },650)
     return()=>{cancelled=true;clearTimeout(timer)}
   },[workspace?.id,title,description,productId,departmentId,requestTypeId,locale])
   if(!state.loading&&!state.message&&!state.articles.length)return null
-  const guidance=locale==='en'?'The assistant validated the complete request against each article title, tags, summary and full searchable content. Review the evidence before opening the ticket.':'El asistente validó la solicitud completa contra título, etiquetas, resumen y contenido íntegro consultable de cada artículo. Revisa la evidencia antes de abrir el ticket.'
+  const guidance=state.mode==='title'
+    ? (locale==='en'?'The assistant is matching the request title against published Knowledge articles. Add description or product context to refine it further.':'El asistente está relacionando el título contra artículos publicados de Knowledge. Agrega descripción o producto para afinar todavía más la coincidencia.')
+    : (locale==='en'?'The assistant validated the complete request against each article title, category, tags, summary and searchable content. Review the evidence before opening the ticket.':'El asistente validó la solicitud completa contra título, categoría, etiquetas, resumen y contenido consultable de cada artículo. Revisa la evidencia antes de abrir el ticket.')
   return <div className={`knowledge-suggestions ${state.error?'knowledge-suggestions-error':''}`}><div className="knowledge-suggestion-head"><span><Icon name="lucide:sparkles"/><b>{locale==='en'?'Knowledge Assistant':'Asistente Knowledge'}</b></span>{state.loading&&<small>{locale==='en'?'Validating semantic matches…':'Validando coincidencias semánticas…'}</small>}</div>{state.articles.length>0&&<div className="knowledge-suggestion-guidance"><Icon name="lucide:book-open-check"/><p>{guidance}</p></div>}{state.message&&<p className="knowledge-suggestion-ai-message">{cleanKnowledgeSnippet(state.message,300)}</p>}{state.articles.length>0&&<div className="knowledge-suggestion-list">{state.articles.map(a=><article key={a.id}><button type="button" onClick={()=>setExpanded(expanded===a.id?null:a.id)}><span><Icon name="lucide:book-open"/><b>{a.title}</b><small>{cleanKnowledgeSnippet(a.summary||(locale==='en'?'Related resource':'Recurso relacionado'),200)}</small>{Number.isFinite(Number(a.relevance))&&<em className="knowledge-relevance"><Icon name="lucide:target" size={12}/>{Math.round(Number(a.relevance)*100)}% relevancia</em>}</span><Icon name={expanded===a.id?'lucide:chevron-up':'lucide:chevron-down'}/></button>{expanded===a.id&&<div className="knowledge-suggestion-preview">{a.match_reason&&<p className="knowledge-match-reason"><b>Por qué coincide:</b> {cleanKnowledgeSnippet(a.match_reason,220)}</p>}{Array.isArray(a.matched_terms)&&a.matched_terms.length>0&&<div className="knowledge-match-terms"><b>{locale==='en'?'Matched concepts':'Conceptos coincidentes'}:</b>{a.matched_terms.slice(0,5).map(term=><span key={term}>{term}</span>)}</div>}<p>{cleanKnowledgeSnippet(a.summary||(locale==='en'?'Open the full article to review all details.':'Abre el artículo completo para revisar todos los detalles.'),220)}</p><a className="primary compact knowledge-direct-link" href={knowledgeArticleUrl(a.id)} target="_blank" rel="noopener noreferrer"><Icon name="lucide:external-link"/> {locale==='en'?'Read full article':'Leer artículo completo'}</a><small>{locale==='en'?'The article opens in a new tab so the request you are writing remains intact.':'El artículo se abrirá en una nueva pestaña para conservar lo que ya escribiste en este ticket.'}</small></div>}</article>)}</div>}</div>
 }
 
@@ -2508,12 +2676,12 @@ function VacationTimeline({requests=[],members=[],today,types=[]}){
   </section>
 }
 
-function VacationsView({workspace,requests=[],members=[],tickets=[],sprints=[],session,settings,canRequest=false,canViewProjection=false,canManage=false,onRefresh,toast}){
+function VacationsView({liveRevision=0,workspace,requests=[],members=[],tickets=[],sprints=[],session,settings,canRequest=false,canViewProjection=false,canManage=false,onRefresh,toast}){
   const tz=settings?.timezone||'America/Merida',today=dateKeyAtZone(new Date(),tz),currentYear=Number(today.slice(0,4))
   const blankBlock=()=>({id:crypto.randomUUID(),start_date:'',end_date:'',return_date:''})
   const [requestOpen,setRequestOpen]=useState(false),[requestBlocks,setRequestBlocks]=useState(()=>[blankBlock()]),[reason,setReason]=useState(''),[requestTypeId,setRequestTypeId]=useState(''),[halfDayPeriod,setHalfDayPeriod]=useState('')
   const [analysisMap,setAnalysisMap]=useState({}),[analyzing,setAnalyzing]=useState(null),[decision,setDecision]=useState(null)
-  const [vacationTypes,setVacationTypes]=useState([]),[vacationBalances,setVacationBalances]=useState([]),[vacationMetaError,setVacationMetaError]=useState('')
+  const [vacationTypes,setVacationTypes]=useState([]),[vacationBalances,setVacationBalances]=useState([]),[vacationMetaError,setVacationMetaError]=useState(''),[vacationMetaLoading,setVacationMetaLoading]=useState(true)
   const [balanceYear,setBalanceYear]=useState(currentYear),[balanceEditor,setBalanceEditor]=useState(null),[typeEditor,setTypeEditor]=useState(null),[typeDelete,setTypeDelete]=useState(null)
   const allowedVacationTabs=()=>['mine',...(canManage?['requests']:[]),...(canViewProjection||canManage?['projection']:[]),...(canManage?['control','types']:[])]
   const initialVacationTab=()=>{try{const requested=new URL(window.location.href).searchParams.get('tab');return allowedVacationTabs().includes(requested)?requested:(canManage?'requests':'mine')}catch{return canManage?'requests':'mine'}}
@@ -2521,9 +2689,8 @@ function VacationsView({workspace,requests=[],members=[],tickets=[],sprints=[],s
   const [requestFilter,setRequestFilter]=useState(()=>canManage?'pending':'mine')
   const selectSectionTab=(next,{replace=false}={})=>{if(!allowedVacationTabs().includes(next))return;setSectionTab(next);try{const url=new URL(window.location.href);url.searchParams.set('view','vacations');url.searchParams.set('tab',next);window.history[replace?'replaceState':'pushState']({view:'vacations',tab:next},document.title,url.toString())}catch{}}
   const memberName=id=>members.find(m=>m.user_id===id)?.profile?.full_name||members.find(m=>m.user_id===id)?.profile?.email||'Colaborador'
-  const loadVacationMeta=async()=>{const [typesRes,balancesRes]=await Promise.all([db.from('vacation_types').select('*').eq('workspace_id',workspace.id).order('sort_order').order('name'),db.from('vacation_balances').select('*').eq('workspace_id',workspace.id)]);const error=typesRes.error||balancesRes.error;if(error){setVacationMetaError(error.message);return}setVacationMetaError('');setVacationTypes(typesRes.data||[]);setVacationBalances(balancesRes.data||[])}
-  useEffect(()=>{loadVacationMeta()},[workspace.id])
-  useEffect(()=>{if(!workspace?.id)return;let timer=null;const refreshMeta=()=>{clearTimeout(timer);timer=setTimeout(loadVacationMeta,120)};let channel=db.channel(`vacation-meta-${workspace.id}`).on('postgres_changes',{event:'*',schema:'public',table:'vacation_types',filter:`workspace_id=eq.${workspace.id}`},refreshMeta).on('postgres_changes',{event:'*',schema:'public',table:'vacation_balances',filter:`workspace_id=eq.${workspace.id}`},refreshMeta).subscribe();return()=>{clearTimeout(timer);db.removeChannel(channel)}},[workspace.id])
+  const loadVacationMeta=async()=>{setVacationMetaLoading(true);try{const [typesRes,balancesRes,ownBalancesRes]=await Promise.all([db.from('vacation_types').select('*').eq('workspace_id',workspace.id).order('sort_order').order('name'),db.from('vacation_balances').select('*').eq('workspace_id',workspace.id),db.from('vacation_balances').select('*').eq('workspace_id',workspace.id).eq('user_id',session.user.id)]);if(typesRes.error)throw typesRes.error;if(balancesRes.error&&ownBalancesRes.error)throw balancesRes.error;const merged=new Map();for(const row of balancesRes.data||[])merged.set(`${row.user_id}:${row.year}`,row);for(const row of ownBalancesRes.data||[])merged.set(`${row.user_id}:${row.year}`,row);setVacationMetaError(balancesRes.error?`La consulta general de saldos falló; se cargó tu saldo individual: ${balancesRes.error.message}`:'');setVacationTypes(typesRes.data||[]);setVacationBalances([...merged.values()])}catch(error){setVacationMetaError(error?.message||String(error))}finally{setVacationMetaLoading(false)}}
+  useEffect(()=>{loadVacationMeta()},[workspace.id,liveRevision])
   useEffect(()=>{if(!requestTypeId){const first=vacationTypes.find(t=>t.active&&t.code==='vacation')||vacationTypes.find(t=>t.active);if(first)setRequestTypeId(first.id)}},[vacationTypes,requestTypeId])
   useEffect(()=>{setRequestFilter(canManage?'pending':'mine');const allowed=allowedVacationTabs();if(!allowed.includes(sectionTab))selectSectionTab(canManage?'requests':'mine',{replace:true})},[workspace.id,canManage,canViewProjection])
   useEffect(()=>{const onPop=()=>{try{const requested=new URL(window.location.href).searchParams.get('tab');if(allowedVacationTabs().includes(requested))setSectionTab(requested)}catch{}};window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop)},[canManage,canViewProjection])
@@ -2536,7 +2703,7 @@ function VacationsView({workspace,requests=[],members=[],tickets=[],sprints=[],s
   const requestGroups={pending, today:outToday, upcoming:approvedUpcoming, mine, all:allSorted}
   const visibleRequests=requestGroups[requestFilter]||allSorted
   const requestTabs=[['pending','Pendientes',pending.length,'lucide:clock-3'],['today','Fuera hoy',outToday.length,'lucide:calendar-off'],['upcoming','Aprobadas próximas',approvedUpcoming.length,'lucide:calendar-check-2'],['mine','Mis solicitudes',mine.length,'lucide:user-round-check'],['all','Ver todo',requests.length,'lucide:list-filter']]
-  const balanceSummary=(userId,year)=>{const row=vacationBalances.find(b=>b.user_id===userId&&Number(b.year)===Number(year)),allowed=Number(row?.allowed_days??settings?.vacation_default_annual_days??12),adjustment=Number(row?.adjustment_used_days||0),occupied=requests.filter(r=>r.user_id===userId&&['pending','approved'].includes(r.status)).reduce((n,r)=>n+vacationRequestUnitsForYear(r,vacationTypes,year,{deductOnly:true}),0);return {row,allowed,adjustment,occupied,available:Math.round((allowed-adjustment-occupied)*100)/100}}
+  const balanceSummary=(userId,year)=>{const row=vacationBalances.find(b=>b.user_id===userId&&Number(b.year)===Number(year)),allowed=Number(row?.allowed_days??settings?.vacation_default_annual_days??12),adjustment=Number(row?.adjustment_used_days||0),occupied=requests.filter(r=>r.user_id===userId&&['pending','approved'].includes(r.status)).reduce((n,r)=>n+vacationRequestUnitsForYear(r,vacationTypes,year,{deductOnly:true}),0);return {row,allowed,adjustment,occupied,available:Math.round((allowed-adjustment-occupied)*100)/100,loading:vacationMetaLoading&&!row,source:row?'individual':'workspace_default'}}
   const typeUsage=(userId,year)=>vacationTypes.map(type=>({type,units:requests.filter(r=>r.user_id===userId&&r.vacation_type_id===type.id&&['pending','approved'].includes(r.status)).reduce((n,r)=>n+vacationRequestUnitsForYear(r,vacationTypes,year),0)})).filter(x=>x.units>0)
   const myBalance=balanceSummary(session.user.id,currentYear),myTypeUsage=typeUsage(session.user.id,currentYear)
   const analysisFor=r=>analysisMap[r.id]||((r.ai_analyzed_at&&r.ai_analysis&&Object.keys(r.ai_analysis).length)?r.ai_analysis:null)
@@ -2548,6 +2715,7 @@ function VacationsView({workspace,requests=[],members=[],tickets=[],sprints=[],s
   const resetRequest=()=>{setRequestBlocks([blankBlock()]);setReason('');setHalfDayPeriod('');const first=vacationTypes.find(t=>t.active&&t.code==='vacation')||vacationTypes.find(t=>t.active);setRequestTypeId(first?.id||'')}
   const requestUnitsForBlocks=(blocks,type,year)=>{if(!type)return 0;const ys=`${year}-01-01`,ye=`${year}-12-31`;return blocks.reduce((n,b)=>{const s=b.start_date<ys?ys:b.start_date,e=b.end_date>ye?ye:b.end_date;return e>=s?n+(daysBetween(s,e)+1)*Number(type.day_fraction||1):n},0)}
   const submitRequest=async()=>{
+    if(vacationMetaLoading)throw new Error('Espera a que termine de cargar el saldo de vacaciones antes de enviar la solicitud.')
     if(!selectedType||!selectedType.active)throw new Error('Selecciona un tipo de ausencia válido.')
     const blocks=requestBlocks.map(b=>({...b,start_date:String(b.start_date||''),end_date:String(b.end_date||''),return_date:String(b.return_date||'')}))
     if(!blocks.length||blocks.some(b=>!b.start_date||!b.end_date||!b.return_date))throw new Error('Completa inicio, fin y fecha de reincorporación de todos los bloques.')
@@ -2578,7 +2746,7 @@ function VacationsView({workspace,requests=[],members=[],tickets=[],sprints=[],s
     <nav className="vacation-section-tabs" role="tablist" aria-label="Secciones de Vacaciones">{sectionTabs.map(([key,icon,label,count])=><button type="button" role="tab" aria-selected={sectionTab===key} className={sectionTab===key?'active':''} key={key} onClick={()=>selectSectionTab(key)}><Icon name={icon}/><span>{label}</span>{Number.isFinite(Number(count))&&<em>{count}</em>}</button>)}</nav>
 
     {sectionTab==='mine'&&<>
-      <section className="workspace-panel vacation-balance-panel"><div className="panel-heading"><div><h3>Mi saldo {currentYear}</h3><p>Las solicitudes pendientes y aprobadas que descuentan saldo se consideran días ocupados.</p></div><span className={`vacation-balance-available ${myBalance.available<0?'negative':''}`}><small>Disponibles</small><b>{myBalance.available}</b></span></div><div className="vacation-balance-grid"><div><small>Vacaciones permitidas</small><b>{myBalance.allowed}</b></div><div><small>Días ocupados</small><b>{myBalance.occupied}</b></div><div><small>Ajuste de días usados</small><b>{myBalance.adjustment}</b></div><div><small>Días disponibles</small><b>{myBalance.available}</b></div></div>{myTypeUsage.length>0&&<div className="vacation-type-counters"><b>Registro por tipo</b>{myTypeUsage.map(x=><span key={x.type.id} style={{'--vacation-type-color':x.type.color}}><i></i>{x.type.name}: <strong>{x.units}</strong> día(s)</span>)}</div>}</section>
+      <section className="workspace-panel vacation-balance-panel"><div className="panel-heading"><div><h3>Mi saldo {currentYear}</h3><p>Las solicitudes pendientes y aprobadas que descuentan saldo se consideran días ocupados.</p></div><span className={`vacation-balance-available ${myBalance.available<0?'negative':''}`}><small>Disponibles</small><b>{myBalance.loading?'…':myBalance.available}</b></span></div><div className="vacation-balance-grid"><div><small>Vacaciones permitidas</small><b>{myBalance.loading?'…':myBalance.allowed}</b></div><div><small>Días ocupados</small><b>{myBalance.occupied}</b></div><div><small>Ajuste de días usados</small><b>{myBalance.adjustment}</b></div><div><small>Días disponibles</small><b>{myBalance.loading?'…':myBalance.available}</b></div></div>{myTypeUsage.length>0&&<div className="vacation-type-counters"><b>Registro por tipo</b>{myTypeUsage.map(x=><span key={x.type.id} style={{'--vacation-type-color':x.type.color}}><i></i>{x.type.name}: <strong>{x.units}</strong> día(s)</span>)}</div>}</section>
       <section className="workspace-panel vacation-requests-primary"><div className="panel-heading vacation-requests-heading"><div><h3>Mis solicitudes</h3><p>Consulta tus solicitudes, periodos, estatus y decisiones.</p></div><span className="readonly-chip"><Icon name="lucide:user-round-check"/> {mine.length} solicitud(es)</span></div><div className="vacation-approval-list priority-list">{mine.length===0&&<div className="compact-empty"><Icon name="lucide:calendar-search"/><span>No tienes solicitudes registradas.</span></div>}{mine.map(renderRequestCard)}</div></section>
     </>}
 
@@ -2592,7 +2760,7 @@ function VacationsView({workspace,requests=[],members=[],tickets=[],sprints=[],s
     {sectionTab==='control'&&canManage&&<section className="workspace-panel vacation-balance-admin"><div className="settings-list-head"><div><h3>Control de vacaciones por integrante</h3><p>Los días ocupados se calculan automáticamente; Ajuste permite registrar vacaciones ya usadas fuera del sistema.</p></div><label className="vacation-year-control">Periodo<select value={balanceYear} onChange={e=>setBalanceYear(Number(e.target.value))}>{[currentYear-1,currentYear,currentYear+1].map(y=><option key={y} value={y}>{y}</option>)}</select></label></div><div className="vacation-balance-table"><div className="vacation-balance-head"><span>Integrante</span><span>Permitidos</span><span>Ocupados</span><span>Ajuste usado</span><span>Disponibles</span><span></span></div>{members.filter(m=>m.active!==false).map(m=>{const b=balanceSummary(m.user_id,balanceYear);return <div className="vacation-balance-row" key={m.user_id}><div className="staff-person"><span className="avatar sm">{initials(memberName(m.user_id))}</span><span><b>{memberName(m.user_id)}</b><small>{m.profile?.email||''}</small></span></div><b>{b.allowed}</b><b>{b.occupied}</b><b>{b.adjustment}</b><b className={b.available<0?'negative-text':''}>{b.available}</b><button type="button" className="secondary-button compact" onClick={()=>setBalanceEditor({user_id:m.user_id,year:balanceYear,allowed_days:b.allowed,adjustment_used_days:b.adjustment,note:b.row?.note||'',name:memberName(m.user_id)})}><Icon name="lucide:pencil"/> Ajustar</button></div>})}</div></section>}
 
     {sectionTab==='types'&&canManage&&<section className="workspace-panel vacation-types-admin"><div className="settings-list-head"><div><h3>Tipos de vacaciones / ausencias</h3><p>Define qué tipos descuentan del saldo y cuáles se registran únicamente como ausencia o compensación.</p></div><button type="button" className="primary compact" onClick={()=>setTypeEditor({name:'',code:'',description:'',deducts_from_balance:true,day_fraction:1,requires_half_day_period:false,color:'#0C66E4',sort_order:vacationTypes.length*10+10,active:true})}><Icon name="lucide:plus"/> Nuevo tipo</button></div><div className="vacation-type-admin-grid">{vacationTypes.map(t=><article className={`vacation-type-admin-card ${t.active?'':'inactive'}`} key={t.id}><div className="vacation-type-admin-head"><span className="vacation-type-dot" style={{background:t.color}}></span><div><b>{t.name}</b><small>{t.code}</small></div><span className={`settings-status ${t.active?'on':'off'}`}>{t.active?'Activo':'Inactivo'}</span></div><p>{t.description||'Sin descripción.'}</p><div className="vacation-type-admin-meta"><span>{Number(t.day_fraction)===0.5?'0.5 día por bloque':'1 día por día'}</span><span>{t.deducts_from_balance?'Descuenta saldo':'No descuenta saldo'}</span>{t.requires_half_day_period&&<span>Requiere mitad del día</span>}</div><div className="row-actions"><button type="button" onClick={()=>setTypeEditor({...t,day_fraction:Number(t.day_fraction)})}><Icon name="lucide:pencil"/>Editar</button>{t.code!=='vacation'&&<button type="button" className="danger-text" onClick={()=>setTypeDelete(t)}><Icon name="lucide:trash-2"/>Eliminar</button>}</div></article>)}</div></section>}
-    {requestOpen&&<Modal title="Solicitar vacaciones / ausencia" subtitle="Puedes solicitar desde un día, varios bloques no consecutivos o un medio día según el tipo seleccionado." onClose={()=>{setRequestOpen(false);resetRequest()}} size="lg"><AsyncForm onSubmit={submitRequest} submitLabel="Enviar solicitud"><div className="form-grid"><label>Tipo de ausencia<select required value={requestTypeId} onChange={e=>{const id=e.target.value,next=vacationTypeFor(vacationTypes,id);setRequestTypeId(id);setHalfDayPeriod('');if(Number(next?.day_fraction)===0.5)setRequestBlocks(list=>list.map(b=>({...b,end_date:b.start_date||b.end_date,return_date:(b.start_date||b.end_date)?addDaysKey(b.start_date||b.end_date,1):b.return_date})))}}><option value="">Seleccionar…</option>{activeTypes.map(t=><option value={t.id} key={t.id}>{t.name}{t.deducts_from_balance?' · descuenta saldo':' · no descuenta'}</option>)}</select></label>{selectedType&&(selectedType.requires_half_day_period||Number(selectedType.day_fraction)===0.5)&&<label>Mitad del día<select required value={halfDayPeriod} onChange={e=>setHalfDayPeriod(e.target.value)}><option value="">Seleccionar…</option><option value="first_half">Primera mitad del día</option><option value="second_half">Segunda mitad del día</option></select></label>}</div>{selectedType&&<div className="vacation-request-balance-preview"><span><small>Saldo disponible {currentYear}</small><b>{myBalance.available} día(s)</b></span><span><small>Este tipo</small><b>{selectedType.deducts_from_balance?'Descuenta del saldo':'No descuenta del saldo'}</b></span><span><small>Unidad</small><b>{Number(selectedType.day_fraction)===0.5?'0.5 día':'1 día'}</b></span></div>}<div className="vacation-blocks-editor"><div className="vacation-blocks-heading"><div><b>Periodos solicitados</b><small>Se permite un mínimo de 1 día. Los bloques no pueden traslaparse.</small></div><button type="button" className="secondary-button compact" disabled={requestBlocks.length>=8} onClick={()=>setRequestBlocks(x=>[...x,blankBlock()])}><Icon name="lucide:plus"/> Agregar bloque</button></div>{requestBlocks.map((b,i)=><section className="vacation-request-block" key={b.id}><div className="vacation-request-block-head"><b>Bloque {i+1}</b>{requestBlocks.length>1&&<button type="button" className="icon-button danger-text" title="Eliminar bloque" onClick={()=>setRequestBlocks(x=>x.filter(y=>y.id!==b.id))}><Icon name="lucide:trash-2"/></button>}</div><div className="vacation-block-grid"><label>Fecha de inicio<input type="date" required min={today} value={b.start_date} onChange={e=>{const start=e.target.value;patchBlock(b.id,{start_date:start,end_date:Number(selectedType?.day_fraction)===0.5?start:(b.end_date&&b.end_date<start?start:b.end_date),return_date:b.return_date&&b.return_date<=start?'':b.return_date})}}/></label><label>Fecha final<input type="date" required disabled={Number(selectedType?.day_fraction)===0.5} min={b.start_date||today} value={Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date} onChange={e=>{const end=e.target.value;patchBlock(b.id,{end_date:end,return_date:!b.return_date||b.return_date<=end?addDaysKey(end,1):b.return_date})}}/></label><label>Fecha de reincorporación<input type="date" required min={(Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date)?addDaysKey(Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date,1):b.start_date||today} value={b.return_date} onChange={e=>patchBlock(b.id,{return_date:e.target.value})}/></label></div>{b.start_date&&(b.end_date||Number(selectedType?.day_fraction)===0.5)&&<small className="vacation-block-summary"><Icon name="lucide:calendar-range"/> {(daysBetween(b.start_date,Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date)+1)*Number(selectedType?.day_fraction||1)} día(s) · reincorporación {b.return_date?formatDate(b.return_date):'pendiente'}</small>}</section>)}</div><label>Motivo / notas <span className="optional">Opcional</span><textarea rows="4" value={reason} onChange={e=>setReason(e.target.value)} placeholder="Contexto útil para planear cobertura o handoff."/></label><div className="modal-secondary"><button type="button" className="secondary-button" onClick={()=>{setRequestOpen(false);resetRequest()}}>Cancelar</button></div></AsyncForm></Modal>}
+    {requestOpen&&<Modal title="Solicitar vacaciones / ausencia" subtitle="Puedes solicitar desde un día, varios bloques no consecutivos o un medio día según el tipo seleccionado." onClose={()=>{setRequestOpen(false);resetRequest()}} size="lg"><AsyncForm onSubmit={submitRequest} submitLabel="Enviar solicitud"><div className="form-grid"><label>Tipo de ausencia<select required value={requestTypeId} onChange={e=>{const id=e.target.value,next=vacationTypeFor(vacationTypes,id);setRequestTypeId(id);setHalfDayPeriod('');if(Number(next?.day_fraction)===0.5)setRequestBlocks(list=>list.map(b=>({...b,end_date:b.start_date||b.end_date,return_date:(b.start_date||b.end_date)?addDaysKey(b.start_date||b.end_date,1):b.return_date})))}}><option value="">Seleccionar…</option>{activeTypes.map(t=><option value={t.id} key={t.id}>{t.name}{t.deducts_from_balance?' · descuenta saldo':' · no descuenta'}</option>)}</select></label>{selectedType&&(selectedType.requires_half_day_period||Number(selectedType.day_fraction)===0.5)&&<label>Mitad del día<select required value={halfDayPeriod} onChange={e=>setHalfDayPeriod(e.target.value)}><option value="">Seleccionar…</option><option value="first_half">Primera mitad del día</option><option value="second_half">Segunda mitad del día</option></select></label>}</div>{selectedType&&<div className="vacation-request-balance-preview"><span><small>Saldo disponible {currentYear}</small><b>{myBalance.loading?'Cargando…':`${myBalance.available} día(s)`}</b></span><span><small>Este tipo</small><b>{selectedType.deducts_from_balance?'Descuenta del saldo':'No descuenta del saldo'}</b></span><span><small>Unidad</small><b>{Number(selectedType.day_fraction)===0.5?'0.5 día':'1 día'}</b></span></div>}<div className="vacation-blocks-editor"><div className="vacation-blocks-heading"><div><b>Periodos solicitados</b><small>Se permite un mínimo de 1 día. Los bloques no pueden traslaparse.</small></div><button type="button" className="secondary-button compact" disabled={requestBlocks.length>=8} onClick={()=>setRequestBlocks(x=>[...x,blankBlock()])}><Icon name="lucide:plus"/> Agregar bloque</button></div>{requestBlocks.map((b,i)=><section className="vacation-request-block" key={b.id}><div className="vacation-request-block-head"><b>Bloque {i+1}</b>{requestBlocks.length>1&&<button type="button" className="icon-button danger-text" title="Eliminar bloque" onClick={()=>setRequestBlocks(x=>x.filter(y=>y.id!==b.id))}><Icon name="lucide:trash-2"/></button>}</div><div className="vacation-block-grid"><label>Fecha de inicio<input type="date" required min={today} value={b.start_date} onChange={e=>{const start=e.target.value;patchBlock(b.id,{start_date:start,end_date:Number(selectedType?.day_fraction)===0.5?start:(b.end_date&&b.end_date<start?start:b.end_date),return_date:b.return_date&&b.return_date<=start?'':b.return_date})}}/></label><label>Fecha final<input type="date" required disabled={Number(selectedType?.day_fraction)===0.5} min={b.start_date||today} value={Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date} onChange={e=>{const end=e.target.value;patchBlock(b.id,{end_date:end,return_date:!b.return_date||b.return_date<=end?addDaysKey(end,1):b.return_date})}}/></label><label>Fecha de reincorporación<input type="date" required min={(Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date)?addDaysKey(Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date,1):b.start_date||today} value={b.return_date} onChange={e=>patchBlock(b.id,{return_date:e.target.value})}/></label></div>{b.start_date&&(b.end_date||Number(selectedType?.day_fraction)===0.5)&&<small className="vacation-block-summary"><Icon name="lucide:calendar-range"/> {(daysBetween(b.start_date,Number(selectedType?.day_fraction)===0.5?b.start_date:b.end_date)+1)*Number(selectedType?.day_fraction||1)} día(s) · reincorporación {b.return_date?formatDate(b.return_date):'pendiente'}</small>}</section>)}</div><label>Motivo / notas <span className="optional">Opcional</span><textarea rows="4" value={reason} onChange={e=>setReason(e.target.value)} placeholder="Contexto útil para planear cobertura o handoff."/></label><div className="modal-secondary"><button type="button" className="secondary-button" onClick={()=>{setRequestOpen(false);resetRequest()}}>Cancelar</button></div></AsyncForm></Modal>}
     {decision&&<VacationDecisionModal item={decision.item} status={decision.status} onClose={()=>setDecision(null)} onSave={saveDecision}/>} 
     {balanceEditor&&<Modal title="Ajustar saldo de vacaciones" subtitle={`${balanceEditor.name} · ${balanceEditor.year}`} onClose={()=>setBalanceEditor(null)}><AsyncForm onSubmit={saveBalance} submitLabel="Guardar saldo"><div className="form-grid"><label>Vacaciones permitidas<input type="text" inputMode="decimal" value={balanceEditor.allowed_days} onChange={e=>setBalanceEditor(x=>({...x,allowed_days:e.target.value}))} placeholder="Ej. 12 o 12.5"/></label><label>Ajuste de días usados<input type="text" inputMode="decimal" value={balanceEditor.adjustment_used_days} onChange={e=>setBalanceEditor(x=>({...x,adjustment_used_days:e.target.value}))} placeholder="Ej. 0.5"/></label></div><div className="notice neutral-notice"><Icon name="lucide:calculator"/><span>Admite medios días con 0.5 o 0,5. Los días ocupados por solicitudes se calculan automáticamente; usa Ajuste para vacaciones ya disfrutadas fuera del sistema.</span></div><label>Nota <span className="optional">Opcional</span><textarea rows="3" value={balanceEditor.note} onChange={e=>setBalanceEditor(x=>({...x,note:e.target.value}))}/></label><div className="modal-secondary"><button type="button" className="secondary-button" onClick={()=>setBalanceEditor(null)}>Cancelar</button></div></AsyncForm></Modal>}
     {typeEditor&&<Modal title={typeEditor.id?'Editar tipo de ausencia':'Nuevo tipo de ausencia'} subtitle="Controla cómo se registra y si descuenta del saldo anual." onClose={()=>setTypeEditor(null)}><AsyncForm onSubmit={saveType} submitLabel={typeEditor.id?'Guardar cambios':'Crear tipo'}><div className="form-grid"><label>Nombre<input value={typeEditor.name} onChange={e=>setTypeEditor(x=>({...x,name:e.target.value,code:x.id?x.code:(x.code||e.target.value.toLowerCase().replace(/[^a-z0-9]+/g,'_'))}))} required placeholder="Ej. Permiso personal"/></label><label>Código<input value={typeEditor.code} onChange={e=>setTypeEditor(x=>({...x,code:e.target.value}))} required disabled={!!typeEditor.id} placeholder="permiso_personal"/></label><label>Unidad<select value={String(typeEditor.day_fraction)} onChange={e=>setTypeEditor(x=>({...x,day_fraction:Number(e.target.value),requires_half_day_period:Number(e.target.value)===0.5}))}><option value="1">Día completo</option><option value="0.5">Medio día</option></select></label><label>Color<input type="color" value={typeEditor.color||'#0C66E4'} onChange={e=>setTypeEditor(x=>({...x,color:e.target.value}))}/></label></div><label>Descripción<textarea rows="3" value={typeEditor.description||''} onChange={e=>setTypeEditor(x=>({...x,description:e.target.value}))}/></label><div className="toggle-list"><label><span><b>Descontar del total de vacaciones disponibles</b><small>Si está apagado, se registra en el contador del tipo pero no consume saldo anual.</small></span><input type="checkbox" checked={!!typeEditor.deducts_from_balance} onChange={e=>setTypeEditor(x=>({...x,deducts_from_balance:e.target.checked}))}/></label><label><span><b>Tipo activo</b><small>Los tipos inactivos no aparecen en nuevas solicitudes, pero conservan histórico.</small></span><input type="checkbox" checked={typeEditor.active!==false} onChange={e=>setTypeEditor(x=>({...x,active:e.target.checked}))}/></label></div><div className="modal-secondary"><button type="button" className="secondary-button" onClick={()=>setTypeEditor(null)}>Cancelar</button></div></AsyncForm></Modal>}
@@ -2729,12 +2897,12 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='workspace-create') return props.canCreateWorkspace?<WorkspaceModal title="Crear espacio de trabajo" onClose={close} onSave={async f=>{await props.createWorkspace(f);close()}}/>:<ConfirmModal title="Acceso restringido" message="Solo Admin, PM o Superadmin pueden crear espacios de trabajo." onClose={close} onConfirm={close}/>
   if(modal.type==='workspace-switch') return <WorkspaceSwitcherModal workspaces={props.workspaces} current={props.workspace} canCreate={props.canCreateWorkspace} onClose={close} onSelect={w=>{props.setWorkspace(w);close()}} onCreate={()=>setModal({type:'workspace-create'})}/>
   if(modal.type==='workspace-edit') return <WorkspaceModal title="Editar espacio" initial={{name:props.workspace.name}} onClose={close} onSave={async f=>{const {error}=await db.from('workspaces').update({name:f.name}).eq('id',props.workspace.id);if(error)throw error;await props.loadMemberships(props.workspace.id);props.toast('success','Workspace actualizado.');close()}}/>
-  if(modal.type==='workspace-config') return <WorkspaceConfigModal workspace={props.workspace} settings={props.settings} onClose={close} onSaved={async()=>{await props.refresh();props.toast('success','Configuración guardada.');close()}}/>
+  if(modal.type==='workspace-config') return <WorkspaceConfigModal liveRevision={props.liveRevision?.staff||0} workspace={props.workspace} settings={props.settings} onClose={close} onSaved={async()=>{await props.refresh();props.toast('success','Configuración guardada.');close()}}/>
   if(modal.type==='workspace-delete' && props.isSuperadmin) return <ConfirmModal title="Eliminar workspace" message="Se eliminarán productos, sprints, tickets, Helpdesk y configuración de este espacio. Esta acción no se puede deshacer." danger onClose={close} onConfirm={async()=>{const {error}=await db.from('workspaces').delete().eq('id',props.workspace.id);if(error)throw error;await props.loadMemberships();props.toast('success','Workspace eliminado.');close()}}/>
 
   if(modal.type==='ticket-create') return <TicketModal title="Crear ticket" workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} reporterMode={!props.canWork} products={props.products} sprints={props.sprints} members={props.members} modules={props.modules} tags={props.tags} ticketTagLinks={props.ticketTagLinks} customFields={props.customFields} customFieldProducts={props.customFieldProducts} customValues={props.customValues} onClose={close} onSave={async f=>{await props.saveTicket(f);close()}}/>
   if(modal.type==='ticket-edit' && props.canWork) return <TicketModal title={`Editar ${modal.ticket.ticket_key}`} workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} ticket={modal.ticket} products={props.products} sprints={props.sprints} members={props.members} modules={props.modules} tags={props.tags} ticketTagLinks={props.ticketTagLinks} customFields={props.customFields} customFieldProducts={props.customFieldProducts} customValues={props.customValues} onClose={close} onSave={async f=>{await props.saveTicket(f,modal.ticket);close()}}/>
-  if(modal.type==='ticket-detail') return <TicketDetailModal workspace={props.workspace} ticket={modal.ticket} tickets={props.tickets} products={props.products} members={props.members} modules={props.modules} tags={props.tags} ticketTagLinks={props.ticketTagLinks} ticketLinks={props.ticketLinks} customFields={props.customFields} customValues={props.customValues} session={props.session} canWork={props.canWork} canManage={props.canManage} onClose={close} onEdit={()=>setModal({type:'ticket-edit',ticket:modal.ticket})} onPlan={()=>setModal({type:'ticket-plan',ticket:modal.ticket})} onLink={()=>setModal({type:'ticket-link',ticket:modal.ticket})} onOpenRelated={ticket=>setModal({type:'ticket-detail',ticket})} onRefresh={props.refresh} toast={props.toast}/>
+  if(modal.type==='ticket-detail') return <TicketDetailModal liveRevision={props.liveRevision?.tickets||0} workspace={props.workspace} ticket={modal.ticket} tickets={props.tickets} products={props.products} members={props.members} modules={props.modules} tags={props.tags} ticketTagLinks={props.ticketTagLinks} ticketLinks={props.ticketLinks} customFields={props.customFields} customValues={props.customValues} session={props.session} canWork={props.canWork} canManage={props.canManage} onClose={close} onEdit={()=>setModal({type:'ticket-edit',ticket:modal.ticket})} onPlan={()=>setModal({type:'ticket-plan',ticket:modal.ticket})} onLink={()=>setModal({type:'ticket-link',ticket:modal.ticket})} onOpenRelated={ticket=>setModal({type:'ticket-detail',ticket})} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='ticket-link') return <TicketLinkModal ticket={modal.ticket} tickets={props.tickets} products={props.products} existing={props.ticketLinks} onClose={close} onSave={async f=>{const direction=f.link_type==='blocked_by';const row={workspace_id:props.workspace.id,source_ticket_id:direction?f.other_ticket_id:modal.ticket.id,target_ticket_id:direction?modal.ticket.id:f.other_ticket_id,link_type:direction?'blocks':f.link_type,note:f.note||null,created_by:props.session.user.id};const {error}=await db.from('ticket_links').insert(row);if(error)throw error;await props.refresh();props.toast('success','Relación creada.');close()}}/>
   if(modal.type==='dependency-override') return <DependencyOverrideModal ticket={modal.ticket} status={modal.status} onClose={close} onSave={async note=>{const {error}=await db.rpc('transition_ticket_status',{p_ticket_id:modal.ticket.id,p_status:modal.status,p_override_blockers:true,p_note:note});if(error)throw error;await props.refresh();props.toast('success','Avance forzado y registrado en actividad.');close()}}/>
   if(modal.type==='ticket-actions'){
@@ -2751,13 +2919,13 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='backlog-import') return <BacklogImportModal workspace={props.workspace} products={props.products} members={props.members} session={props.session} onClose={close} onImported={async result=>{await props.refresh();props.toast('success',`${result.imported} tickets importados al Backlog.`);close()}}/>
   if(modal.type==='sprint-create') return <SprintModal title="Nuevo sprint" onClose={close} onSave={async f=>{const {error}=await db.from('sprints').insert({...f,workspace_id:props.workspace.id,created_by:props.session.user.id,start_date:f.start_date||null,end_date:f.end_date||null});if(error)throw error;await props.refresh();props.toast('success','Sprint creado.');close()}}/>
   if(modal.type==='sprint-edit') return <SprintModal title="Editar sprint" initial={modal.sprint} onClose={close} onSave={async f=>{const {error}=await db.from('sprints').update({...f,start_date:f.start_date||null,end_date:f.end_date||null}).eq('id',modal.sprint.id);if(error)throw error;await props.refresh();props.toast('success','Sprint actualizado.');close()}}/>
-  if(modal.type==='sprint-detail') return <SprintDetailModal workspace={props.workspace} sprint={modal.sprint} tickets={props.tickets} products={props.products} members={props.members} session={props.session} canWork={props.canWork} canPlan={props.canPlan} onClose={close} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={()=>setModal({type:'sprint-edit',sprint:modal.sprint})} onRollover={()=>setModal({type:'sprint-rollover',sprint:modal.sprint})} onBacklog={async ticket=>{await props.planTicket(ticket,'')}} onRefresh={props.refresh} toast={props.toast}/>
+  if(modal.type==='sprint-detail') return <SprintDetailModal liveRevision={props.liveRevision?.sprints||0} workspace={props.workspace} sprint={modal.sprint} tickets={props.tickets} products={props.products} members={props.members} session={props.session} canWork={props.canWork} canPlan={props.canPlan} onClose={close} onTicket={ticket=>setModal({type:'ticket-detail',ticket})} onEdit={()=>setModal({type:'sprint-edit',sprint:modal.sprint})} onRollover={()=>setModal({type:'sprint-rollover',sprint:modal.sprint})} onBacklog={async ticket=>{await props.planTicket(ticket,'')}} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='sprint-rollover') return <SprintRolloverModal sprint={modal.sprint} sprints={props.sprints} tickets={props.tickets} onClose={close} onSave={async nextId=>{await props.closeSprintAndRollover(modal.sprint,nextId);close()}}/>
   if(modal.type==='sprint-delete') return <ConfirmModal title="Eliminar sprint" message="Los tickets del sprint quedarán sin sprint. Para conservar el flujo recomendado usa “Cerrar / trasladar” desde Backlog." danger onClose={close} onConfirm={async()=>{const {error}=await db.from('sprints').delete().eq('id',modal.sprint.id);if(error)throw error;await props.refresh();props.toast('success','Sprint eliminado.');close()}}/>
 
   if(modal.type==='help-create') return <HelpdeskModal title="Nueva solicitud de Helpdesk" workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} vacationRequests={props.vacationRequests} timeZone={props.settings?.timezone||'America/Merida'} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f);close()}}/>
   if(modal.type==='help-edit') return <HelpdeskModal title={`Editar ${modal.item.ticket_key}`} workspace={props.workspace} knowledgeArticles={props.knowledgeArticles} locale={props.locale} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} vacationRequests={props.vacationRequests} timeZone={props.settings?.timezone||'America/Merida'} session={props.session} canWork={props.canManageHelpdesk} onClose={close} onSave={async f=>{await props.saveHelpdesk(f,modal.item);close()}}/>
-  if(modal.type==='help-detail') return <HelpdeskDetailModal workspace={props.workspace} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} session={props.session} canWork={props.canManageHelpdesk||modal.item.assigned_to===props.session.user.id} canManage={props.canPlan} canManageHelpdesk={props.canManageHelpdesk} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onDecision={()=>setModal({type:'help-requirement-decision',item:modal.item})} onAssign={()=>setModal({type:'help-assign',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
+  if(modal.type==='help-detail') return <HelpdeskDetailModal liveRevision={props.liveRevision?.helpdesk||0} workspace={props.workspace} item={modal.item} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} session={props.session} canWork={props.canManageHelpdesk||modal.item.assigned_to===props.session.user.id} canManage={props.canPlan} canManageHelpdesk={props.canManageHelpdesk} onClose={close} onEdit={()=>setModal({type:'help-edit',item:modal.item})} onDecision={()=>setModal({type:'help-requirement-decision',item:modal.item})} onAssign={()=>setModal({type:'help-assign',item:modal.item})} onRefresh={props.refresh} toast={props.toast}/>
   if(modal.type==='help-actions'){
     const requirement=isProposalCategory(modal.item.category)
     const actions=[['lucide:eye','Ver solicitud',()=>setModal({type:'help-detail',item:modal.item})]]
@@ -2771,11 +2939,11 @@ function ModalRouter(props){const {modal,setModal}=props;const close=()=>setModa
   if(modal.type==='help-assign') return <HelpdeskAssignModal item={modal.item} members={props.members} vacationRequests={props.vacationRequests} timeZone={props.settings?.timezone||'America/Merida'} currentUserId={props.session.user.id} onClose={close} onSave={async(assigneeId,comment)=>{const {error}=await db.rpc('assign_helpdesk_ticket',{p_ticket_id:modal.item.id,p_assignee:assigneeId,p_comment:comment||null});if(error)throw error;await props.refresh();props.toast('success',modal.item.assigned_to===props.session.user.id?'Solicitud redirigida correctamente.':'Solicitud asignada correctamente.');close()}}/>
   if(modal.type==='help-requirement-decision') return <RequirementDecisionModal item={modal.item} products={props.products} onClose={close} onSave={async(decision,productId,note)=>{await props.decideRequirement(modal.item,decision,productId,note);close()}}/>
   if(modal.type==='help-delete') return <ConfirmModal title={`Eliminar ${modal.item.ticket_key}`} message={`¿Deseas eliminar “${modal.item.subject}”?`} danger onClose={close} onConfirm={async()=>{await props.deleteHelpdesk(modal.item);close()}}/>
-  if(modal.type==='help-filters') return <HelpFilterModal filters={props.helpFilters} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} onClose={close} onApply={f=>{props.setHelpFilters(f);close()}}/>
+  if(modal.type==='help-filters') return <HelpFilterModal filters={props.helpFilters} departments={props.departments} requestTypes={props.requestTypes} products={props.helpdeskProducts||props.products} members={props.members} onClose={close} onApply={f=>{props.setHelpFilters({...f,quick:'all'});close()}}/>
 
   if(modal.type==='invite') return <InviteModal workspace={props.workspace} products={props.products} members={props.members} roleTemplates={props.roleTemplates} isSuperadmin={props.isSuperadmin} onClose={close} onSaved={async result=>{await props.loadMemberships(props.workspace.id);await props.refresh();if(result?.temporary_password){setModal({type:'temporary-credentials',credentials:result});return}props.toast('success',result?.invitation_sent?'Invitación enviada y accesos configurados.':'Usuario y accesos configurados.');close()}}/>
   if(modal.type==='temporary-credentials') return <TemporaryCredentialsModal credentials={modal.credentials} onClose={close}/>
-  if(modal.type==='member-edit') return <MemberModal workspace={props.workspace} members={props.members} member={{...modal.member,product_ids:props.memberProductAccess.filter(x=>x.user_id===modal.member.user_id).map(x=>x.product_id)}} products={props.products} roleTemplates={props.roleTemplates} session={props.session} isSuperadmin={props.isSuperadmin} onClose={close} onRemove={()=>setModal({type:'member-remove',member:modal.member})} onSave={async f=>{const selected=props.roleTemplates.find(r=>r.id===f.role_id);if(!selected)throw new Error('Selecciona un rol válido.');const allProducts=selected.code==='superadmin'?true:!!f.all_products;const permissions=selected.code==='superadmin'?{}:f.permissions;const {error}=await db.from('workspace_members').update({role_id:f.role_id,role:selected.base_role,active:f.active,all_products:allProducts,permissions,helpdesk_routing_description:f.helpdesk_routing_description||null,helpdesk_auto_assign_enabled:!!f.helpdesk_auto_assign_enabled,helpdesk_daily_limit:f.helpdesk_daily_limit===''||f.helpdesk_daily_limit==null?null:Number(f.helpdesk_daily_limit),helpdesk_active_limit:f.helpdesk_active_limit===''||f.helpdesk_active_limit==null?null:Number(f.helpdesk_active_limit),helpdesk_overflow_mode:f.helpdesk_overflow_mode||'inherit',helpdesk_overflow_user_id:f.helpdesk_overflow_user_id||null}).eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(error)throw error;const del=await db.from('workspace_member_products').delete().eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(del.error)throw del.error;if(!allProducts&&f.product_ids.length){const ins=await db.from('workspace_member_products').insert(f.product_ids.map(product_id=>({workspace_id:props.workspace.id,user_id:modal.member.user_id,product_id})));if(ins.error)throw ins.error}await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Rol, permisos y productos actualizados.');close()}}/>
+  if(modal.type==='member-edit') return <MemberModal liveRevision={props.liveRevision?.helpdesk||0} workspace={props.workspace} members={props.members} member={{...modal.member,product_ids:props.memberProductAccess.filter(x=>x.user_id===modal.member.user_id).map(x=>x.product_id)}} products={props.products} roleTemplates={props.roleTemplates} session={props.session} isSuperadmin={props.isSuperadmin} onClose={close} onRemove={()=>setModal({type:'member-remove',member:modal.member})} onSave={async f=>{const selected=props.roleTemplates.find(r=>r.id===f.role_id);if(!selected)throw new Error('Selecciona un rol válido.');const allProducts=selected.code==='superadmin'?true:!!f.all_products;const permissions=selected.code==='superadmin'?{}:f.permissions;const {error}=await db.from('workspace_members').update({role_id:f.role_id,role:selected.base_role,active:f.active,all_products:allProducts,permissions,helpdesk_routing_description:f.helpdesk_routing_description||null,helpdesk_auto_assign_enabled:!!f.helpdesk_auto_assign_enabled,helpdesk_daily_limit:f.helpdesk_daily_limit===''||f.helpdesk_daily_limit==null?null:Number(f.helpdesk_daily_limit),helpdesk_active_limit:f.helpdesk_active_limit===''||f.helpdesk_active_limit==null?null:Number(f.helpdesk_active_limit),helpdesk_overflow_mode:f.helpdesk_overflow_mode||'inherit',helpdesk_overflow_user_id:f.helpdesk_overflow_user_id||null}).eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(error)throw error;const del=await db.from('workspace_member_products').delete().eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(del.error)throw del.error;if(!allProducts&&f.product_ids.length){const ins=await db.from('workspace_member_products').insert(f.product_ids.map(product_id=>({workspace_id:props.workspace.id,user_id:modal.member.user_id,product_id})));if(ins.error)throw ins.error}await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Rol, permisos y productos actualizados.');close()}}/>
   if(modal.type==='member-remove') return <ConfirmModal title="Retirar colaborador" message={`¿Deseas retirar a ${modal.member.profile?.full_name||'este colaborador'} de ${props.workspace.name}? Perderá acceso a este workspace, pero sus tickets e historial se conservarán.`} danger onClose={close} onConfirm={async()=>{if(modal.member.user_id===props.session.user.id)throw new Error('No puedes retirarte a ti mismo desde esta pantalla.');const {error}=await db.from('workspace_members').delete().eq('workspace_id',props.workspace.id).eq('user_id',modal.member.user_id);if(error)throw error;await props.loadMemberships(props.workspace.id);await props.refresh();props.toast('success','Colaborador retirado del workspace.');close()}}/>
   if(modal.type==='role-create') return <RoleModal workspace={props.workspace} roleTemplates={props.roleTemplates} onClose={close} onSave={async f=>{const {error}=await db.from('workspace_roles').insert({...f,workspace_id:props.workspace.id,is_system:false,protected:false});if(error)throw error;await props.refresh();props.toast('success','Rol creado.');close()}}/>
   if(modal.type==='role-edit') return <RoleModal workspace={props.workspace} initial={modal.role} roleTemplates={props.roleTemplates} onClose={close} onSave={async f=>{const {error}=await db.from('workspace_roles').update(f).eq('id',modal.role.id);if(error)throw error;await props.refresh();props.toast('success','Rol actualizado.');close()}}/>
@@ -2823,7 +2991,7 @@ function ConfirmModal({title,message,danger,onClose,onConfirm}){return <Modal ti
 function ActionSheet({title,subtitle,onClose,actions}){return <Modal title={title} subtitle={subtitle} onClose={onClose} size="sm"><div className="action-sheet">{actions.map(([icon,label,fn,tone])=><button key={label} className={tone==='danger'?'danger-action':''} onClick={fn}><Icon name={icon}/><span>{label}</span><Icon name="lucide:chevron-right" size={16}/></button>)}</div></Modal>}
 
 function WorkspaceModal({title,initial,onClose,onSave}){const [name,setName]=useState(initial?.name||'');return <Modal title={title} subtitle="Los datos y permisos permanecerán aislados por espacio." onClose={onClose}><AsyncForm onSubmit={()=>onSave({name:name.trim()})} submitLabel="Guardar workspace"><label>Nombre del workspace<input autoFocus value={name} onChange={e=>setName(e.target.value)} required placeholder="Ej. Desarrollo TROBBU"/></label><div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div></AsyncForm></Modal>}
-function WorkspaceConfigModal({workspace,settings,onClose,onSaved}){
+function WorkspaceConfigModal({liveRevision=0,workspace,settings,onClose,onSaved}){
   const [f,setF]=useState({
     timezone:settings?.timezone||'America/Merida',default_sprint_days:settings?.default_sprint_days||14,support_email:settings?.support_email||'',
     sla_first_response_hours:settings?.sla_first_response_hours||4,sla_resolution_hours:settings?.sla_resolution_hours||24,
@@ -2836,7 +3004,7 @@ function WorkspaceConfigModal({workspace,settings,onClose,onSaved}){
     knowledge_cover_templates:normalizeKnowledgeCoverSettings(settings?.knowledge_cover_templates)
   })
   const [routingMembers,setRoutingMembers]=useState([])
-  useEffect(()=>{let live=true;(async()=>{const {data}=await db.from('workspace_members').select('user_id,role,role_id,active,helpdesk_auto_assign_enabled').eq('workspace_id',workspace.id).eq('active',true);if(!live)return;const ids=(data||[]).map(x=>x.user_id);const {data:profiles}=ids.length?await db.from('profiles').select('id,full_name,email').in('id',ids):{data:[]};const pm=new Map((profiles||[]).map(x=>[x.id,x]));setRoutingMembers((data||[]).filter(x=>x.role!=='consulta').map(x=>({...x,profile:pm.get(x.user_id)})))} )();return()=>{live=false}},[workspace.id])
+  useEffect(()=>{let live=true;(async()=>{const {data}=await db.from('workspace_members').select('user_id,role,role_id,active,helpdesk_auto_assign_enabled').eq('workspace_id',workspace.id).eq('active',true);if(!live)return;const ids=(data||[]).map(x=>x.user_id);const {data:profiles}=ids.length?await db.from('profiles').select('id,full_name,email').in('id',ids):{data:[]};const pm=new Map((profiles||[]).map(x=>[x.id,x]));setRoutingMembers((data||[]).filter(x=>x.role!=='consulta').map(x=>({...x,profile:pm.get(x.user_id)})))} )();return()=>{live=false}},[workspace.id,liveRevision])
   const setCover=(template,key,value)=>setF(x=>({...x,knowledge_cover_templates:{...x.knowledge_cover_templates,[template]:{...x.knowledge_cover_templates[template],[key]:value}}}))
   const resetCoverTemplates=()=>setF(x=>({...x,knowledge_cover_templates:normalizeKnowledgeCoverSettings(DEFAULT_KNOWLEDGE_COVER_SETTINGS)}))
   return <Modal title="Editar configuración" subtitle={`Preferencias operativas de ${workspace.name}.`} onClose={onClose} size="lg"><AsyncForm onSubmit={async()=>{
@@ -2923,7 +3091,7 @@ function EvidenceCommentModal({title,initial,onClose,onSave,allowFiles=false}){
   </AsyncForm></Modal>
 }
 
-function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[],tags=[],ticketTagLinks=[],ticketLinks=[],customFields=[],customValues=[],session,canWork,canManage,onClose,onEdit,onPlan,onLink,onOpenRelated,onRefresh,toast}){
+function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[],tags=[],ticketTagLinks=[],ticketLinks=[],customFields=[],customValues=[],session,canWork,canManage,liveRevision=0,onClose,onEdit,onPlan,onLink,onOpenRelated,onRefresh,toast}){
   const [comments,setComments]=useState([])
   const [activity,setActivity]=useState([])
   const [attachments,setAttachments]=useState([])
@@ -2939,7 +3107,7 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
     if(a.error) toast('error',a.error.message); else setActivity(a.data||[])
     if(e.error) toast('error',e.error.message); else setAttachments(await signedEvidenceRows(e.data||[]))
   }
-  useEffect(()=>{load()},[ticket.id])
+  useEffect(()=>{load()},[ticket.id,liveRevision])
   const addComment=async({body,kind,files})=>{
     body=String(body||'').trim();if(!body&&!(files?.length))throw new Error('Escribe un comentario o adjunta al menos un archivo.');body=body||'Archivo adjunto'
     const {data,error}=await db.from('ticket_comments').insert({ticket_id:ticket.id,author_id:session.user.id,body,kind:kind||'comment'}).select('*').single()
@@ -3073,7 +3241,7 @@ function SprintRolloverModal({sprint,sprints,tickets,onClose,onSave}){
   </AsyncForm></Modal>
 }
 
-function SprintDetailModal({workspace,sprint,tickets,products,members,session,canWork,canPlan,onClose,onTicket,onEdit,onRollover,onBacklog,onRefresh,toast}){
+function SprintDetailModal({workspace,sprint,tickets,products,members,session,canWork,canPlan,liveRevision=0,onClose,onTicket,onEdit,onRollover,onBacklog,onRefresh,toast}){
   const [comments,setComments]=useState([])
   const [attachments,setAttachments]=useState([])
   const [commentModal,setCommentModal]=useState(null)
@@ -3092,7 +3260,7 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
     if(c.error)toast('error',c.error.message);else setComments(c.data||[])
     if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))
   }
-  useEffect(()=>{setProductFilter('all');load()},[sprint.id])
+  useEffect(()=>{setProductFilter('all');load()},[sprint.id,liveRevision])
   const add=async({body,kind,files})=>{body=String(body||'').trim();if(!body&&!(files?.length))throw new Error('Escribe un comentario o adjunta al menos un archivo.');body=body||'Archivo adjunto';const {data,error}=await db.from('sprint_comments').insert({sprint_id:sprint.id,author_id:session.user.id,body,kind:kind||'comment'}).select('*').single();if(error)throw error;try{await uploadEvidenceFiles({workspaceId:workspace.id,scope:'sprints',parentId:sprint.id,commentId:data.id,files,evidenceType:kind==='comment'?'general':kind,userId:session.user.id,compress:true})}catch(err){await db.from('sprint_comments').delete().eq('id',data.id);throw err}await load();toast('success',files?.length?'Comentario y archivos del sprint agregados.':'Comentario del sprint agregado.')}
   const edit=async(comment,data)=>{const {error}=await db.from('sprint_comments').update({body:String(data.body||'').trim(),kind:data.kind||'comment'}).eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario actualizado.')}
   const removeComment=async comment=>{const {error}=await db.from('sprint_comments').delete().eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario eliminado.')}
@@ -3127,13 +3295,13 @@ function HelpdeskModal({title,workspace,knowledgeArticles=[],locale='es',item,de
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
-function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],products=[],members,session,canWork,canManage,canManageHelpdesk,onClose,onEdit,onDecision,onAssign,onRefresh,toast}){
+function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],products=[],members,session,canWork,canManage,canManageHelpdesk,liveRevision=0,onClose,onEdit,onDecision,onAssign,onRefresh,toast}){
   const [comments,setComments]=useState([]),[activity,setActivity]=useState([]),[attachments,setAttachments]=useState([]),[tab,setTab]=useState('comments'),[commentModal,setCommentModal]=useState(null)
   const requirement=isProposalCategory(item.category)
   const requestType=requestTypes.find(x=>x.id===item.request_type_id)
   const product=products.find(x=>x.id===item.product_id)
   const load=async()=>{const [c,a,e]=await Promise.all([db.from('helpdesk_comments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*').eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false}),db.from('helpdesk_attachments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at')]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[]);if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))}
-  useEffect(()=>{load()},[item.id])
+  useEffect(()=>{load()},[item.id,liveRevision])
   const addComment=async({body,files})=>{body=String(body||'').trim();if(!body&&!(files?.length))throw new Error('Escribe un comentario o adjunta al menos un archivo.');body=body||'Archivo adjunto';const {data,error}=await db.from('helpdesk_comments').insert({helpdesk_ticket_id:item.id,author_id:session.user.id,body}).select('*').single();if(error)throw error;try{await uploadEvidenceFiles({workspaceId:workspace.id,scope:'helpdesk',parentId:item.id,commentId:data.id,files,evidenceType:'general',userId:session.user.id,compress:true})}catch(err){await db.from('helpdesk_comments').delete().eq('id',data.id);throw err}await load();toast('success',files?.length?'Comentario y evidencias agregados.':'Comentario agregado.')}
   const editComment=async(comment,text)=>{const {error}=await db.from('helpdesk_comments').update({body:String(text||'').trim()}).eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario actualizado.')}
   const deleteComment=async comment=>{const {error}=await db.from('helpdesk_comments').delete().eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario eliminado. Las evidencias se conservan en el historial.')}
@@ -3242,7 +3410,7 @@ function InviteModal({workspace,products,members=[],roleTemplates,isSuperadmin,o
     <div className="modal-secondary"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button></div>
   </AsyncForm></Modal>
 }
-function MemberModal({workspace,members=[],member,products,roleTemplates,session,isSuperadmin,onClose,onSave,onRemove}){
+function MemberModal({liveRevision=0,workspace,members=[],member,products,roleTemplates,session,isSuperadmin,onClose,onSave,onRemove}){
   const available=roleTemplates.filter(r=>r.active&&(isSuperadmin||r.code!=='superadmin'))
   const initialRole=roleTemplates.find(r=>r.id===member.role_id)||roleTemplates.find(r=>r.code===member.role)||available[0]
   const [roleId,setRoleId]=useState(initialRole?.id||''),[active,setActive]=useState(member.active),[allProducts,setAllProducts]=useState(member.role==='superadmin'||!!member.all_products),[productIds,setProductIds]=useState(member.product_ids||[]),[permissions,setPermissions]=useState(member.permissions||{}),[fullName,setFullName]=useState(member.profile?.full_name||''),[email,setEmail]=useState(member.profile?.email||''),[jobTitle,setJobTitle]=useState(member.profile?.job_title||''),[resetting,setResetting]=useState(false),[credentialResult,setCredentialResult]=useState(null),[credentialError,setCredentialError]=useState(''),[newPassword,setNewPassword]=useState(''),[confirmPassword,setConfirmPassword]=useState(''),[showNewPassword,setShowNewPassword]=useState(false),[savingPassword,setSavingPassword]=useState(false),[passwordMessage,setPasswordMessage]=useState('')
@@ -3250,7 +3418,7 @@ function MemberModal({workspace,members=[],member,products,roleTemplates,session
   const self=member.user_id===session.user.id
   const selectedRole=roleTemplates.find(r=>r.id===roleId)||initialRole
   const portal=roleIsHelpdeskRequester(selectedRole),needsProducts=roleNeedsProducts(selectedRole,permissions)
-  useEffect(()=>{let live=true;db.rpc('get_helpdesk_member_capacity',{p_workspace:workspace.id,p_user:member.user_id}).then(({data})=>{if(live&&data)setCapacity(data)});return()=>{live=false}},[workspace.id,member.user_id])
+  useEffect(()=>{let live=true;db.rpc('get_helpdesk_member_capacity',{p_workspace:workspace.id,p_user:member.user_id}).then(({data})=>{if(live&&data)setCapacity(data)});return()=>{live=false}},[workspace.id,member.user_id,liveRevision])
   const changeRole=value=>{setRoleId(value);setPermissions({});const next=roleTemplates.find(r=>r.id===value);if(next?.code==='superadmin')setAllProducts(true);if(roleIsHelpdeskRequester(next)){setAllProducts(false);setProductIds([]);setAutoAssign(false)}}
   return <Modal title="Datos y accesos del colaborador" subtitle={member.profile?.full_name||'Usuario'} onClose={onClose} size="lg"><AsyncForm onSubmit={async()=>{if(!selectedRole)throw new Error('Selecciona un rol.');if(autoAssign&&!portal&&routingDescription.trim().length<12)throw new Error('Describe con al menos 12 caracteres qué temas atiende este usuario para habilitar la autoasignación.');if(needsProducts&&!allProducts&&selectedRole.code!=='superadmin'&&!productIds.length)throw new Error('Selecciona al menos un producto o habilita Todos.');if(!email.trim())throw new Error('El correo es obligatorio.');const {data,error}=await db.functions.invoke('manage-member',{body:{action:'update_profile',workspace_id:workspace.id,user_id:member.user_id,full_name:fullName,email:email,job_title:jobTitle}});if(error||data?.error)throw new Error(await functionErrorMessage(error,data));return onSave({role_id:selectedRole.id,role:selectedRole.base_role,active,all_products:needsProducts?(selectedRole.code==='superadmin'?true:allProducts):false,product_ids:needsProducts?productIds:[],permissions:selectedRole.code==='superadmin'||portal?{}:permissions,helpdesk_routing_description:routingDescription.trim()||null,helpdesk_auto_assign_enabled:portal?false:!!autoAssign,helpdesk_daily_limit:dailyLimit,helpdesk_active_limit:activeLimit,helpdesk_overflow_mode:overflowMode,helpdesk_overflow_user_id:overflowUserId||null})}} submitLabel="Guardar datos y accesos">
     <WorkspaceAccessSummary workspace={workspace}/>
