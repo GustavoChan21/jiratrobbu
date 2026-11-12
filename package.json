@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.9.1",
-  "description": "Jira Interno TROBBU v17.9.1 - luxury dark-mode contrast hardening, full-click Helpdesk controls and exact live detail counters",
+  "version": "17.9.2",
+  "description": "Jira Interno TROBBU v17.9.2 - dark-mode visual parity, switch contrast, white-surface removal and resilient live detail counters",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.9.1.mjs"
+    "qa": "node qa-v17.9.2.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"

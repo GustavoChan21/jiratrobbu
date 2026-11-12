@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v17.9.1 · Knowledge Assistant title matching, Helpdesk KPI filters and resilient Live Data */
+/* Jira Interno TROBBU v17.9.2 · Dark-mode visual parity, resilient detail counters and Live Data */
 const { useEffect, useMemo, useState, useRef } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -3194,7 +3194,7 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
     if(c.error) toast('error',c.error.message); else setComments(c.data||[])
     if(a.error) toast('error',a.error.message); else setActivity(a.data||[])
     if(e.error) toast('error',e.error.message); else setAttachments(await signedEvidenceRows(e.data||[]))
-    setDetailCounts({comments:cc.count??(c.data||[]).length,activity:ac.count??(a.data||[]).length,attachments:ec.count??(e.data||[]).length})
+    setDetailCounts({comments:Math.max(Number(cc.count||0),(c.data||[]).length),activity:Math.max(Number(ac.count||0),(a.data||[]).length),attachments:Math.max(Number(ec.count||0),(e.data||[]).length)})
   }
   useEffect(()=>{load()},[ticket.id,liveRevision])
   useResilientLiveRefresh(load,`ticket:${ticket.id}`,30000)
@@ -3352,7 +3352,7 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
     ])
     if(c.error)toast('error',c.error.message);else setComments(c.data||[])
     if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))
-    setDetailCounts({comments:cc.count??(c.data||[]).length,attachments:ec.count??(e.data||[]).length})
+    setDetailCounts({comments:Math.max(Number(cc.count||0),(c.data||[]).length),attachments:Math.max(Number(ec.count||0),(e.data||[]).length)})
   }
   useEffect(()=>{setProductFilter('all');load()},[sprint.id,liveRevision])
   useResilientLiveRefresh(load,`sprint:${sprint.id}`,30000)
@@ -3395,7 +3395,7 @@ function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],product
   const requirement=isProposalCategory(item.category)
   const requestType=requestTypes.find(x=>x.id===item.request_type_id)
   const product=products.find(x=>x.id===item.product_id)
-  const load=async()=>{const [c,a,e,cc,ac,ec]=await Promise.all([db.from('helpdesk_comments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*').eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false}),db.from('helpdesk_attachments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),exactRelationCount('helpdesk_comments','helpdesk_ticket_id',item.id),exactRelationCount('helpdesk_activity','helpdesk_ticket_id',item.id),exactRelationCount('helpdesk_attachments','helpdesk_ticket_id',item.id)]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[]);if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]));setDetailCounts({comments:cc.count??(c.data||[]).length,activity:ac.count??(a.data||[]).length,attachments:ec.count??(e.data||[]).length})}
+  const load=async()=>{const [c,a,e,cc,ac,ec]=await Promise.all([db.from('helpdesk_comments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*').eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false}),db.from('helpdesk_attachments').select('*').eq('helpdesk_ticket_id',item.id).order('created_at'),exactRelationCount('helpdesk_comments','helpdesk_ticket_id',item.id),exactRelationCount('helpdesk_activity','helpdesk_ticket_id',item.id),exactRelationCount('helpdesk_attachments','helpdesk_ticket_id',item.id)]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[]);if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]));setDetailCounts({comments:Math.max(Number(cc.count||0),(c.data||[]).length),activity:Math.max(Number(ac.count||0),(a.data||[]).length),attachments:Math.max(Number(ec.count||0),(e.data||[]).length)})}
   useEffect(()=>{load()},[item.id,liveRevision])
   useResilientLiveRefresh(load,`helpdesk:${item.id}`,30000)
   const runStatus=async status=>{setWorkflowBusy(true);try{await onStatusChange?.(status);await load()}catch(err){toast('error',err.message||String(err))}finally{setWorkflowBusy(false)}}
