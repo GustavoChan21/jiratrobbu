@@ -1,34 +1,28 @@
-# RELEASE v17.5.2 · Jira Interno TROBBU
+# RELEASE v17.5.3 · Jira Interno TROBBU
 
 ## Base
-v17.5.1 Final Completo.
+v17.5.2, compatible con instalaciones que continúan en Git v17.5.1 mediante `upgrade-v17.5.sql` re-ejecutable.
 
-## Corrección crítica
-El frontend v17.5.1 ya intentaba escribir `return_date` y `date_blocks`, pero el esquema Supabase actualmente desplegado no contiene esas columnas. v17.5.2 repara ese desfase de forma re-ejecutable y migra las solicitudes históricas al modelo de bloques.
+## Cambios principales
 
-## Nuevas capacidades
-- Solicitudes desde **1 día** y hasta 8 bloques no consecutivos.
-- Fecha de reincorporación por bloque.
-- CRUD de tipos de ausencia configurable por workspace.
-- Tipos iniciales: Vacaciones, Compensación, Medio día y Enfermedad.
-- Flag `deducts_from_balance` para decidir qué tipo consume saldo.
-- Medio día = 0.5 y requiere primera/segunda mitad.
-- Saldos anuales por integrante: Permitidos, Ocupados, Ajuste usado y Disponibles.
-- Contador por tipo, incluidos tipos que no descuentan saldo.
-- Validación de saldo en frontend y DB trigger.
-- Timeline con controles en una sola fila en escritorio y responsive vertical en móvil.
-- Eliminado el notice de IA solicitado.
-
-## Compatibilidad
-- Las solicitudes antiguas se convierten a un bloque `legacy` sin borrar datos.
-- Los campos antiguos `decided_by` / `assistant_*` se copian a los campos canónicos cuando existen.
-- Los tipos usados se desactivan en lugar de borrarse.
-- Se conservan Knowledge, Helpdesk, Gantt, Kanban/Tabla, relaciones y autoasignación de v17.5.1.
+- Corregido el desfase entre frontend y `vacation-impact-assistant`: el análisis recibe `request_id` y la función recupera internamente workspace, usuario y bloques.
+- Solicitudes movidas al inicio de Vacaciones.
+- Métricas superiores convertidas en filtros interactivos.
+- Tabs de solicitudes: Pendientes, Fuera hoy, Aprobadas próximas, Mis solicitudes y Ver todo.
+- IA convertida explícitamente en **asesoría opcional**; la aprobación/rechazo es decisión humana y no queda bloqueada por análisis inexistente o vencido.
+- Eliminado el calendario mensual de ausencias.
+- Ajustes/permitidos aceptan medios días decimales (`0.5` o `0,5`).
+- `vacation_requests`, `vacation_types` y `vacation_balances` integradas a Supabase Realtime/WebSocket con `REPLICA IDENTITY FULL`.
+- Fallback de refresco cada 15 s únicamente mientras el WebSocket esté desconectado.
+- Se preservan CRUD de tipos, bloques múltiples, reincorporación, saldos, Knowledge, Helpdesk, Gantt, Kanban/Tabla y autoasignación.
 
 ## Deploy
-1. Ejecutar `upgrade-v17.5.sql` completo en Supabase.
-2. Desplegar `vacation-impact-assistant.ts`.
-3. Publicar frontend v17.5.2.
-4. Ejecutar `npm run qa` y smoke tests con roles solicitante/PM/Superadmin.
 
-**Importante:** en el esquema real verificado previo a esta entrega faltaban `date_blocks` y `return_date`, por lo que el paso SQL es obligatorio para corregir el error mostrado por la UI.
+1. Ejecutar `upgrade-v17.5.sql` completo.
+2. Desplegar `vacation-impact-assistant.ts`.
+3. Publicar frontend v17.5.3.
+4. Ejecutar `npm run qa`.
+
+## Estado validado
+
+En el Supabase `Jira Interno Trobbu` se aplicó la migración de workflow/realtime y se desplegó `vacation-impact-assistant` versión 6 durante esta corrección. El repo v17.5.3 queda alineado con ese estado.

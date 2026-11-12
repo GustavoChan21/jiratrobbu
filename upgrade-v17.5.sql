@@ -33,10 +33,12 @@ set content_blocks=private.normalize_knowledge_blocks_v3(content_blocks,content)
 comment on column public.workspace_settings.knowledge_cover_templates is
   'Workspace-level visual parameters for Knowledge executive cover templates.';
 
+notify pgrst, 'reload schema';
+
 commit;
 
 -- ============================================================================
--- TROBBU Jira Interno v17.5.2 · Vacations balance/types + v17.5.1 schema repair
+-- TROBBU Jira Interno v17.5.3 · Vacations workflow/realtime + v17.5.1 schema repair
 -- This block is intentionally re-runnable and self-contained from v17.5.1.
 -- ============================================================================
 
@@ -127,6 +129,9 @@ create table if not exists public.vacation_balances(
   check(allowed_days>=0 and allowed_days<=365),
   check(adjustment_used_days>=0 and adjustment_used_days<=365)
 );
+alter table public.vacation_balances
+  alter column allowed_days type numeric(7,2) using allowed_days::numeric(7,2),
+  alter column adjustment_used_days type numeric(7,2) using adjustment_used_days::numeric(7,2);
 alter table public.vacation_balances enable row level security;
 revoke all on public.vacation_balances from anon;
 grant select,insert,update,delete on public.vacation_balances to authenticated;
@@ -332,13 +337,7 @@ begin
     end loop;
   end if;
 
-  if new.status='approved' then
-    if new.ai_analyzed_at is null or new.ai_analysis is null or new.ai_analysis='{}'::jsonb then raise exception 'Analyze sprint impact before approving vacations';end if;
-    if new.ai_analyzed_at<now()-interval '12 hours' then raise exception 'Vacation impact analysis is stale; analyze again before approving';end if;
-    if exists(select 1 from public.tickets t where t.workspace_id=new.workspace_id and (t.dev_owner_id=new.user_id or t.qa_owner_id=new.user_id) and t.status<>'closed' and t.updated_at>new.ai_analyzed_at) then raise exception 'Assigned work changed after the vacation analysis; analyze again before approving';end if;
-    if exists(select 1 from public.sprints s cross join lateral jsonb_array_elements(new.date_blocks) nb where s.workspace_id=new.workspace_id and s.status in ('active','planned') and s.start_date<=(nb->>'end_date')::date and s.end_date>=(nb->>'start_date')::date and s.updated_at>new.ai_analyzed_at) then raise exception 'Sprint planning changed after the vacation analysis; analyze again before approving';end if;
-    if exists(select 1 from public.vacation_requests vr cross join lateral jsonb_array_elements(vr.date_blocks) ob cross join lateral jsonb_array_elements(new.date_blocks) nb where vr.workspace_id=new.workspace_id and vr.id<>new.id and vr.status='approved' and (ob->>'start_date')::date<=(nb->>'end_date')::date and (ob->>'end_date')::date>=(nb->>'start_date')::date and vr.updated_at>new.ai_analyzed_at) then raise exception 'Team availability changed after the vacation analysis; analyze again before approving';end if;
-  end if;
+  -- IA is advisory only. Approval never depends on an analysis existing or being fresh.
 
   if new.status in ('approved','rejected') then
     if not v_service then new.decision_by=(select auth.uid());elsif new.decision_by is null then new.decision_by=(select auth.uid());end if;
@@ -359,7 +358,7 @@ set absence_days=private.vacation_units_for_year(vr.date_blocks,vt.day_fraction,
     else 0 end
 from public.vacation_types vt where vt.id=vr.vacation_type_id;
 
--- Re-enable the canonical v17.5.2 guard only after every historical request has
+-- Re-enable the canonical v17.5.3 guard only after every historical request has
 -- a normalized type, block structure and authoritative counters.
 drop trigger if exists trg_guard_vacation_request on public.vacation_requests;
 create trigger trg_guard_vacation_request before insert or update on public.vacation_requests
@@ -372,8 +371,25 @@ join public.workspace_settings ws on ws.workspace_id=wm.workspace_id
 where wm.active=true
 on conflict(workspace_id,user_id,year) do nothing;
 
+
+-- Vacations metadata participates in the same Realtime/WebSocket channel as requests.
+alter table public.vacation_requests replica identity full;
+alter table public.vacation_types replica identity full;
+alter table public.vacation_balances replica identity full;
+do $$
+declare t text;
+begin
+  foreach t in array array['vacation_requests','vacation_types','vacation_balances'] loop
+    if not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename=t) then
+      execute format('alter publication supabase_realtime add table public.%I',t);
+    end if;
+  end loop;
+end $$;
+
 comment on table public.vacation_types is 'Workspace-configurable absence types. day_fraction controls full/half day units; deducts_from_balance controls annual allowance consumption.';
 comment on table public.vacation_balances is 'Per-member annual vacation allowance and manual already-used adjustment. System occupied days are calculated from pending/approved requests.';
 comment on column public.vacation_requests.charged_days is 'Balance-consuming units calculated by the database from type + blocks; never trusted from the client.';
+
+notify pgrst, 'reload schema';
 
 commit;

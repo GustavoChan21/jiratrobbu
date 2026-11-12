@@ -20,10 +20,10 @@ const hasAll=(text,items)=>items.every(x=>text.includes(x));
 const count=(text,needle)=>text.split(needle).length-1;
 
 // Release integrity
-check('Package version is 17.5.2',pkg.version==='17.5.2');
+check('Package version is 17.5.3',pkg.version==='17.5.3');
 check('QA npm script targets v17.5',pkg.scripts?.qa==='node qa-v17.5.mjs');
-check('Frontend cache bust targets 17.5.2',index.includes('v=17.5.2')); 
-check('App release marker is v17.5.2',app.startsWith('/* Jira Interno TROBBU v17.5.2')); 
+check('Frontend cache bust targets 17.5.3',index.includes('v=17.5.3')); 
+check('App release marker is v17.5.3',app.startsWith('/* Jira Interno TROBBU v17.5.3')); 
 check('Incremental v17.5 migration is the final database.sql block',database.endsWith(migration),crypto.createHash('sha256').update(migration).digest('hex'));
 check('No unresolved merge markers',![app,migration,database,styles,index,knowledgeAI,translate].some(t=>/^(<<<<<<<|=======|>>>>>>>)/m.test(t)));
 check('SQL dollar quotes are balanced',count(migration,'$$')%2===0);
@@ -190,7 +190,7 @@ check('Knowledge author Exit action is aligned with preview/save/publish actions
 check('Legacy top Back to Knowledge button was removed from author header',!app.includes('knowledge-back-button" onClick={()=>requestExit(onBack)}'));
 check('Responsive author actions remain usable on small screens',hasAll(styles,['.knowledge-author-actions{display:flex','.knowledge-author-actions{display:grid;grid-template-columns:1fr 1fr','.knowledge-author-actions{grid-template-columns:1fr}']));
 
-// v17.5.2 Vacations schema repair, balances and absence type CRUD
+// v17.5.3 Vacations workflow, advisory AI, prioritized requests and Realtime
 check('Vacation migration is self-contained for missing date_blocks',hasAll(migration,["add column if not exists return_date date","add column if not exists date_blocks jsonb","date_blocks=case when jsonb_typeof(date_blocks)='array'"]));
 check('Legacy vacation guard is detached before historical backfill and recreated after counters',migration.indexOf('drop trigger if exists trg_guard_vacation_request on public.vacation_requests')<migration.indexOf('update public.vacation_requests\nset return_date=')&&migration.lastIndexOf('create trigger trg_guard_vacation_request')>migration.indexOf('-- Backfill authoritative counters'));
 check('Vacation requests can contain a minimum one-day block',hasAll(app,['Se permite un mínimo de 1 día','min={b.start_date||today}'])&&migration.includes("if v_start is null or v_end is null or v_end<v_start"));
@@ -212,10 +212,27 @@ check('Request form selects absence type and half-day period',hasAll(app,['Tipo 
 check('Removed multi-block IA informational alert',!app.includes('La IA evaluará el impacto de todos los bloques como una sola solicitud'));
 check('Vacation timeline desktop controls use one five-column row',styles.includes('grid-template-columns:minmax(160px,1fr) minmax(150px,.8fr) auto auto auto'));
 check('Vacation timeline stacks controls responsively on small screens',styles.includes('@media(max-width:760px)')&&styles.includes('.vacation-timeline-controls{grid-template-columns:1fr!important'));
-check('Vacation impact assistant reads configured vacation type',hasAll(vacation,['from("vacation_types")','vacation_type_id','charged_days','half_day_period']));
+check('Vacation impact assistant reads configured vacation type',hasAll(vacation,["from('vacation_types')",'vacation_type_id','charged_days','half_day_period']));
 check('Vacation impact duration uses absence_days when available',vacation.includes('Number(vac.absence_days||0)'));
-check('Database canonical schema ends with current v17.5.2 migration',database.endsWith(migration));
-check('v17.5.2 keeps exact project file count of 101',fs.readdirSync(new URL('.',import.meta.url),{recursive:true}).filter(x=>fs.statSync(new URL(x,import.meta.url)).isFile()).length===101);
+check('Database canonical schema ends with current v17.5.3 migration',database.endsWith(migration));
+check('v17.5.3 keeps exact project file count of 101',fs.readdirSync(new URL('.',import.meta.url),{recursive:true}).filter(x=>fs.statSync(new URL(x,import.meta.url)).isFile()).length===101);
+
+// v17.5.3 workflow/realtime regressions
+check('Vacation Analyze sends request_id and legacy fallback identifiers',hasAll(app,["request_id:r.id","workspace_id:r.workspace_id||workspace.id","user_id:r.user_id","start_date:vacationStart(r)","end_date:vacationEnd(r)"]));
+check('Vacation Edge Function is request-centric and no longer requires four identifiers',vacation.includes("const requestId=String(body?.request_id||'')")&&!vacation.includes('workspace_id, user_id, start_date and end_date are required'));
+check('Vacation request metrics are interactive filters',hasAll(app,["onClick={()=>setRequestFilter('today')}","onClick={()=>setRequestFilter('pending')}","onClick={()=>setRequestFilter('upcoming')}","onClick={()=>setRequestFilter('mine')}"]));
+check('Vacation request tabs include priority views and Ver todo',hasAll(app,["['pending','Pendientes'","['today','Fuera hoy'","['upcoming','Aprobadas próximas'","['mine','Mis solicitudes'","['all','Ver todo'"]));
+check('Vacation requests panel is rendered before balance panel',app.indexOf('vacation-requests-primary')>0&&app.indexOf('vacation-requests-primary')<app.indexOf('vacation-balance-panel'));
+check('Monthly absence calendar was removed from Vacations UI',!app.includes('Calendario de ausencias'));
+check('Vacation approval is not disabled by AI state',app.includes("onClick={()=>setDecision({item:r,status:'approved'})}")&&!app.includes('Análisis requerido para aprobar'));
+check('Database explicitly treats AI as advisory only',migration.includes('IA is advisory only. Approval never depends on an analysis existing or being fresh.')&&!migration.includes('Analyze sprint impact before approving vacations'));
+check('Decimal vacation balances accept dot or comma and half-day rounding',hasAll(app,["replace(',','.')",'Math.round(n*2)/2','inputMode="decimal"']));
+check('Balance database columns retain two decimal places',hasAll(migration,['allowed_days type numeric(7,2)','adjustment_used_days type numeric(7,2)']));
+check('Vacation metadata tables are published to Supabase Realtime',hasAll(migration,["array['vacation_requests','vacation_types','vacation_balances']",'alter publication supabase_realtime add table']));
+check('Vacation tables use FULL replica identity for realtime payloads',hasAll(migration,['vacation_requests replica identity full','vacation_types replica identity full','vacation_balances replica identity full']));
+check('Frontend realtime channel subscribes vacation requests/types/balances',hasAll(app,["'vacation_requests','vacation_types','vacation_balances'",'workspace-live-${workspace.id}']));
+check('Realtime fallback polling activates only while websocket is unhealthy',hasAll(app,["status==='SUBSCRIBED'","['CHANNEL_ERROR','TIMED_OUT','CLOSED']",'if(!realtimeHealthy)queueRefresh()','15000']));
+check('PostgREST schema reload is requested by current migration',migration.includes("notify pgrst, 'reload schema';"));
 
 // Knowledge assistant semantic regression retained
 check('Knowledge Assistant requires meaningful description context',app.includes('subject.length<3||detail.length<12'));
@@ -234,8 +251,8 @@ check('Gantt responsive five-control layout remains available',hasAll(styles,['.
 check('Vacation multiple-block request model remains available',hasAll(app,['Fecha de reincorporación','Agregar bloque','requestBlocks.length>=8']));
 check('Vacation timeline ranges remain available',hasAll(app,['value="1w">1 semana','value="8w">8 semanas','value="6m">6 meses']));
 check('Helpdesk routing still excludes approved absence blocks',hasAll(routing,['function vacationBlocks','function absentOn','date_blocks']));
-check('Vacation impact assistant still consumes date_blocks',hasAll(vacation,['function blocksFor','date_blocks:blocks']));
+check('Vacation impact assistant still consumes date_blocks',hasAll(vacation,['const blocksFor=','date_blocks:blocks']));
 check('v17.1 vacation migration remains in package history',migration171.includes('date_blocks'));
 
-console.log(`\nQA v17.5.2 summary: ${passed} passed, ${failures.length} failed.`);
+console.log(`\nQA v17.5.3 summary: ${passed} passed, ${failures.length} failed.`);
 if(failures.length){for(const f of failures)console.error(` - ${f.name}${f.detail?`: ${f.detail}`:''}`);process.exit(1)}

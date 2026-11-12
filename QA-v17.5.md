@@ -1,50 +1,48 @@
-# QA v17.5.2 · Jira Interno TROBBU
+# QA v17.5.3 · Jira Interno TROBBU
 
 ## Resultado automatizado
-- `npm run qa`: **188 / 188 PASS**.
+
+- `npm run qa`: **203 / 203 PASS**.
 - Archivos del proyecto: **101 exactos**.
 - `database.sql` termina exactamente con `upgrade-v17.5.sql`.
-- Balance de llaves CSS y delimitadores SQL: PASS.
 - Sin marcadores de merge.
+- SQL/CSS estructuralmente balanceados.
 
-## Sintaxis
-- `app.js`: parser TypeScript/JSX PASS.
-- 8 Edge Functions `.ts`: parser TypeScript PASS.
-- `vacation-impact-assistant.ts`: PASS después de incorporar tipo, medio día y saldo cargado.
+## Regresiones Vacaciones cubiertas
 
-## Vacaciones cubierto por QA
-- Reparación autosuficiente de `return_date` + `date_blocks`.
-- Trigger legado desacoplado durante backfill histórico y reinstalado al finalizar.
-- Solicitud mínima de 1 día.
-- 1–8 bloques sin traslapes.
-- Fecha de reincorporación posterior al fin del bloque.
-- CRUD `vacation_types` con RLS.
-- Seeds Vacaciones / Compensación / Medio día / Enfermedad.
-- Configuración descontable/no descontable.
-- Primera/segunda mitad obligatoria para Medio día.
-- `vacation_balances` con RLS.
-- Permitidos / Ocupados / Ajuste usado / Disponibles.
-- Ocupados = pending + approved de tipos descontables.
-- Contadores por tipo para compensaciones y otras ausencias no descontables.
-- Rechazo en servidor al superar saldo anual.
-- Notice IA solicitado removido.
-- Timeline desktop en una sola row y responsive móvil.
-- Asistente IA consume `date_blocks`, `vacation_type_id`, `half_day_period`, `absence_days` y `charged_days`.
+- `Analyze` envía `request_id` y compatibilidad con campos legado.
+- Edge Function request-centric: ya no exige `workspace_id + user_id + start_date + end_date` desde frontend.
+- Métricas superiores funcionan como filtros.
+- Tabs de Pendientes / Fuera hoy / Aprobadas próximas / Mis solicitudes / Ver todo.
+- Panel de solicitudes ubicado antes de saldo/timeline/admin.
+- Aprobación independiente de análisis IA en UI y trigger DB.
+- IA sigue disponible como recomendación/mitigación opcional.
+- Calendario mensual removido.
+- Permitidos/Ajuste aceptan decimales y medios días.
+- `vacation_requests`, `vacation_types`, `vacation_balances` publicados en Realtime.
+- `REPLICA IDENTITY FULL` para payloads de actualización completos.
+- Canal WebSocket escucha las tres tablas.
+- Fallback 15 s solo cuando Realtime entra en CHANNEL_ERROR/TIMED_OUT/CLOSED.
+- Reparación previa de `date_blocks`, `return_date`, tipos y balances continúa incluida.
+- Validación de saldo anual permanece en servidor.
 
-## Compatibilidad real del esquema
-Se verificó en modo lectura el proyecto Supabase `Jira Interno Trobbu` (`prweelxfuvbsdsxfopuh`): antes de aplicar esta entrega `vacation_requests` no contiene `return_date` ni `date_blocks`. También se verificó la existencia de los helpers/PK requeridos por la migración (`set_updated_at`, `is_workspace_member`, `has_workspace_permission`, PK workspace_members).
+## Validación contra Supabase real
 
-## Smoke test obligatorio en staging/producción
-Después de aplicar SQL y desplegar frontend:
-1. Solicitud de 1 día.
-2. Solicitud de 2 bloques separados.
-3. Medio día primera mitad y segunda mitad.
-4. Compensación: contador incrementa y saldo no baja.
-5. Vacaciones: saldo baja.
-6. Ajuste manual: Disponibles disminuye.
-7. Solicitud por encima del saldo: debe fallar desde UI y desde API.
-8. Aprobar tras análisis IA.
-9. Cancelar/rechazar: debe liberar saldo ocupado.
-10. CRUD de tipos y desactivación con histórico.
+Durante esta corrección se verificó y corrigió el proyecto `Jira Interno Trobbu` (`prweelxfuvbsdsxfopuh`):
 
-No se aplicó la migración automáticamente sobre producción durante QA; debe ejecutarse conscientemente como parte del deploy.
+- Se reemplazó el trigger/guard de Vacaciones por la variante donde IA es opcional.
+- Se añadieron requests/types/balances a `supabase_realtime` y `REPLICA IDENTITY FULL`.
+- Se desplegó `vacation-impact-assistant` v6 con entrada principal `request_id`.
+
+## Smoke recomendado
+
+1. Abrir Vacaciones como PM/Superadmin.
+2. Confirmar que Pendientes está arriba y coincide con su contador.
+3. Cambiar cada tab/chip y validar listado.
+4. Analizar una solicitud pendiente.
+5. Aprobar otra solicitud **sin** analizarla.
+6. Guardar Ajuste = `0.5`, después `0,5`.
+7. Probar Medio día primera/segunda mitad.
+8. Con dos sesiones, modificar una solicitud y validar actualización Realtime en la otra.
+9. Simular canal offline y comprobar refresco de respaldo.
+10. Confirmar ausencia del calendario mensual.

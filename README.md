@@ -1,69 +1,66 @@
-# Jira Interno TROBBU v17.5.2
+# Jira Interno TROBBU v17.5.3
 
-**Base:** v17.5.1 Final Completo → v17.5.2. El proyecto conserva exactamente **101 archivos**.
+**Base:** v17.5.2 / Git v17.5.1 compatible → v17.5.3. El proyecto conserva exactamente **101 archivos**.
 
-## Objetivo de esta entrega
+## Objetivo
 
-v17.5.2 corrige el desfase de esquema del módulo **Vacaciones** detectado en producción (`date_blocks` / `return_date` inexistentes) y añade control anual de saldo, ajustes manuales, tipos de ausencia configurables y medio día sin perder los flujos estables de v17.5.1.
+v17.5.3 estabiliza el flujo operativo de **Vacaciones**: solicitudes prioritarias y filtrables, análisis IA opcional, aprobación humana independiente, decimales para medios días y sincronización Realtime/WebSocket completa.
 
-### Vacaciones
+### Correcciones de solicitudes
 
-- La migración `upgrade-v17.5.sql` es autosuficiente desde el estado real de v17.5.1: crea `return_date` y `date_blocks` si faltan y migra las solicitudes existentes a un bloque compatible.
-- Una solicitud admite **1 a 8 bloques**. El mínimo válido es **1 día** (`inicio = fin`).
-- Cada bloque conserva Inicio, Fin y Fecha de reincorporación.
-- Se mantiene el análisis IA previo a aprobación y la exclusión de integrantes ausentes de la autoasignación.
-- Se elimina el aviso informativo redundante sobre cómo la IA interpreta los bloques.
+- La Edge Function `vacation-impact-assistant` vuelve a usar `request_id` como contrato principal y obtiene desde BD el workspace, integrante y bloques. El frontend también envía los campos legado como compatibilidad.
+- Las métricas **Fuera hoy / Pendientes / Aprobadas próximas / Mis solicitudes** son clicables y aplican el mismo filtro que los tabs.
+- Las solicitudes aparecen inmediatamente después de las métricas, antes del saldo, timeline y administración.
+- Tabs: **Pendientes, Fuera hoy, Aprobadas próximas, Mis solicitudes y Ver todo**.
+- En Ver todo se priorizan pendientes, después aprobadas y finalmente rechazadas/canceladas.
+- Se eliminó el calendario mensual de ausencias; la proyección tipo cronograma es la visualización temporal principal.
 
-### Saldo anual por integrante
+### IA = sugerencia, no requisito
 
-Para cada usuario/año se controlan:
+- **Aprobar/Rechazar no depende del análisis IA.**
+- El asistente únicamente proyecta riesgo y mitigaciones con sprints/tickets/ausencias coincidentes.
+- Si no existe análisis, el aprobador puede decidir normalmente.
+- Si el análisis está desactualizado, se permite reanalizar, pero nunca bloquea la aprobación.
 
-- **Vacaciones permitidas** (`allowed_days`).
-- **Días ocupados**: calculados automáticamente con solicitudes `pending` + `approved` de tipos que descuentan saldo.
-- **Ajuste de días usados** (`adjustment_used_days`): días ya disfrutados fuera del sistema, capturados manualmente por quien tenga `manage_vacations`.
-- **Días disponibles** = permitidos - ocupados - ajuste.
+### Saldo y medios días
 
-La validación existe tanto en interfaz como en el trigger de base de datos; una inserción por API tampoco puede exceder el saldo disponible.
+- `allowed_days` y `adjustment_used_days` admiten decimales con escala de 2 posiciones.
+- La UI acepta `0.5` o `0,5` y normaliza a pasos de medio día.
+- Continúan Permitidos, Ocupados, Ajuste usado y Disponibles.
+- El control de saldo en servidor sigue impidiendo exceder el límite anual.
 
-### Tipos de vacaciones / ausencias
+### Realtime / WebSocket
 
-Nuevo CRUD por workspace en `vacation_types`:
+- `vacation_requests`, `vacation_types` y `vacation_balances` se publican en `supabase_realtime`.
+- Las tres usan `REPLICA IDENTITY FULL`.
+- El frontend escucha las tres en el canal del workspace.
+- `SUBSCRIBED` mantiene Realtime como fuente principal.
+- `CHANNEL_ERROR`, `TIMED_OUT` o `CLOSED` activan automáticamente un refresco de respaldo cada 15 segundos hasta recuperar el WebSocket.
 
-- **Vacaciones**: descuenta saldo.
-- **Compensación**: no descuenta saldo, pero se contabiliza por tipo.
-- **Medio día**: 0.5 día, descuenta saldo y obliga a elegir primera o segunda mitad.
-- **Enfermedad**: no descuenta saldo por defecto.
-- Se pueden crear tipos adicionales, activar/desactivar, definir color y decidir si descuentan o no del total disponible.
-- Los tipos ya usados se desactivan en vez de eliminarse para preservar histórico.
+## Actualización
 
-### Proyección / Timeline
+Si vienes de v17.5.1 o v17.5.2:
 
-En escritorio, los controles **Desde + rango + anterior + Hoy + siguiente** quedan en una sola fila. En pantallas pequeñas se apilan en una sola columna.
+1. Respaldar BD.
+2. Ejecutar **todo** `upgrade-v17.5.sql` de esta entrega en Supabase. Es re-ejecutable y también repara `date_blocks`, `return_date`, tipos y saldos si faltaran.
+3. Desplegar `vacation-impact-assistant.ts`.
+4. Publicar frontend v17.5.3 (`index.html`, `app.js`, `styles.css`, etc.).
+5. Forzar recarga. `index.html` usa cache-bust `?v=17.5.3`.
+6. Ejecutar `npm run qa`.
 
-## Actualización desde v17.5.1
+> En el proyecto Supabase utilizado durante esta corrección ya se aplicó el bloque de DB v17.5.3 y se desplegó `vacation-impact-assistant` v6. Al publicar el Git debes conservar esos mismos archivos para evitar futuros desfases entre repo y producción.
 
-1. Haz respaldo de la BD.
-2. En Supabase SQL Editor ejecuta **todo** `upgrade-v17.5.sql` de esta entrega.
-3. Despliega nuevamente `vacation-impact-assistant.ts`.
-4. Publica los archivos estáticos v17.5.2 (`index.html`, `app.js`, `styles.css`, etc.).
-5. Fuerza recarga; `index.html` usa cache-bust `?v=17.5.2`.
-6. Ejecuta `npm run qa` antes de promover a producción.
+## Verificación post-deploy
 
-> El SQL actualizado debe ejecutarse incluso si ya ejecutaste una versión anterior de `upgrade-v17.5.sql`: esta variante es re-ejecutable y contiene la reparación específica de Vacaciones que tu esquema actual no tenía.
-
-## Verificación rápida post-deploy
-
-- Abrir Vacaciones sin error `date_blocks ... schema cache`.
-- Crear solicitud de 1 día.
-- Crear dos bloques no consecutivos.
-- Crear Medio día y seleccionar 1ª/2ª mitad.
-- Confirmar que Compensación se contabiliza pero no reduce Disponibles.
-- Confirmar que Vacaciones sí reduce Disponibles.
-- Editar Permitidos/Ajuste de un usuario desde Control de vacaciones.
-- Intentar superar el saldo y comprobar que la BD rechaza la solicitud.
-- Crear/editar/desactivar un tipo de ausencia.
-- Revisar Timeline en desktop y móvil.
+- Pulsar Pendientes y comprobar que contador/listado coinciden.
+- Pulsar Fuera hoy, Aprobadas próximas y Mis solicitudes y comprobar filtros.
+- Abrir una pendiente y analizar impacto: no debe aparecer el error de `workspace_id, user_id, start_date and end_date`.
+- Aprobar una solicitud sin ejecutar IA: debe ser válido.
+- Guardar `0.5` y `0,5` como Ajuste usado.
+- Crear Medio día y comprobar consumo de 0.5.
+- Abrir dos sesiones y modificar solicitud/saldo/tipo: la otra debe refrescar por Realtime; si el canal falla, entra el polling de respaldo.
+- Confirmar que no aparece `Calendario de ausencias` mensual.
 
 ## Esquema canónico
 
-`database.sql` contiene el esquema completo consolidado y termina exactamente con el contenido de `upgrade-v17.5.sql` vigente.
+`database.sql` contiene el esquema completo consolidado y termina exactamente con el contenido vigente de `upgrade-v17.5.sql`.
