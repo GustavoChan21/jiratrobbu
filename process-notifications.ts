@@ -23,8 +23,8 @@ const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp
 
 function statusLabel(value: unknown, locale: Locale) {
   const v = String(value ?? "");
-  const es: Record<string,string> = {backlog:"Backlog",todo:"Por hacer",in_progress:"En curso",dev_done:"Dev terminado",qa_review:"Revisión QA",qa_rejected:"QA rechazado",qa_passed:"QA aprobado",closed:"Cerrado",created:"Creado",review:"En revisión",attended:"Atendido",resolved:"Resuelto",active:"Activo",planned:"Planeado",completed:"Completado"};
-  const en: Record<string,string> = {backlog:"Backlog",todo:"To do",in_progress:"In progress",dev_done:"Dev done",qa_review:"QA review",qa_rejected:"QA rejected",qa_passed:"QA approved",closed:"Closed",created:"Created",review:"In review",attended:"Attended",resolved:"Resolved",active:"Active",planned:"Planned",completed:"Completed"};
+  const es: Record<string,string> = {backlog:"Backlog",todo:"Por hacer",in_progress:"En curso",dev_done:"Dev terminado",qa_review:"Revisión QA",qa_rejected:"QA rechazado",qa_passed:"QA aprobado",closed:"Cerrado",created:"Creado",review:"En revisión",attended:"Atendido",active:"Activo",planned:"Planeado",completed:"Completado"};
+  const en: Record<string,string> = {backlog:"Backlog",todo:"To do",in_progress:"In progress",dev_done:"Dev done",qa_review:"QA review",qa_rejected:"QA rejected",qa_passed:"QA approved",closed:"Closed",created:"Created",review:"In review",attended:"Attended",active:"Active",planned:"Planned",completed:"Completed"};
   return (locale === "en" ? en : es)[v] || v;
 }
 

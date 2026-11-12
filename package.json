@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.8.0",
-  "description": "Jira Interno TROBBU v17.8.0 - proactive Knowledge Assistant title matching, actionable Helpdesk KPI filters and resilient Live Data",
+  "version": "17.9.0",
+  "description": "Jira Interno TROBBU v17.9.0 - unified Live counters, light/dark theme, Helpdesk 4-state workflow and inline operations",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.8.mjs"
+    "qa": "node qa-v17.9.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
