@@ -1010,3 +1010,17 @@ select:not([multiple]){
 .bulk-sprint-bar{display:grid;grid-template-columns:minmax(180px,.55fr) minmax(420px,1.45fr);align-items:center!important;gap:14px}.bulk-sprint-bar>div{width:100%;display:grid;grid-template-columns:minmax(260px,1fr) auto auto;align-items:center;gap:8px;flex-wrap:nowrap}.bulk-sprint-bar select{width:100%;min-width:0}.bulk-sprint-bar .bulk-error{grid-column:1/-1}
 @media(max-width:1180px){.bulk-sprint-bar{grid-template-columns:minmax(160px,.45fr) minmax(0,1.55fr);flex-direction:row!important;align-items:center!important}.bulk-sprint-bar>div{grid-template-columns:minmax(180px,1fr) auto auto}.bulk-sprint-bar select{min-width:0}}
 @media(max-width:760px){.vacation-section-tabs{display:grid;grid-template-columns:1fr}.vacation-section-tabs button{justify-content:flex-start;width:100%}.gantt-filter-results{grid-template-columns:1fr}.bulk-sprint-bar{display:grid;grid-template-columns:1fr}.bulk-sprint-bar>div{display:grid;grid-template-columns:1fr}.bulk-sprint-bar>div>*{width:100%}.bulk-sprint-bar .text-button{justify-content:center}}
+
+/* v17.7.0 · Live Data status and resilient realtime synchronization */
+.live-sync-indicator{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 9px;border:1px solid #DFE1E6;border-radius:999px;background:#fff;color:#44546F;font-size:9px;font-weight:800;white-space:nowrap;user-select:none}.live-sync-indicator i{width:7px;height:7px;border-radius:50%;background:#8590A2;box-shadow:0 0 0 3px rgba(133,144,162,.12)}.live-sync-indicator.live{border-color:#B7E3CF;background:#F3FFF9;color:#216E4E}.live-sync-indicator.live i{background:#22A06B;box-shadow:0 0 0 3px rgba(34,160,107,.13)}.live-sync-indicator.connecting{border-color:#B3D4FF;background:#F7FBFF;color:#0C66E4}.live-sync-indicator.connecting i{background:#0C66E4;animation:live-sync-pulse 1.25s ease-in-out infinite}.live-sync-indicator.degraded{border-color:#F5CD47;background:#FFFBEA;color:#7F5F01}.live-sync-indicator.degraded i{background:#E2B203;animation:live-sync-pulse 1.25s ease-in-out infinite}@keyframes live-sync-pulse{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+@media(max-width:760px){.live-sync-indicator{padding:0 8px}.live-sync-indicator span{display:none}}
+
+/* v17.8 Helpdesk KPI filters */
+.metric-grid.helpdesk-kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.helpdesk-kpi-grid .metric-card{min-width:0;min-height:112px;justify-content:flex-start}
+.helpdesk-kpi-grid .metric-card>div{min-width:0}
+.helpdesk-kpi-grid .metric-card small{line-height:1.18;white-space:normal}
+.helpdesk-kpi-grid .metric-card strong{font-variant-numeric:tabular-nums}
+@media(max-width:1400px){.metric-grid.helpdesk-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.metric-grid.helpdesk-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.metric-grid.helpdesk-kpi-grid{grid-template-columns:1fr}.helpdesk-kpi-grid .metric-card{min-height:82px}}

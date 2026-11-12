@@ -1,0 +1,5 @@
+PASS | Crear perfil de socio inversionista | relevance=0.980 | matched=socio,inversionista | show=true
+PASS | Alta de nuevo socio | relevance=0.890 | matched=alta,socio | show=true
+PASS | Dar de alta un socio | relevance=0.917 | matched=dar,alta,socio | show=true
+PASS | Problema con reservación y tarifa | relevance=0.000 | matched= | show=false
+Knowledge scorer smoke: 4/4 expected outcomes.

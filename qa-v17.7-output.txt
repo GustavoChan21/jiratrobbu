@@ -1,0 +1,278 @@
+
+> jira-interno-trobbu-github-pages@17.7.0 qa
+> node qa-v17.7.mjs
+
+PASS  Package version is 17.7.0
+PASS  QA npm script targets v17.7
+PASS  Frontend cache bust targets 17.7.0
+PASS  App release marker is v17.7.0
+PASS  Incremental v17.7 Live Data migration is the final database.sql block
+PASS  No unresolved merge markers
+PASS  v17.5 SQL dollar quotes are balanced
+PASS  v17.6 SQL dollar quotes are balanced
+PASS  v17.7 SQL dollar quotes are balanced
+PASS  CSS braces are balanced
+PASS  React hook import includes useRef used by Knowledge editor
+PASS  Knowledge has a module Error Boundary
+PASS  Knowledge list is wrapped by its Error Boundary
+PASS  Knowledge editor/read/preview screen is wrapped by its Error Boundary
+PASS  Knowledge category-first home exists
+PASS  Category cards create articles in that category
+PASS  Global article action requires a selected category
+PASS  New article editor receives category context
+PASS  Article editor requires a category
+PASS  Category create modal exists
+PASS  Category update modal exists
+PASS  Category delete modal exists
+PASS  Category deletion reclassifies article history through RPC
+PASS  System General category cannot be deleted
+PASS  Category data is validated by database trigger
+PASS  Every workspace receives General category
+PASS  Legacy articles without category are migrated to General
+PASS  Legacy versions without category are migrated
+PASS  Article category becomes mandatory at database level
+PASS  Version category becomes mandatory at database level
+PASS  Reader and list preview receive category metadata
+PASS  Initial article creation uses atomic RPC
+PASS  Atomic initial RPC inserts article and v1 in one database transaction scope
+PASS  Atomic RPC enforces create_knowledge
+PASS  Atomic RPC rejects invalid category
+PASS  Draft save uses guarded update RPC
+PASS  Draft update permits creator own initial draft but protects published content
+PASS  Version creation flow remains available
+PASS  Publishing flow remains available
+PASS  Publish copies content schema version to article shadow row
+PASS  Media upload occurs only after atomic article exists
+PASS  Partial media failure keeps safe draft recoverable
+PASS  Unused media cleanup remains enabled
+PASS  Slug duplicate has friendly validation message
+PASS  Block normalization helper is callable by authenticated SECURITY INVOKER RPC
+PASS  HTML escape helper is callable by authenticated normalizer
+PASS  Public authoring RPCs remain SECURITY INVOKER
+PASS  Knowledge schema version 3 exists on articles
+PASS  Knowledge schema version 3 exists on versions
+PASS  Legacy paragraph/text migrates to richtext
+PASS  Legacy generic heading migrates to H2
+PASS  H1-H5 are preserved by migration
+PASS  Lists preserve ordered/unordered semantics
+PASS  Quotes preserve author/source
+PASS  Callouts preserve title and tone
+PASS  Code blocks preserve language
+PASS  Image blocks preserve media id, alt, caption and alignment
+PASS  Video, divider and pagebreak blocks migrate
+PASS  Existing article blocks are migrated in-place
+PASS  Existing version blocks are migrated in-place
+PASS  Runtime still converts old paragraph/text blocks
+PASS  Runtime unknown blocks degrade safely to richtext
+PASS  Word-like rich text toolbar exists
+PASS  Rich text supports style hierarchy Normal + H1-H5
+PASS  Rich text supports multiple font families
+PASS  Rich text supports explicit font sizes 11-32px
+PASS  Rich text supports undo/redo
+PASS  Rich text supports bold italic underline strike
+PASS  Rich text supports text and highlight colors
+PASS  Rich text sanitizer preserves browser RGB colors safely
+PASS  Rich text supports numbered/bulleted lists
+PASS  Rich text supports indentation
+PASS  Rich text supports left/center/right/justify
+PASS  Rich text supports links and unlink
+PASS  Rich text supports remove formatting
+PASS  Rich text supports line height
+PASS  Rich text reports word/character statistics without React state churn
+PASS  Rich text pasted HTML is sanitized
+PASS  Rich text CSS matches Word-like card/tool/footer structure
+PASS  Block toolbar can add Text
+PASS  Block toolbar can add H1-H5 titles
+PASS  Heading block can change H1-H5 after creation
+PASS  Block toolbar can add list/quote/callout/code
+PASS  Block toolbar can add image/video
+PASS  Block toolbar can add visual divider and page break
+PASS  Blocks can be reordered by drag and buttons
+PASS  Blocks can be deleted individually
+PASS  List block has ordered/unordered selection
+PASS  Quote block has author/source
+PASS  Callout supports info/success/warning/danger
+PASS  Code block has language and code body
+PASS  Image block has alt/caption/alignment
+PASS  Image block keeps compression flow
+PASS  Video block validates YouTube/Vimeo
+PASS  Pagebreak is printable as a real page break
+PASS  Rendered blocks cover every editable block family
+PASS  Rich editor input stays outside React state
+PASS  Rich editor persists on blur after continuous typing
+PASS  Rich editor preserves selected ranges across toolbar interaction
+PASS  Rich editor formatting actions persist sanitized HTML
+PASS  Partial selection supports bold italic underline and links
+PASS  Rich text sanitizer preserves font tags and per-selection styling
+PASS  Canonical heading presets are fixed to 32/28/24/20/16px
+PASS  Canonical heading CSS matches presets in editor/reader
+PASS  Editor tracks saved snapshot and unsaved changes
+PASS  Browser close/reload is protected when Knowledge is dirty
+PASS  Knowledge exit confirmation has requested warning and actions
+PASS  Sidebar/mobile/workspace navigation respects Knowledge dirty guard
+PASS  Luxury cover block can be added only once
+PASS  Luxury cover includes three executive TROBBU templates
+PASS  Luxury cover fields are editable and printable
+PASS  Luxury cover is preserved by runtime and SQL normalizers
+PASS  Translation pipeline preserves luxury cover metadata and non-translated cover flags
+PASS  Project package remains complete after v17.6 additions
+PASS  Knowledge search remains a single visual input
+PASS  Category cards are responsive
+PASS  Editor toolbar is responsive
+PASS  Global input styles cannot double rich editor toolbar controls
+PASS  Rich text surface is created imperatively and owned by native DOM
+PASS  React only renders the rich editor host, not the contentEditable node
+PASS  Native rich editor registers and removes all lifecycle listeners
+PASS  Live rich HTML is retained for Save while editor remains focused
+PASS  Preview consumes unsaved live rich HTML
+PASS  Dirty state includes live native typing
+PASS  Rich sanitizer preserves span bold/italic/underline/strike styles
+PASS  Rich sanitizer allows safe links only
+PASS  Native editor blocks direct file drops into text
+PASS  Knowledge exit warning uses standard form-body and form-footer modal rhythm
+PASS  Knowledge exit modal spacing uses system-compatible CSS
+PASS  Workspace has global Knowledge cover template settings
+PASS  Cover settings support colors and fonts per template
+PASS  Settings page exposes dedicated Knowledge cover section
+PASS  Cover settings page renders live three-template previews
+PASS  Cover settings modal includes reset and color controls
+PASS  Cover visual settings persist in workspace_settings
+PASS  Cover migration preserves custom values while filling defaults
+PASS  Existing articles are re-normalized in v17.5 migration
+PASS  Existing article versions are re-normalized in v17.5 migration
+PASS  Cover CSS is parameterized with CSS variables
+PASS  Cover settings overview is responsive
+PASS  Empty rich editor starts with a real paragraph scaffold
+PASS  Empty-state placeholder no longer depends on CSS :empty
+PASS  Direct typing path does not update React state on input
+PASS  Safe writing fallback exists for browser-specific blank-editor issues
+PASS  Safe writing uses textarea and preserves line breaks before rich formatting
+PASS  Safe writing updates live draft before switching to format mode
+PASS  Knowledge author Exit action is aligned with preview/save/publish actions
+PASS  Legacy top Back to Knowledge button was removed from author header
+PASS  Responsive author actions remain usable on small screens
+PASS  Vacation migration is self-contained for missing date_blocks
+PASS  Legacy vacation guard is detached before historical backfill and recreated after counters
+PASS  Vacation requests can contain a minimum one-day block
+PASS  Legacy 60-day request constraint is removed before block validation
+PASS  Vacation type CRUD table exists with RLS
+PASS  Default vacation types include vacation, compensation, half-day and sickness
+PASS  Vacation types configure whether they deduct annual balance
+PASS  Half-day requests require first or second half
+PASS  Vacation balance table stores allowed days and manual used adjustment
+PASS  Vacation balance RLS restricts writes to manage_vacations
+PASS  Server trigger calculates absence and charged days
+PASS  Server trigger blocks requests over annual balance
+PASS  Occupied balance counts pending and approved deductible requests
+PASS  Vacation UI shows allowed, occupied, manual adjustment and available counters
+PASS  Vacation admin control exposes per-member balances
+PASS  Non-deducting types retain their own usage counters
+PASS  Vacation type CRUD exists in UI
+PASS  Request form selects absence type and half-day period
+PASS  Removed multi-block IA informational alert
+PASS  Vacation timeline desktop controls use one five-column row
+PASS  Vacation timeline stacks controls responsively on small screens
+PASS  Vacation impact assistant reads configured vacation type
+PASS  Vacation impact duration uses absence_days when available
+PASS  Database canonical schema retains v17.6 repair before v17.7 Live Data migration
+PASS  v17.6 package may grow beyond 101 files without truncation
+PASS  Vacation Analyze sends request_id and legacy fallback identifiers
+PASS  Vacation Edge Function is request-centric and no longer requires four identifiers
+PASS  Vacation request metrics are interactive filters
+PASS  Vacation request tabs include priority views and Ver todo
+PASS  Managers land on prioritized Requests while balance is isolated in My Vacations
+PASS  Monthly absence calendar was removed from Vacations UI
+PASS  Vacation approval is not disabled by AI state
+PASS  Database explicitly treats AI as advisory only
+PASS  Decimal vacation balances accept dot or comma and half-day rounding
+PASS  Balance database columns retain two decimal places
+PASS  Vacation metadata tables are published to Supabase Realtime
+PASS  Vacation tables use FULL replica identity for realtime payloads
+PASS  Frontend Live v2 subscribes vacation requests/types/balances
+PASS  Realtime fallback revalidates only while websocket is unhealthy and visible
+PASS  PostgREST schema reload is requested by current migration
+PASS  Knowledge Assistant requires meaningful description context
+PASS  Knowledge AI searches full article content
+PASS  Knowledge AI downweights generic create/admin/panel/profile terms
+PASS  Knowledge AI requires matched anchors
+PASS  Knowledge AI can return zero suggestions
+PASS  Translation flow still carries content_blocks
+PASS  Top-level menu view initializes from URL
+PASS  Sidebar navigation writes view to browser history
+PASS  Board Table/Kanban/Calendar/Gantt mode persists in URL
+PASS  Settings tabs persist in URL
+PASS  Staff/Roles tabs persist in URL
+PASS  Vacation section tabs persist in URL
+PASS  Vacation projection has dedicated RBAC permission
+PASS  Projection permission defaults to PM/Admin but not Dev/QA
+PASS  Vacation decision canonical columns are created for old schemas
+PASS  Legacy vacation decision/assistant data migrates to canonical fields
+PASS  Vacation annual-unit helper exists before guard uses it
+PASS  Vacation approval writes decision_by
+PASS  Balance save returns authoritative DB row immediately
+PASS  Vacation metadata uses central Live revision instead of duplicate channel
+PASS  Knowledge Assistant queries only published articles with active versions
+PASS  Knowledge Assistant validates exact active published version content
+PASS  Knowledge Assistant uses strict semantic threshold and can return none
+PASS  Knowledge Assistant targets GPT-6.1 Sol when AI is available
+PASS  Knowledge direct link opens Knowledge reader route
+PASS  Gantt KPI chips are actual button filters
+PASS  Gantt filters expose backlog, overdue, historical and closed results
+PASS  Backlog bulk selection controls share one desktop row
+PASS  Backlog bulk controls still stack on mobile only
+PASS  Manual Helpdesk autoassignment still exists
+PASS  Helpdesk counters still derive from shared filtered base
+PASS  Shared Kanban/Table assignee selector still exists
+PASS  Ticket relationship search remains available
+PASS  Gantt responsive five-control layout remains available
+PASS  Vacation multiple-block request model remains available
+PASS  Vacation timeline ranges remain available
+PASS  Helpdesk routing still excludes approved absence blocks
+PASS  Vacation impact assistant still consumes date_blocks
+PASS  v17.1 vacation migration remains in package history
+PASS  v17.6 repair recreates missing Knowledge initial draft RPC
+PASS  v17.6 repair recreates missing Knowledge draft update RPC
+PASS  v17.6 repair grants Knowledge draft update to authenticated
+PASS  v17.6 publish keeps active published shadow and content schema in sync
+PASS  Knowledge reader scopes published fallback to current article
+PASS  Knowledge list scopes active id to current article
+PASS  Vacation guard recognizes current request.jwt.claims service role
+PASS  Vacation meta loads current-user balance independently
+PASS  Vacation UI never presents fallback balance as authoritative while loading
+PASS  Vacation assistant exposes provider/fallback diagnostics
+PASS  Vacation assistant honors explicit manage_vacations=false overrides
+PASS  Single workspace Live Data channel replaces duplicate module channels
+PASS  Live Data channel patches tickets immediately
+PASS  Live Data channel patches Helpdesk immediately
+PASS  Live Data channel patches Knowledge immediately
+PASS  Live Data channel patches Vacations immediately
+PASS  Live Data channel patches workspace settings immediately
+PASS  Live Data channel includes Helpdesk departments and request types
+PASS  Live Data channel listens to workspace row changes
+PASS  First Realtime SUBSCRIBED closes initial query/subscription race
+PASS  Reconnect, focus, online and visibility restore trigger silent reconciliation
+PASS  Live status exposes connecting/live/degraded states
+PASS  Live status has responsive CSS indicator
+PASS  Workspace loads are sequence-guarded against stale async overwrite
+PASS  Open Ticket modal refreshes details on Live revisions
+PASS  Open Sprint modal refreshes details on Live revisions
+PASS  Open Helpdesk modal refreshes details on Live revisions
+PASS  Open modal snapshot follows updated list entities
+PASS  Knowledge read/preview media revalidates on Live revision
+PASS  Knowledge editor refreshes media without replacing dirty document content
+PASS  Knowledge preview snapshot follows live version updates
+PASS  URL popstate resets missing board mode to table
+PASS  URL synchronization removes stale tab/mode parameters
+PASS  v17.7 migration publishes previously missing live UI tables
+PASS  v17.7 migration enables FULL replica identity for filtered deletes
+PASS  v17.7 migration is idempotent for publication membership
+PASS  No redundant standalone notification polling interval remains
+PASS  Derived navigation/module counters are debounced separately
+PASS  Full workspace refetch is limited to relationship/permission tables
+PASS  Helpdesk assignment queue/log participate in Live revisions
+PASS  Open Staff capacity revalidates when Helpdesk assignment state changes
+PASS  Open Workspace settings refreshes routing members on Staff Live revisions
+PASS  DELETE events always finish with authoritative silent reconciliation
+PASS  Helpdesk assignment tables use FULL replica identity in v17.7
+
+QA v17.7.0 summary: 272 passed, 0 failed.
