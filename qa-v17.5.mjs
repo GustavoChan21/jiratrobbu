@@ -20,10 +20,10 @@ const hasAll=(text,items)=>items.every(x=>text.includes(x));
 const count=(text,needle)=>text.split(needle).length-1;
 
 // Release integrity
-check('Package version is 17.5.1',pkg.version==='17.5.1');
+check('Package version is 17.5.2',pkg.version==='17.5.2');
 check('QA npm script targets v17.5',pkg.scripts?.qa==='node qa-v17.5.mjs');
-check('Frontend cache bust targets 17.5.1',index.includes('v=17.5.1'));
-check('App release marker is v17.5.1',app.startsWith('/* Jira Interno TROBBU v17.5.1'));
+check('Frontend cache bust targets 17.5.2',index.includes('v=17.5.2')); 
+check('App release marker is v17.5.2',app.startsWith('/* Jira Interno TROBBU v17.5.2')); 
 check('Incremental v17.5 migration is the final database.sql block',database.endsWith(migration),crypto.createHash('sha256').update(migration).digest('hex'));
 check('No unresolved merge markers',![app,migration,database,styles,index,knowledgeAI,translate].some(t=>/^(<<<<<<<|=======|>>>>>>>)/m.test(t)));
 check('SQL dollar quotes are balanced',count(migration,'$$')%2===0);
@@ -190,6 +190,33 @@ check('Knowledge author Exit action is aligned with preview/save/publish actions
 check('Legacy top Back to Knowledge button was removed from author header',!app.includes('knowledge-back-button" onClick={()=>requestExit(onBack)}'));
 check('Responsive author actions remain usable on small screens',hasAll(styles,['.knowledge-author-actions{display:flex','.knowledge-author-actions{display:grid;grid-template-columns:1fr 1fr','.knowledge-author-actions{grid-template-columns:1fr}']));
 
+// v17.5.2 Vacations schema repair, balances and absence type CRUD
+check('Vacation migration is self-contained for missing date_blocks',hasAll(migration,["add column if not exists return_date date","add column if not exists date_blocks jsonb","date_blocks=case when jsonb_typeof(date_blocks)='array'"]));
+check('Legacy vacation guard is detached before historical backfill and recreated after counters',migration.indexOf('drop trigger if exists trg_guard_vacation_request on public.vacation_requests')<migration.indexOf('update public.vacation_requests\nset return_date=')&&migration.lastIndexOf('create trigger trg_guard_vacation_request')>migration.indexOf('-- Backfill authoritative counters'));
+check('Vacation requests can contain a minimum one-day block',hasAll(app,['Se permite un mínimo de 1 día','min={b.start_date||today}'])&&migration.includes("if v_start is null or v_end is null or v_end<v_start"));
+check('Legacy 60-day request constraint is removed before block validation',hasAll(migration,["pg_get_constraintdef(oid) ilike '%end_date%start_date%60%'","drop constraint"]));
+check('Vacation type CRUD table exists with RLS',hasAll(migration,['create table if not exists public.vacation_types','alter table public.vacation_types enable row level security','vacation_types_insert','vacation_types_update','vacation_types_delete']));
+check('Default vacation types include vacation, compensation, half-day and sickness',hasAll(migration,["'vacation','Vacaciones'","'compensation','Compensación'","'half_day','Medio día'","'sickness','Enfermedad'"]));
+check('Vacation types configure whether they deduct annual balance',hasAll(migration,['deducts_from_balance boolean','day_fraction numeric','requires_half_day_period boolean'])&&app.includes('Descontar del total de vacaciones disponibles'));
+check('Half-day requests require first or second half',hasAll(app,['Primera mitad del día','Segunda mitad del día'])&&migration.includes("new.half_day_period not in ('first_half','second_half')"));
+check('Vacation balance table stores allowed days and manual used adjustment',hasAll(migration,['create table if not exists public.vacation_balances','allowed_days numeric','adjustment_used_days numeric']));
+check('Vacation balance RLS restricts writes to manage_vacations',hasAll(migration,['vacation_balances_insert','vacation_balances_update','vacation_balances_delete',"private.has_workspace_permission(workspace_id,'manage_vacations')"]));
+check('Server trigger calculates absence and charged days',hasAll(migration,['new.absence_days:=v_calendar_days*v_type.day_fraction','new.charged_days:=case when v_type.deducts_from_balance then new.absence_days else 0 end']));
+check('Server trigger blocks requests over annual balance',hasAll(migration,['v_existing+v_adjustment+v_requested>v_allowed','Saldo insuficiente para']));
+check('Occupied balance counts pending and approved deductible requests',hasAll(app,["['pending','approved'].includes(r.status)",'{deductOnly:true}'])&&migration.includes("vr.status in ('pending','approved') and vt.deducts_from_balance=true"));
+check('Vacation UI shows allowed, occupied, manual adjustment and available counters',hasAll(app,['Vacaciones permitidas','Días ocupados','Ajuste de días usados','Días disponibles']));
+check('Vacation admin control exposes per-member balances',hasAll(app,['Control de vacaciones por integrante','Permitidos','Ocupados','Ajuste usado','Disponibles','Ajustar']));
+check('Non-deducting types retain their own usage counters',hasAll(app,['const typeUsage=','myTypeUsage=typeUsage(session.user.id,currentYear)','vacation-type-counters']));
+check('Vacation type CRUD exists in UI',hasAll(app,['Tipos de vacaciones / ausencias','Nuevo tipo','saveType','removeType','Tipo activo']));
+check('Request form selects absence type and half-day period',hasAll(app,['Tipo de ausencia','Mitad del día','requestTypeId','halfDayPeriod']));
+check('Removed multi-block IA informational alert',!app.includes('La IA evaluará el impacto de todos los bloques como una sola solicitud'));
+check('Vacation timeline desktop controls use one five-column row',styles.includes('grid-template-columns:minmax(160px,1fr) minmax(150px,.8fr) auto auto auto'));
+check('Vacation timeline stacks controls responsively on small screens',styles.includes('@media(max-width:760px)')&&styles.includes('.vacation-timeline-controls{grid-template-columns:1fr!important'));
+check('Vacation impact assistant reads configured vacation type',hasAll(vacation,['from("vacation_types")','vacation_type_id','charged_days','half_day_period']));
+check('Vacation impact duration uses absence_days when available',vacation.includes('Number(vac.absence_days||0)'));
+check('Database canonical schema ends with current v17.5.2 migration',database.endsWith(migration));
+check('v17.5.2 keeps exact project file count of 101',fs.readdirSync(new URL('.',import.meta.url),{recursive:true}).filter(x=>fs.statSync(new URL(x,import.meta.url)).isFile()).length===101);
+
 // Knowledge assistant semantic regression retained
 check('Knowledge Assistant requires meaningful description context',app.includes('subject.length<3||detail.length<12'));
 check('Knowledge AI searches full article content',knowledgeAI.includes('String(a.content||"").slice(0,40000)'));
@@ -210,5 +237,5 @@ check('Helpdesk routing still excludes approved absence blocks',hasAll(routing,[
 check('Vacation impact assistant still consumes date_blocks',hasAll(vacation,['function blocksFor','date_blocks:blocks']));
 check('v17.1 vacation migration remains in package history',migration171.includes('date_blocks'));
 
-console.log(`\nQA v17.5 summary: ${passed} passed, ${failures.length} failed.`);
+console.log(`\nQA v17.5.2 summary: ${passed} passed, ${failures.length} failed.`);
 if(failures.length){for(const f of failures)console.error(` - ${f.name}${f.detail?`: ${f.detail}`:''}`);process.exit(1)}

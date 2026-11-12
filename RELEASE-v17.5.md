@@ -1,69 +1,34 @@
-# RELEASE v17.5.1 · Jira Interno TROBBU
+# RELEASE v17.5.2 · Jira Interno TROBBU
 
-Base: **v17.5.0 Final Completo**. La distribución conserva exactamente **101 archivos**.
+## Base
+v17.5.1 Final Completo.
 
-## Corrección prioritaria · Texto Knowledge desde vacío
+## Corrección crítica
+El frontend v17.5.1 ya intentaba escribir `return_date` y `date_blocks`, pero el esquema Supabase actualmente desplegado no contiene esas columnas. v17.5.2 repara ese desfase de forma re-ejecutable y migra las solicitudes históricas al modelo de bloques.
 
-El problema identificado no era el formato sobre contenido pegado: el fallo estaba al iniciar un bloque Texto completamente vacío.
+## Nuevas capacidades
+- Solicitudes desde **1 día** y hasta 8 bloques no consecutivos.
+- Fecha de reincorporación por bloque.
+- CRUD de tipos de ausencia configurable por workspace.
+- Tipos iniciales: Vacaciones, Compensación, Medio día y Enfermedad.
+- Flag `deducts_from_balance` para decidir qué tipo consume saldo.
+- Medio día = 0.5 y requiere primera/segunda mitad.
+- Saldos anuales por integrante: Permitidos, Ocupados, Ajuste usado y Disponibles.
+- Contador por tipo, incluidos tipos que no descuentan saldo.
+- Validación de saldo en frontend y DB trigger.
+- Timeline con controles en una sola fila en escritorio y responsive vertical en móvil.
+- Eliminado el notice de IA solicitado.
 
-v17.5.1 cambia el arranque del editor:
+## Compatibilidad
+- Las solicitudes antiguas se convierten a un bloque `legacy` sin borrar datos.
+- Los campos antiguos `decided_by` / `assistant_*` se copian a los campos canónicos cuando existen.
+- Los tipos usados se desactivan en lugar de borrarse.
+- Se conservan Knowledge, Helpdesk, Gantt, Kanban/Tabla, relaciones y autoasignación de v17.5.1.
 
-- el `contentEditable` inicia con `<p><br></p>`;
-- al enfocar un bloque vacío se coloca explícitamente el cursor dentro del párrafo;
-- `beforeinput` protege la primera inserción;
-- el placeholder ya no depende de `:empty`;
-- el primer carácter y los siguientes permanecen dentro del mismo nodo editable;
-- `input` no actualiza estado React;
-- Guardar/Vista previa consumen el HTML vivo incluso con foco activo.
+## Deploy
+1. Ejecutar `upgrade-v17.5.sql` completo en Supabase.
+2. Desplegar `vacation-impact-assistant.ts`.
+3. Publicar frontend v17.5.2.
+4. Ejecutar `npm run qa` y smoke tests con roles solicitante/PM/Superadmin.
 
-### Fallback adicional
-
-Se incorpora **Escritura segura** dentro del mismo bloque. Permite escribir en un textarea estándar y después pulsar **Pasar a modo formato** para aplicar todas las herramientas enriquecidas. El texto de este modo también entra al borrador aunque se pulse Guardar directamente.
-
-El modo normal sigue siendo la opción principal: **escribir y dar formato en el trayecto**.
-
-## Toolbar y formato parcial
-
-Se preservan selección y cursor al usar:
-
-- H1-H5;
-- fuente y tamaño;
-- negrita/cursiva/subrayado/tachado;
-- color/resaltado;
-- listas/sangría;
-- alineación;
-- links/unlink;
-- limpiar formato;
-- interlineado;
-- undo/redo.
-
-La sanitización sigue conservando estilos seguros generados por Safari/Chrome.
-
-## UX de autoría
-
-- `Volver a Knowledge` pasa a llamarse **Salir**.
-- El botón Salir está alineado en el mismo grupo que **Vista previa · Guardar borrador · Publicar artículo**.
-- Se conserva el modal de advertencia para cambios sin guardar.
-- Responsive mantiene acciones apilables sin romper márgenes/paddings.
-
-## Pruebas realizadas
-
-- `npm run qa`: **163/163 PASS**.
-- `app.js` + 8 Edge Functions: parser **0 errores**.
-- Chromium real mediante CDP: escritura carácter por carácter desde vacío **PASS**.
-- Chromium real: selección + negrita, cursiva, subrayado y link **PASS**.
-- CSS balanceado.
-- 101 archivos exactos.
-- Sin marcadores de merge.
-
-## Despliegue
-
-### Si ya estás en v17.5.0
-
-No hay cambios de BD. Sustituye los archivos estáticos de la v17.5.1. El cache bust `?v=17.5.1` obliga al navegador a descargar el nuevo editor.
-
-### Si vienes desde v17.3.1
-
-1. Ejecuta `upgrade-v17.5.sql` una vez.
-2. Publica los archivos estáticos v17.5.1.
-3. Ejecuta `npm run qa`.
+**Importante:** en el esquema real verificado previo a esta entrega faltaban `date_blocks` y `return_date`, por lo que el paso SQL es obligatorio para corregir el error mostrado por la UI.
