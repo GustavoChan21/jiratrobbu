@@ -1,8 +1,8 @@
-# QA v17.5.3 · Jira Interno TROBBU
+# QA v17.5.4 · Jira Interno TROBBU
 
 ## Resultado automatizado
 
-- `npm run qa`: **203 / 203 PASS**.
+- `npm run qa`: **226 / 226 PASS**.
 - Archivos del proyecto: **101 exactos**.
 - `database.sql` termina exactamente con `upgrade-v17.5.sql`.
 - Sin marcadores de merge.
@@ -46,3 +46,15 @@ Durante esta corrección se verificó y corrigió el proyecto `Jira Interno Trob
 8. Con dos sesiones, modificar una solicitud y validar actualización Realtime en la otra.
 9. Simular canal offline y comprobar refresco de respaldo.
 10. Confirmar ausencia del calendario mensual.
+
+## Cobertura adicional v17.5.4
+
+- URL `view/tab/mode` preserva módulo, tabs y modo de tablero al recargar/navegar atrás/adelante.
+- `decision_by` y `ai_*` existen aun sobre instalaciones con columnas legado; histórico migrado sin borrar información.
+- Helper anual de saldo existe antes del guard de Vacaciones.
+- Permiso independiente `view_vacation_projection` cubierto en UI, defaults y RLS.
+- Saldo anual guardado usa `upsert().select().single()` y actualiza estado inmediatamente.
+- Knowledge utiliza únicamente artículos publicados con `active_version_id` y contenido de la versión pública activa.
+- Umbrales semánticos estrictos + cero resultados permitido + GPT-6.1 Sol cuando está disponible.
+- KPI chips del Gantt filtran resultados; Backlog bulk controls comparten una sola fila de escritorio.
+- Parser TypeScript/JSX: `app.js` + 8 Edge Functions sin errores de sintaxis.

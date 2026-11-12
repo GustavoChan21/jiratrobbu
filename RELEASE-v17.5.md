@@ -1,9 +1,17 @@
-# RELEASE v17.5.3 · Jira Interno TROBBU
+# RELEASE v17.5.4 · Jira Interno TROBBU
 
 ## Base
-v17.5.2, compatible con instalaciones que continúan en Git v17.5.1 mediante `upgrade-v17.5.sql` re-ejecutable.
+v17.5.3, compatible con instalaciones que continúan en Git v17.5.1 mediante `upgrade-v17.5.sql` re-ejecutable.
 
 ## Cambios principales
+
+- Navegación persistente por URL (`view`, `tab`, `mode`).
+- Vacaciones reorganizado en tabs con permiso independiente de proyección.
+- Compatibilidad de `decision_by`/`ai_*` con esquema histórico y helper anual de saldo.
+- Saldo visible sincronizado con la fila real de `vacation_balances`.
+- Knowledge Assistant reforzado para versión publicada activa y coincidencias concretas.
+- KPI chips del Gantt convertidos en filtros y barra Backlog en una sola row de escritorio.
+
 
 - Corregido el desfase entre frontend y `vacation-impact-assistant`: el análisis recibe `request_id` y la función recupera internamente workspace, usuario y bloques.
 - Solicitudes movidas al inicio de Vacaciones.
@@ -20,9 +28,9 @@ v17.5.2, compatible con instalaciones que continúan en Git v17.5.1 mediante `up
 
 1. Ejecutar `upgrade-v17.5.sql` completo.
 2. Desplegar `vacation-impact-assistant.ts`.
-3. Publicar frontend v17.5.3.
+3. Publicar frontend v17.5.4.
 4. Ejecutar `npm run qa`.
 
 ## Estado validado
 
-En el Supabase `Jira Interno Trobbu` se aplicó la migración de workflow/realtime y se desplegó `vacation-impact-assistant` versión 6 durante esta corrección. El repo v17.5.3 queda alineado con ese estado.
+En el Supabase `Jira Interno Trobbu` se aplicó la migración de workflow/realtime y se desplegó `vacation-impact-assistant` versión 6 durante esta corrección. El repo v17.5.4 queda alineado con ese estado.

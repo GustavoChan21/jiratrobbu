@@ -20,10 +20,10 @@ const hasAll=(text,items)=>items.every(x=>text.includes(x));
 const count=(text,needle)=>text.split(needle).length-1;
 
 // Release integrity
-check('Package version is 17.5.3',pkg.version==='17.5.3');
+check('Package version is 17.5.4',pkg.version==='17.5.4');
 check('QA npm script targets v17.5',pkg.scripts?.qa==='node qa-v17.5.mjs');
-check('Frontend cache bust targets 17.5.3',index.includes('v=17.5.3')); 
-check('App release marker is v17.5.3',app.startsWith('/* Jira Interno TROBBU v17.5.3')); 
+check('Frontend cache bust targets 17.5.4',index.includes('v=17.5.4')); 
+check('App release marker is v17.5.4',app.startsWith('/* Jira Interno TROBBU v17.5.4')); 
 check('Incremental v17.5 migration is the final database.sql block',database.endsWith(migration),crypto.createHash('sha256').update(migration).digest('hex'));
 check('No unresolved merge markers',![app,migration,database,styles,index,knowledgeAI,translate].some(t=>/^(<<<<<<<|=======|>>>>>>>)/m.test(t)));
 check('SQL dollar quotes are balanced',count(migration,'$$')%2===0);
@@ -214,15 +214,15 @@ check('Vacation timeline desktop controls use one five-column row',styles.includ
 check('Vacation timeline stacks controls responsively on small screens',styles.includes('@media(max-width:760px)')&&styles.includes('.vacation-timeline-controls{grid-template-columns:1fr!important'));
 check('Vacation impact assistant reads configured vacation type',hasAll(vacation,["from('vacation_types')",'vacation_type_id','charged_days','half_day_period']));
 check('Vacation impact duration uses absence_days when available',vacation.includes('Number(vac.absence_days||0)'));
-check('Database canonical schema ends with current v17.5.3 migration',database.endsWith(migration));
-check('v17.5.3 keeps exact project file count of 101',fs.readdirSync(new URL('.',import.meta.url),{recursive:true}).filter(x=>fs.statSync(new URL(x,import.meta.url)).isFile()).length===101);
+check('Database canonical schema ends with current v17.5.4 migration',database.endsWith(migration));
+check('v17.5.4 keeps exact project file count of 101',fs.readdirSync(new URL('.',import.meta.url),{recursive:true}).filter(x=>fs.statSync(new URL(x,import.meta.url)).isFile()).length===101);
 
-// v17.5.3 workflow/realtime regressions
+// v17.5.4 workflow/realtime regressions
 check('Vacation Analyze sends request_id and legacy fallback identifiers',hasAll(app,["request_id:r.id","workspace_id:r.workspace_id||workspace.id","user_id:r.user_id","start_date:vacationStart(r)","end_date:vacationEnd(r)"]));
 check('Vacation Edge Function is request-centric and no longer requires four identifiers',vacation.includes("const requestId=String(body?.request_id||'')")&&!vacation.includes('workspace_id, user_id, start_date and end_date are required'));
-check('Vacation request metrics are interactive filters',hasAll(app,["onClick={()=>setRequestFilter('today')}","onClick={()=>setRequestFilter('pending')}","onClick={()=>setRequestFilter('upcoming')}","onClick={()=>setRequestFilter('mine')}"]));
+check('Vacation request metrics are interactive filters',hasAll(app,["onClick={()=>switchRequestFilter('today')}","onClick={()=>switchRequestFilter('pending')}","onClick={()=>switchRequestFilter('upcoming')}","onClick={()=>selectSectionTab('mine')}"]));
 check('Vacation request tabs include priority views and Ver todo',hasAll(app,["['pending','Pendientes'","['today','Fuera hoy'","['upcoming','Aprobadas próximas'","['mine','Mis solicitudes'","['all','Ver todo'"]));
-check('Vacation requests panel is rendered before balance panel',app.indexOf('vacation-requests-primary')>0&&app.indexOf('vacation-requests-primary')<app.indexOf('vacation-balance-panel'));
+check('Managers land on prioritized Requests while balance is isolated in My Vacations',hasAll(app,["return canManage?'requests':'mine'","sectionTab==='requests'&&canManage","sectionTab==='mine'&&<>",'vacation-requests-primary','vacation-balance-panel']));
 check('Monthly absence calendar was removed from Vacations UI',!app.includes('Calendario de ausencias'));
 check('Vacation approval is not disabled by AI state',app.includes("onClick={()=>setDecision({item:r,status:'approved'})}")&&!app.includes('Análisis requerido para aprobar'));
 check('Database explicitly treats AI as advisory only',migration.includes('IA is advisory only. Approval never depends on an analysis existing or being fresh.')&&!migration.includes('Analyze sprint impact before approving vacations'));
@@ -242,6 +242,32 @@ check('Knowledge AI requires matched anchors',hasAll(knowledgeAI,['a.matchedAnch
 check('Knowledge AI can return zero suggestions',hasAll(knowledgeAI,['relevance >= 0.68','articles:[]']));
 check('Translation flow still carries content_blocks',hasAll(translate,['content_blocks','mergeBlocks']));
 
+
+// v17.5.4 URL state, Vacation IA/schema, permissions and layout
+check('Top-level menu view initializes from URL',app.includes("new URL(window.location.href).searchParams.get('view')||'board'"));
+check('Sidebar navigation writes view to browser history',hasAll(app,['const writeViewUrl=','window.history[method]','const navigateView=next=>']));
+check('Board Table/Kanban/Calendar/Gantt mode persists in URL',hasAll(app,["searchParams.get('mode')","url.searchParams.set('mode',boardMode)","['table','kanban','calendar','gantt']"]));
+check('Settings tabs persist in URL',app.includes("useUrlTab('settings','workspace',['workspace','products','sprints','helpdesk','notifications'])"));
+check('Staff/Roles tabs persist in URL',app.includes("useUrlTab('team','staff',['staff','roles'])"));
+check('Vacation section tabs persist in URL',hasAll(app,["searchParams.set('view','vacations')","searchParams.set('tab',next)","Mis Vacaciones","Proyección de Vacaciones","Control por Integrante","Tipos de Vacaciones"]));
+check('Vacation projection has dedicated RBAC permission',hasAll(app,['view_vacation_projection','canViewVacationProjection','canViewProjection'])&&migration.includes('view_vacation_projection'));
+check('Projection permission defaults to PM/Admin but not Dev/QA',migration.includes("'view_vacations','request_vacations','view_vacation_projection','manage_vacations'")&&app.includes('pm:{')&&!/dev:\{[^}]*view_vacation_projection:true/.test(app));
+check('Vacation decision canonical columns are created for old schemas',hasAll(migration,['add column if not exists decision_by','add column if not exists ai_risk','add column if not exists ai_recommendation','add column if not exists ai_analysis','add column if not exists ai_analyzed_at']));
+check('Legacy vacation decision/assistant data migrates to canonical fields',hasAll(migration,['decision_by=coalesce(decision_by,decided_by)','assistant_recommendation','assistant_snapshot','analyzed_at']));
+check('Vacation annual-unit helper exists before guard uses it',migration.indexOf('create or replace function private.vacation_units_for_year')>=0&&migration.indexOf('create or replace function private.vacation_units_for_year')<migration.lastIndexOf('private.vacation_units_for_year(new.date_blocks'));
+check('Vacation approval writes decision_by',app.includes('decision_by:session.user.id'));
+check('Balance save returns authoritative DB row immediately',hasAll(app,["onConflict:'workspace_id,user_id,year'",".select('*').single()",'setVacationBalances(rows=>']));
+check('Vacation balance meta has its own realtime channel',hasAll(app,['vacation-meta-${workspace.id}',"table:'vacation_types'", "table:'vacation_balances'"]));
+check('Knowledge Assistant queries only published articles with active versions',hasAll(knowledgeAI,[`.eq("status","published")`,`.not("active_version_id","is",null)`]));
+check('Knowledge Assistant validates exact active published version content',hasAll(knowledgeAI,['knowledge_article_versions','versionMap.get(a.active_version_id)','status","published"']));
+check('Knowledge Assistant uses strict semantic threshold and can return none',hasAll(knowledgeAI,['relevance >= 0.68','a.relevance>=.66','matchedAnchors','active_version_id']));
+check('Knowledge Assistant targets GPT-6.1 Sol when AI is available',knowledgeAI.includes('gpt-6.1-sol'));
+check('Knowledge direct link opens Knowledge reader route',hasAll(app,["const knowledgeArticleUrl=id=>appDeepLink({view:'knowledge',knowledge:id})",'target="_blank"']));
+check('Gantt KPI chips are actual button filters',hasAll(app,['const [kpiFilter,setKpiFilter]','toggleKpi','gantt-kpis','setKpiFilter(\'all\')']));
+check('Gantt filters expose backlog, overdue, historical and closed results',hasAll(app,["kpiFilter==='unscheduled'","kpiFilter==='overdue'","kpiFilter==='historical'","kpiFilter==='closed'",'gantt-filter-results']));
+check('Backlog bulk selection controls share one desktop row',hasAll(styles,['.bulk-sprint-bar{display:grid;grid-template-columns:minmax(180px,.55fr) minmax(420px,1.45fr)', '.bulk-sprint-bar>div{width:100%;display:grid;grid-template-columns:minmax(260px,1fr) auto auto']));
+check('Backlog bulk controls still stack on mobile only',styles.includes('@media(max-width:760px)')&&styles.includes('.bulk-sprint-bar{display:grid;grid-template-columns:1fr}'));
+
 // Cross-module smoke regressions requested in previous cycle
 check('Manual Helpdesk autoassignment still exists',hasAll(app,['Autoasignar pendientes','autoAssignExistingHelpdesk','manual_trigger:true']));
 check('Helpdesk counters still derive from shared filtered base',app.includes('const counterBase=allItems.filter(h=>helpdeskMatchesFilters(h,filters,false))'));
@@ -254,5 +280,5 @@ check('Helpdesk routing still excludes approved absence blocks',hasAll(routing,[
 check('Vacation impact assistant still consumes date_blocks',hasAll(vacation,['const blocksFor=','date_blocks:blocks']));
 check('v17.1 vacation migration remains in package history',migration171.includes('date_blocks'));
 
-console.log(`\nQA v17.5.3 summary: ${passed} passed, ${failures.length} failed.`);
+console.log(`\nQA v17.5.4 summary: ${passed} passed, ${failures.length} failed.`);
 if(failures.length){for(const f of failures)console.error(` - ${f.name}${f.detail?`: ${f.detail}`:''}`);process.exit(1)}

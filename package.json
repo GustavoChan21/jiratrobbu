@@ -1,8 +1,8 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.5.3",
-  "description": "Jira Interno TROBBU v17.5.3 - prioritized vacation requests, advisory AI, decimal balances and Realtime stabilization",
+  "version": "17.5.4",
+  "description": "Jira Interno TROBBU v17.5.4 - URL state, Vacation tabs/permissions, Knowledge relevance and workflow stabilization",
   "scripts": {
     "serve": "python3 -m http.server 8080",
     "qa": "node qa-v17.5.mjs"

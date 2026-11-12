@@ -77,14 +77,20 @@ Deno.serve(async(req:Request)=>{
     const client=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
     const {data:userData,error:userError}=await client.auth.getUser(token);if(userError||!userData.user)throw new Error("Invalid session");
     const [{data:articles,error},{data:department},{data:requestType},{data:product}]=await Promise.all([
-      client.from("knowledge_articles").select("id,title,summary,content,tags,product_id,module_id,category_id,updated_at,active_version_id,default_language").eq("workspace_id",workspaceId).eq("status","published").limit(250),
+      client.from("knowledge_articles").select("id,title,summary,content,tags,product_id,module_id,category_id,updated_at,active_version_id,default_language").eq("workspace_id",workspaceId).eq("status","published").not("active_version_id","is",null).limit(250),
       departmentId?client.from("helpdesk_departments").select("name").eq("id",departmentId).maybeSingle():Promise.resolve({data:null}),
       requestTypeId?client.from("helpdesk_request_types").select("name").eq("id",requestTypeId).maybeSingle():Promise.resolve({data:null}),
       productId?client.from("products").select("name").eq("id",productId).maybeSingle():Promise.resolve({data:null})
     ]);if(error)throw error;
-    const versionIds=(articles||[]).map((a:any)=>a.active_version_id).filter(Boolean);let translationMap=new Map<string,any>();
-    if(versionIds.length){const {data:translations}=await client.from("knowledge_version_translations").select("*").eq("workspace_id",workspaceId).eq("language",language).in("version_id",versionIds);translationMap=new Map((translations||[]).map((t:any)=>[t.version_id,t]))}
-    const localized=(articles||[]).map((a:any)=>{const t=translationMap.get(a.active_version_id);return t?{...a,title:t.title,summary:t.summary,content:t.content,tags:t.tags||a.tags,translation_cached:true}:{...a,translation_cached:false}});
+    const versionIds=(articles||[]).map((a:any)=>a.active_version_id).filter(Boolean);let translationMap=new Map<string,any>(),versionMap=new Map<string,any>();
+    if(versionIds.length){
+      const [{data:publishedVersions},{data:translations}]=await Promise.all([
+        client.from("knowledge_article_versions").select("id,article_id,title,summary,content,tags,product_id,module_id,category_id,status,version_number").eq("workspace_id",workspaceId).eq("status","published").in("id",versionIds),
+        client.from("knowledge_version_translations").select("*").eq("workspace_id",workspaceId).eq("language",language).in("version_id",versionIds)
+      ]);
+      versionMap=new Map((publishedVersions||[]).map((v:any)=>[v.id,v]));translationMap=new Map((translations||[]).map((t:any)=>[t.version_id,t]));
+    }
+    const localized=(articles||[]).map((a:any)=>{const published=versionMap.get(a.active_version_id)||a,t=translationMap.get(a.active_version_id),source={...a,...published,id:a.id,active_version_id:a.active_version_id};return t?{...source,title:t.title,summary:t.summary,content:t.content,tags:t.tags||source.tags,translation_cached:true}:{...source,translation_cached:false}});
     const requestText=[title,description].filter(Boolean).join(" ").trim();
     const contextText=[department?.name,requestType?.name,product?.name].filter(Boolean).join(" ").trim();
     const requestTokens=unique(tokenList(requestText)),anchors=requestTokens.filter(x=>!GENERIC.has(x));
@@ -113,11 +119,11 @@ Deno.serve(async(req:Request)=>{
       }catch(error){console.warn("knowledge AI rerank fallback",error instanceof Error?error.message:String(error))}
     }
 
-    const relevant=ranked.filter((a:any)=>provider==="deterministic"?(a.relevance>=.62&&a.matchedAnchors.length>0):(a.relevant===true&&a.relevance>=.68)).slice(0,3);
+    const relevant=ranked.filter((a:any)=>provider==="deterministic"?(a.relevance>=.66&&a.matchedAnchors.length>0&&a.anchorCoverage>=.34):(a.relevant===true&&a.relevance>=.68)).slice(0,3);
     const message=relevant.length
       ? (provider==="deterministic"?(language==="en"?"I found Knowledge articles with specific content matching the request. Review them before creating the ticket.":"Encontré artículos de Knowledge con contenido específico relacionado con la solicitud. Revísalos antes de crear el ticket."):(ranked as any).summary|| (language==="en"?"These articles contain evidence meaningfully related to your request.":"Estos artículos contienen evidencia realmente relacionada con tu solicitud."))
       : (language==="en"?"I did not find a Knowledge article with enough specific relevance to recommend. You can continue creating the ticket.":"No encontré un artículo de Knowledge con relevancia específica suficiente para recomendar. Puedes continuar creando el ticket.");
     console.log(JSON.stringify({event:"knowledge_assistant_result",provider,language,evaluated:candidates.length,relevant:relevant.length,product_id:productId||null,anchors}));
-    return new Response(JSON.stringify({ok:true,message,provider,language,evaluated:candidates.length,articles:relevant.map((a:any)=>({id:a.id,title:a.title,summary:cleanSnippet(a.summary||a.content_evidence||a.content,240),tags:a.tags,product_id:a.product_id,module_id:a.module_id,category_id:a.category_id,relevance:Number(a.relevance.toFixed(3)),match_reason:a.reason,matched_terms:a.matchedAnchors,translation_cached:a.translation_cached}))}),{headers:jsonHeaders});
+    return new Response(JSON.stringify({ok:true,message,provider,language,evaluated:candidates.length,articles:relevant.map((a:any)=>({id:a.id,title:a.title,summary:cleanSnippet(a.summary||a.content_evidence||a.content,240),tags:a.tags,product_id:a.product_id,module_id:a.module_id,category_id:a.category_id,relevance:Number(a.relevance.toFixed(3)),match_reason:a.reason,matched_terms:a.matchedAnchors,translation_cached:a.translation_cached,active_version_id:a.active_version_id}))}),{headers:jsonHeaders});
   }catch(error){const message=error instanceof Error?error.message:"Unknown error";console.error("trobbu-knowledge-assistant:",message);return new Response(JSON.stringify({error:message}),{status:400,headers:jsonHeaders})}
 });
