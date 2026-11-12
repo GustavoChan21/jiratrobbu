@@ -1,79 +1,84 @@
-# Jira Interno TROBBU v17.5.4
+# Jira Interno TROBBU v17.6.0
 
-**Base:** v17.5.3 / Git v17.5.1 compatible mediante `upgrade-v17.5.sql` → v17.5.4. El proyecto conserva exactamente **101 archivos**.
+Versión estabilizada sobre v17.5.4 con reparación de drift entre frontend, migraciones y Supabase de producción.
 
-## Objetivo
+## Objetivo de v17.6.0
 
-v17.5.4 consolida navegación persistente por URL, Vacaciones segmentado por permisos, compatibilidad de esquema histórica/nueva, Knowledge Assistant estricto y filtros operativos de Gantt/Backlog.
+Esta entrega cierra los pendientes de navegación persistente, Vacaciones, Knowledge y QA global solicitados para el Jira interno TROBBU. El foco principal es que el repositorio sea desplegable sobre una instalación v17.5.x y conserve el mismo contrato que la base de datos/Edge Functions de producción.
 
+## Cambios principales
 
-## Cambios v17.5.4
+### Navegación persistente por URL
 
-- **URL persistente:** `?view=` conserva el módulo al recargar; `?tab=` conserva tabs de Vacaciones, Configuración y Staff/Roles; `?mode=` conserva Tabla/Kanban/Calendario/Cronograma.
-- **Vacaciones:** tabs `Mis Vacaciones`, `Solicitudes`, `Proyección de Vacaciones`, `Control por Integrante` y `Tipos de Vacaciones`, visibles según RBAC.
-- Nuevo permiso `view_vacation_projection`: Superadmin/Admin siempre, PM por defecto, otros roles solo si se habilita. La RLS protege la proyección también desde API.
-- Compatibilidad para instalaciones con columnas históricas: se crean `decision_by` y `ai_*`, se conserva/migra `decided_by` y `assistant_*`, y se agrega el helper `private.vacation_units_for_year`.
-- El saldo anual usa la fila autoritativa de `vacation_balances`; guardar 16/0.5 actualiza el estado local inmediatamente y Realtime mantiene la vista sincronizada.
-- `vacation-impact-assistant` trabaja por `request_id`, usa IA cuando hay clave configurada y fallback determinístico cuando no; la IA nunca bloquea Aprobar/Rechazar.
-- Knowledge Assistant filtra artículos publicados con versión activa, analiza contenido, usa términos ancla y umbral estricto; puede devolver cero coincidencias. El enlace abre el lector del artículo publicado.
-- Los chips KPI del Gantt son filtros reales.
-- La barra de selección/movimiento de Backlog queda en una sola row en escritorio y se apila únicamente en móvil.
+- `?view=` conserva el módulo activo al recargar.
+- `?tab=` conserva tabs en Vacaciones, Configuración y Staff/Roles.
+- `?mode=` conserva Tabla/Kanban/Calendario/Cronograma en tableros.
+- `popstate` vuelve a sincronizar la vista al navegar atrás/adelante.
 
-### Correcciones de solicitudes
+### Vacaciones
 
-- La Edge Function `vacation-impact-assistant` vuelve a usar `request_id` como contrato principal y obtiene desde BD el workspace, integrante y bloques. El frontend también envía los campos legado como compatibilidad.
-- Las métricas **Fuera hoy / Pendientes / Aprobadas próximas / Mis solicitudes** son clicables y aplican el mismo filtro que los tabs.
-- Las solicitudes aparecen inmediatamente después de las métricas, antes del saldo, timeline y administración.
-- Tabs: **Pendientes, Fuera hoy, Aprobadas próximas, Mis solicitudes y Ver todo**.
-- En Ver todo se priorizan pendientes, después aprobadas y finalmente rechazadas/canceladas.
-- Se eliminó el calendario mensual de ausencias; la proyección tipo cronograma es la visualización temporal principal.
+- Tabs: **Mis Vacaciones**, **Solicitudes**, **Proyección de Vacaciones**, **Control por Integrante** y **Tipos de Vacaciones**.
+- Las tabs administrativas se muestran por permisos; `view_vacation_projection` y `manage_vacations` controlan exposición y operación.
+- Superadmin conserva acceso total; overrides explícitos de permisos también son respetados por la Edge Function.
+- Se estabilizó la lectura de `vacation_balances`: la fila del usuario autenticado se consulta explícitamente y se fusiona con la consulta general.
+- Mientras el saldo está cargando ya no se presenta el fallback de 12 días como dato definitivo.
+- Guardar 16, 0.5 u otro valor válido usa `upsert(...).select().single()` y actualiza inmediatamente la fila autoritativa.
+- El guard de BD reconoce correctamente `service_role` desde `request.jwt.claims`, por lo que `vacation-impact-assistant` puede persistir `ai_*`.
+- Se mantiene compatibilidad con campos históricos `decided_by` / `assistant_*`.
+- `vacation-impact-assistant` registra proveedor, configuración IA y motivo de fallback; OpenAI/AI Gateway son opcionales y la decisión final siempre pertenece al aprobador.
+- La IA nunca bloquea Aprobar/Rechazar.
 
-### IA = sugerencia, no requisito
+### Knowledge
 
-- **Aprobar/Rechazar no depende del análisis IA.**
-- El asistente únicamente proyecta riesgo y mitigaciones con sprints/tickets/ausencias coincidentes.
-- Si no existe análisis, el aprobador puede decidir normalmente.
-- Si el análisis está desactualizado, se permite reanalizar, pero nunca bloquea la aprobación.
+- Se reparó el RPC ausente `public.update_knowledge_draft_version(...)`.
+- Se agregó/reparó `public.create_knowledge_initial_draft(...)`.
+- Los RPC públicos son `SECURITY INVOKER`, con permisos por workspace y RLS.
+- Se agregó `content_schema_version = 3` a artículos y versiones.
+- Los bloques históricos `paragraph/text` se normalizan a `richtext` sin alterar el significado del contenido.
+- La migración de versiones históricas desactiva temporalmente, dentro de la misma transacción, únicamente los triggers de guard/auditoría para no romper la inmutabilidad normal ni crear eventos falsos; ambos se reactivan antes del commit.
+- El lector siempre resuelve la versión publicada del **mismo artículo**. Si v1 está publicada y v2 permanece en borrador, los lectores continúan viendo v1 hasta publicar v2.
+- Knowledge Assistant solo considera artículos publicados con `active_version_id` publicado y puede devolver cero coincidencias cuando la evidencia no es suficientemente específica.
+- Las sugerencias enlazan al lector de Knowledge correspondiente.
 
-### Saldo y medios días
+### UI solicitada
 
-- `allowed_days` y `adjustment_used_days` admiten decimales con escala de 2 posiciones.
-- La UI acepta `0.5` o `0,5` y normaliza a pasos de medio día.
-- Continúan Permitidos, Ocupados, Ajuste usado y Disponibles.
-- El control de saldo en servidor sigue impidiendo exceder el límite anual.
+- Los chips KPI del Gantt operan como filtros reales: planificados, backlog/sin fechas, vencidos, históricos y cerrados.
+- Los controles de selección/movimiento masivo del Backlog permanecen en una sola fila en escritorio y se apilan en móvil.
+- Vacaciones separa operación, proyección, control y catálogo para reducir densidad visual.
 
-### Realtime / WebSocket
+## Actualización desde v17.5.x
 
-- `vacation_requests`, `vacation_types` y `vacation_balances` se publican en `supabase_realtime`.
-- Las tres usan `REPLICA IDENTITY FULL`.
-- El frontend escucha las tres en el canal del workspace.
-- `SUBSCRIBED` mantiene Realtime como fuente principal.
-- `CHANNEL_ERROR`, `TIMED_OUT` o `CLOSED` activan automáticamente un refresco de respaldo cada 15 segundos hasta recuperar el WebSocket.
+1. Respaldar la base de datos.
+2. Ejecutar `upgrade-v17.6.sql` completo en Supabase. Es re-ejecutable sobre v17.5.x.
+3. Desplegar `vacation-impact-assistant.ts` con JWT requerido.
+4. Mantener `trobbu-knowledge-assistant.ts` desplegado con JWT requerido.
+5. Publicar `index.html`, `app.js`, `styles.css` y el resto del paquete.
+6. Forzar recarga del navegador; `index.html` usa cache-bust `?v=17.6.0`.
+7. Ejecutar `npm run qa`.
 
-## Actualización
+`database.sql` es el esquema consolidado y termina exactamente con el bloque vigente de `upgrade-v17.6.sql`.
 
-Si vienes de v17.5.1 o v17.5.2:
+## Estado de producción verificado durante v17.6.0
 
-1. Respaldar BD.
-2. Ejecutar **todo** `upgrade-v17.5.sql` de esta entrega en Supabase. Es re-ejecutable y también repara `date_blocks`, `return_date`, tipos y saldos si faltaran.
-3. Desplegar `vacation-impact-assistant.ts`.
-4. Publicar frontend v17.5.4 (`index.html`, `app.js`, `styles.css`, etc.).
-5. Forzar recarga. `index.html` usa cache-bust `?v=17.5.4`.
-6. Ejecutar `npm run qa`.
+En el proyecto Supabase `Jira Interno Trobbu` se verificó/aplicó:
 
-> En el proyecto Supabase utilizado durante esta corrección ya se aplicó el bloque de DB v17.5.4 y se desplegó `vacation-impact-assistant` v6. Al publicar el Git debes conservar esos mismos archivos para evitar futuros desfases entre repo y producción.
+- `decision_by` y campos `ai_*` presentes.
+- RPCs de Knowledge con las firmas esperadas.
+- `content_schema_version=3` en artículos/versiones.
+- Caso real v1 publicada + v2 borrador conservado correctamente.
+- Conversión de bloques legacy a `richtext` confirmada.
+- Guard de Vacaciones con `request.jwt.claims` y trigger habilitado.
+- Escritura `service_role` de `ai_*` probada dentro de transacción y revertida con rollback.
+- `vacation-impact-assistant` desplegado como v9.
 
-## Verificación post-deploy
+## QA
 
-- Pulsar Pendientes y comprobar que contador/listado coinciden.
-- Pulsar Fuera hoy, Aprobadas próximas y Mis solicitudes y comprobar filtros.
-- Abrir una pendiente y analizar impacto: no debe aparecer el error de `workspace_id, user_id, start_date and end_date`.
-- Aprobar una solicitud sin ejecutar IA: debe ser válido.
-- Guardar `0.5` y `0,5` como Ajuste usado.
-- Crear Medio día y comprobar consumo de 0.5.
-- Abrir dos sesiones y modificar solicitud/saldo/tipo: la otra debe refrescar por Realtime; si el canal falla, entra el polling de respaldo.
-- Confirmar que no aparece `Calendario de ausencias` mensual.
+Ejecutar:
 
-## Esquema canónico
+```bash
+npm run qa
+```
 
-`database.sql` contiene el esquema completo consolidado y termina exactamente con el contenido vigente de `upgrade-v17.5.sql`.
+Resultado de esta entrega: **238 pruebas aprobadas, 0 fallos**.
+
+Además se ejecutaron verificaciones live en Supabase de funciones, schema, triggers, RLS/RPC y advisors. El advisor de Health no reportó incidencias. Permanecen recomendaciones de hardening no bloqueantes heredadas del proyecto (índices de algunas FKs y Leaked Password Protection de Auth), documentadas en `QA-v17.6.md`.

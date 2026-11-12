@@ -34,7 +34,12 @@ Deno.serve(async(req:Request)=>{
     if(vacError)throw vacError;if(!vac)throw new Error('Vacation request not found');
     const {data:member}=await admin.from('workspace_members').select('*').eq('workspace_id',vac.workspace_id).eq('user_id',auth.user.id).eq('active',true).maybeSingle();
     const {data:role}=member?.role_id?await admin.from('workspace_roles').select('code,base_role,permissions').eq('id',member.role_id).maybeSingle():{data:null};
-    const canManage=Boolean(member&&(member.role==='superadmin'||member.role==='admin'||member.role==='pm'||role?.code==='superadmin'||role?.code==='admin'||role?.code==='pm'||member?.permissions?.manage_vacations===true||role?.permissions?.manage_vacations===true));
+    const explicitBoolean=(value:any)=>typeof value==='boolean'?value:null;
+    const defaultManage=(base:any)=>['superadmin','admin','pm'].includes(String(base||''));
+    const memberOverride=explicitBoolean(member?.permissions?.manage_vacations);
+    const roleOverride=explicitBoolean(role?.permissions?.manage_vacations);
+    const resolvedManage=member?.role==='superadmin'?true:memberOverride!==null?memberOverride:(role?.code==='superadmin'||role?.base_role==='superadmin')?true:roleOverride!==null?roleOverride:defaultManage(role?.base_role||member?.role);
+    const canManage=Boolean(member&&resolvedManage);
     if(!canManage)return new Response(JSON.stringify({error:'No tienes permiso para analizar vacaciones.'}),{status:403,headers:jsonHeaders});
     const blocks=blocksFor(vac);if(!blocks.length)throw new Error('Vacation request has no valid date blocks');
     const start=[...blocks].sort((a,b)=>a.start_date.localeCompare(b.start_date))[0].start_date;
@@ -60,8 +65,20 @@ Deno.serve(async(req:Request)=>{
     if(affected.length)result.reasons.push(`${affected.length} ticket(s) abiertos coinciden con la ausencia.`);if(inProgress)result.reasons.push(`${inProgress} actividad(es) están en curso.`);if(blockers)result.reasons.push(`${blockers} actividad(es) son bloqueantes o de prioridad muy alta.`);if(simultaneous.length)result.reasons.push(`${simultaneous.length} ausencia(s) aprobada(s) coinciden con el periodo.`);
     if(affected.length)result.mitigations.push('Dejar handoff o reasignación de los tickets afectados antes de la ausencia.');if(inProgress)result.mitigations.push('Confirmar avance y siguiente responsable de cada actividad en curso.');if(simultaneous.length)result.mitigations.push('Validar cobertura en los días con ausencias simultáneas.');
     const gatewayKey=Deno.env.get('AI_GATEWAY_API_KEY'),openaiKey=Deno.env.get('OPENAI_API_KEY');
-    if(gatewayKey||openaiKey){const isGateway=Boolean(gatewayKey),key=gatewayKey||openaiKey!,model=isGateway?(Deno.env.get('TROBBU_AI_MODEL')||'openai/gpt-6.1-sol'):(Deno.env.get('TROBBU_OPENAI_MODEL')||'gpt-6.1-sol'),endpoint=isGateway?'https://ai-gateway.vercel.sh/v1/responses':'https://api.openai.com/v1/responses';try{const context={employee:profile||{id:vac.user_id},absence:{type:type?.name||null,half_day_period:vac.half_day_period||null,blocks,duration_days:duration,charged_days:Number(vac.charged_days||0)},sprints,affected_tickets:affected,simultaneous_absences:simultaneous.length,local_risk:localRisk};const res=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model,input:[{role:'developer',content:'You are a delivery-risk assistant for TROBBU. The approval decision belongs to the human approver. Provide only an advisory risk projection and practical mitigations. Use only supplied data. Return JSON: {"risk":"low|medium|high|critical","recommendation":"approve|approve_with_conditions|review|decline","summary":"Spanish summary","reasons":[],"mitigations":[]}.'},{role:'user',content:JSON.stringify(context)}],text:{format:{type:'json_object'}}})});const payload=await res.json();if(res.ok){const parsed=safeJson(extractText(payload));if(parsed?.risk&&parsed?.recommendation)result={...result,...parsed}}}catch(error){console.warn('vacation AI fallback',error)}}
-    const analysis={...result,metrics:{affected_tickets:affected.length,story_points:storyPoints,in_progress:inProgress,blockers,simultaneous_absences:simultaneous.length,duration_days:duration,charged_days:Number(vac.charged_days||0),blocks:blocks.length},date_blocks:blocks};
+    let provider='deterministic',aiError='';
+    if(gatewayKey||openaiKey){
+      const isGateway=Boolean(gatewayKey),key=gatewayKey||openaiKey!,model=isGateway?(Deno.env.get('TROBBU_AI_MODEL')||'openai/gpt-6.1-sol'):(Deno.env.get('TROBBU_OPENAI_MODEL')||'gpt-6.1-sol'),endpoint=isGateway?'https://ai-gateway.vercel.sh/v1/responses':'https://api.openai.com/v1/responses';
+      try{
+        const context={employee:profile||{id:vac.user_id},absence:{type:type?.name||null,half_day_period:vac.half_day_period||null,blocks,duration_days:duration,charged_days:Number(vac.charged_days||0)},sprints,affected_tickets:affected,simultaneous_absences:simultaneous.length,local_risk:localRisk};
+        const res=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model,input:[{role:'developer',content:'You are a delivery-risk assistant for TROBBU. The approval decision belongs to the human approver. Provide only an advisory risk projection and practical mitigations. Use only supplied data. Return JSON: {"risk":"low|medium|high|critical","recommendation":"approve|approve_with_conditions|review|decline","summary":"Spanish summary","reasons":[],"mitigations":[]}.'},{role:'user',content:JSON.stringify(context)}],text:{format:{type:'json_object'}}})});
+        const payload=await res.json();
+        if(!res.ok)throw new Error(payload?.error?.message||payload?.message||`AI HTTP ${res.status}`);
+        const parsed=safeJson(extractText(payload));
+        if(!parsed?.risk||!parsed?.recommendation)throw new Error('La respuesta de IA no incluyó risk/recommendation válidos.');
+        result={...result,...parsed};provider=isGateway?`vercel-ai-gateway:${model}`:`openai:${model}`;
+      }catch(error){aiError=error instanceof Error?error.message:String(error);provider='deterministic-fallback';console.warn('vacation AI fallback',aiError)}
+    }
+    const analysis={...result,provider,ai_configured:Boolean(gatewayKey||openaiKey),...(aiError?{ai_error:aiError}:{}),metrics:{affected_tickets:affected.length,story_points:storyPoints,in_progress:inProgress,blockers,simultaneous_absences:simultaneous.length,duration_days:duration,charged_days:Number(vac.charged_days||0),blocks:blocks.length},date_blocks:blocks};
     const analyzedAt=new Date().toISOString();
     const {error:saveError}=await admin.from('vacation_requests').update({ai_risk:result.risk,ai_recommendation:result.recommendation,ai_summary:String(result.summary||'').slice(0,2000),ai_analysis:analysis,ai_analyzed_at:analyzedAt}).eq('id',vac.id);
     if(saveError)throw saveError;

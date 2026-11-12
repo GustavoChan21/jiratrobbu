@@ -245,7 +245,7 @@ revoke all on function private.vacation_units_for_year(jsonb,numeric,integer) fr
 create or replace function private.guard_vacation_request()
 returns trigger language plpgsql security definer set search_path=public,private,pg_temp as $$
 declare
-  v_service boolean:=coalesce(current_setting('request.jwt.claim.role',true),'')='service_role';
+  v_service boolean:=coalesce((nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role'),current_setting('request.jwt.claim.role',true),'')='service_role';
   v_manage boolean;
   v_type public.vacation_types%rowtype;
   v_block jsonb;v_norm jsonb:='[]'::jsonb;
@@ -496,7 +496,7 @@ using (
 create or replace function private.guard_vacation_request()
 returns trigger language plpgsql security definer set search_path=public,private,pg_temp as $$
 declare
-  v_service boolean:=coalesce(current_setting('request.jwt.claim.role',true),'')='service_role';
+  v_service boolean:=coalesce((nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role'),current_setting('request.jwt.claim.role',true),'')='service_role';
   v_manage boolean;
   v_type public.vacation_types%rowtype;
   v_block jsonb;v_norm jsonb:='[]'::jsonb;
