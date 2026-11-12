@@ -1,4 +1,4 @@
-# Jira Interno TROBBU v17.9.1
+# Jira Interno TROBBU v17.9.2
 
 Release correctiva sobre v17.9.0 enfocada en **modo oscuro profesional/luxury**, contraste global, controles inline de Helpdesk completamente clicables y **counters exactos de comentarios/actividad/evidencias**.
 
@@ -36,17 +36,17 @@ Verificación productiva con un solicitante normal:
 
 ## Base de datos
 
-**No hay una nueva migración v17.9.1.** Esta release utiliza la base v17.9.0 ya aplicada en producción (`upgrade-v17.9.sql`), que contiene Realtime, RLS y el workflow canónico de Helpdesk.
+**No hay una nueva migración v17.9.2.** Esta release utiliza la base v17.9.0 ya aplicada en producción (`upgrade-v17.9.sql`), que contiene Realtime, RLS y el workflow canónico de Helpdesk.
 
 ## QA
 
-**347 PASS / 0 FAIL** con `npm run qa`.
+**373 PASS / 0 FAIL** con `npm run qa`.
 
-Consulta `QA-v17.9.1.md`, `RELEASE-v17.9.1.md` y `qa-v17.9.1-output.txt`.
+Consulta `QA-v17.9.2.md`, `RELEASE-v17.9.2.md` y `qa-v17.9.2-output.txt`.
 
 El Chromium headless del contenedor no puede completar el smoke visual por una limitación DBus del entorno; esa ejecución no se contabiliza como PASS. La suite funcional/estática, integridad de CSS, RLS productivo, CRC y Git sí se verifican en esta entrega.
 
 ## Paquetes
 
 1. **FULL**: documentación, releases, QA y migraciones históricas individualizadas.
-2. **COMPACT**: misma aplicación y misma suite QA; documentación histórica agrupada en `_history-v17.9-and-earlier.zip` para mantener el repositorio pequeño.
+2. **COMPACT**: misma aplicación y misma suite QA; documentación histórica agrupada en `_history-v17.9.1-and-earlier.zip` para mantener el repositorio pequeño.

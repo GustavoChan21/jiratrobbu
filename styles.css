@@ -1496,3 +1496,309 @@ html[data-theme="dark"] .settings-status.off,
 html[data-theme="dark"] .role-pill{background:#263541!important;color:#CBD6DF!important;border-color:#3A4C5B!important}
 html[data-theme="dark"] .gantt-dependency-line em{background:#3A311B!important;color:#F4D76F!important;border-color:#665623!important}
 html[data-theme="dark"] .metric-card.orange .metric-icon{background:#4A2E20!important;color:#FFB486!important}
+
+/* ========================================================================== */
+/* v17.9.2 · Dark-mode visual parity and detail counter hardening             */
+/* ========================================================================== */
+
+/* Switches: inactive knob is intentionally dark gray; active knob is white. */
+html[data-theme="dark"] .switch{background:#334250!important;border:1px solid #465869!important}
+html[data-theme="dark"] .switch i{background:#6F8090!important;box-shadow:0 1px 2px rgba(0,0,0,.42)!important}
+html[data-theme="dark"] .switch.on{background:#249F58!important;border-color:#2FBF70!important}
+html[data-theme="dark"] .switch.on i{background:#FFFFFF!important;box-shadow:0 1px 4px rgba(0,0,0,.38)!important}
+html[data-theme="dark"] .switch:disabled{opacity:.5!important}
+html[data-theme="dark"] .switch:disabled.on i{background:#D9E2E9!important}
+
+/* Knowledge reader: remove the last light cover and force authored text to a
+   readable dark-safe palette even when older versions contain inline colors. */
+html[data-theme="dark"] .knowledge-reader-card,
+html[data-theme="dark"] .knowledge-preview-card{background:#121B24!important;border-color:#344554!important;color:#F2F6F9!important}
+html[data-theme="dark"] .knowledge-reader-hero{
+  background:linear-gradient(180deg,#17232E 0%,#121B24 100%)!important;
+  border-color:#344554!important;
+  color:#F4F7FA!important;
+}
+html[data-theme="dark"] .knowledge-reader-hero h1{color:#FFFFFF!important;text-shadow:none!important}
+html[data-theme="dark"] .knowledge-reader-hero>p{color:#C8D3DE!important}
+html[data-theme="dark"] .knowledge-reader-hero .knowledge-detail-meta>span{color:#BFCBD7!important}
+html[data-theme="dark"] .knowledge-reader-content,
+html[data-theme="dark"] .knowledge-rendered,
+html[data-theme="dark"] .knowledge-rich-rendered{color:#DCE6EF!important;background:transparent!important}
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rich-rendered :where(p,li,span,strong,b,em,font),
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rendered :where(p,li,span,strong,b,em,font){color:#DCE6EF!important}
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rich-rendered :where(h1,h2,h3,h4,h5,h6),
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rendered :where(h1,h2,h3,h4,h5,h6){color:#F7FAFC!important}
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rich-rendered a,
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rendered a{color:#8CBFFF!important}
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rich-rendered blockquote,
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rendered blockquote{background:#172433!important;border-color:#7C8DFF!important;color:#DCE6EF!important}
+html[data-theme="dark"] .knowledge-reader-page .knowledge-rendered hr{border-color:#3A4B59!important}
+
+/* Knowledge authoring: block chrome, editor header and toolbar must never
+   retain white strips in dark mode. */
+html[data-theme="dark"] .knowledge-block{background:#151F29!important;border-color:#344554!important;box-shadow:none!important}
+html[data-theme="dark"] .knowledge-block-head{background:#101922!important;border-color:#314151!important;color:#DCE5ED!important}
+html[data-theme="dark"] .knowledge-block-drag{color:#C5D1DC!important}
+html[data-theme="dark"] .knowledge-block-drag b{background:#173A64!important;color:#A8CCFF!important}
+html[data-theme="dark"] .knowledge-block-head button{color:#AEBBC7!important}
+html[data-theme="dark"] .knowledge-block-head button:hover:not(:disabled){background:#263541!important;color:#FFFFFF!important}
+html[data-theme="dark"] .knowledge-editor-toolbar,
+html[data-theme="dark"] .knowledge-rich-toolbar,
+html[data-theme="dark"] .knowledge-rich-modebar,
+html[data-theme="dark"] .knowledge-rich-footer{background:#101922!important;border-color:#314151!important;color:#D8E2EB!important}
+html[data-theme="dark"] .knowledge-rich-toolbar button{color:#B9C6D2!important}
+html[data-theme="dark"] .knowledge-rich-toolbar button:hover{background:#173A64!important;border-color:#4D7EAF!important;color:#A8CCFF!important}
+html[data-theme="dark"] .knowledge-rich-surface-host,
+html[data-theme="dark"] .knowledge-rich-surface{background:#121C25!important;border-color:#344554!important;color:#E3EBF2!important}
+html[data-theme="dark"] .knowledge-rich-surface :where(p,li,span,strong,b,em,font){color:inherit}
+
+/* Knowledge assistant card. */
+html[data-theme="dark"] .knowledge-suggestions{background:#142636!important;border-color:#315B83!important;color:#DDE9F5!important}
+html[data-theme="dark"] .knowledge-suggestions>p{color:#B9C8D7!important}
+html[data-theme="dark"] .knowledge-suggestion-list article{background:#101A23!important;border-color:#34516B!important;color:#E4EBF2!important}
+html[data-theme="dark"] .knowledge-suggestion-guidance{background:#101A23!important;border:1px solid #314151!important;color:#AEBBC8!important}
+html[data-theme="dark"] .knowledge-match-reason{color:#AFC0CF!important}
+
+/* Staff / Roles: remove pale workspace and routing panels. */
+html[data-theme="dark"] .workspace-scope-strip{background:#142636!important;border-color:#315B83!important;color:#B9D7FF!important}
+html[data-theme="dark"] .workspace-scope-strip small{color:#AFC0D0!important}
+html[data-theme="dark"] .helpdesk-routing-config{background:#121D27!important;border-color:#365069!important;color:#E7EEF5!important}
+html[data-theme="dark"] .helpdesk-routing-config .routing-config-head p,
+html[data-theme="dark"] .helpdesk-routing-config .field-help{color:#AAB8C6!important}
+html[data-theme="dark"] .helpdesk-routing-config .toggle-row{background:#0F1821!important;border-color:#344554!important;color:#E8EEF4!important}
+html[data-theme="dark"] .routing-capacity-summary.ok{background:#163927!important;border-color:#2F7851!important;color:#A1E9BF!important}
+html[data-theme="dark"] .routing-capacity-summary.full{background:#3B321B!important;border-color:#705C26!important;color:#F5D875!important}
+
+/* Gantt / Timeline: KPI rail and calendar cells. */
+html[data-theme="dark"] .gantt-kpis{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .gantt-kpis span,
+html[data-theme="dark"] .gantt-kpis button{background:#17222C!important;border-color:#344554!important;color:#B8C5D1!important}
+html[data-theme="dark"] .gantt-kpis b{color:#F0F4F8!important}
+html[data-theme="dark"] .gantt-sprint-bar{background:#26384A!important;color:#DCE6EF!important}
+html[data-theme="dark"] .gantt-bar{color:#E8F0F8!important}
+
+/* Sprint detail: remove sticky white review header and light side statistics. */
+html[data-theme="dark"] .sprint-detail-main{background:#121B24!important}
+html[data-theme="dark"] .sprint-review-section .section-heading{background:#121B24!important;border-color:#314151!important}
+html[data-theme="dark"] .sprint-detail-aside{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .sprint-side-stat{background:#151F29!important;border-color:#344554!important;color:#EAF0F5!important}
+html[data-theme="dark"] .sprint-ticket-table{border-color:#344554!important}
+html[data-theme="dark"] .sprint-ticket-table>button,
+html[data-theme="dark"] .sprint-ticket-row,
+html[data-theme="dark"] .sprint-ticket-open{background:#151F29!important;border-color:#344554!important;color:#E8EEF4!important}
+html[data-theme="dark"] .sprint-ticket-table>button:hover,
+html[data-theme="dark"] .sprint-ticket-open:hover{background:#1B2935!important}
+html[data-theme="dark"] .sprint-ring{border-color:#284A6F!important;background:#101922!important}
+html[data-theme="dark"] .sprint-ring b{color:#8FC0FF!important}
+
+/* Upload/drop zones must look like dark controls, not paper sheets. */
+html[data-theme="dark"] .helpdesk-evidence-picker{background:#101922!important;border-color:#496173!important;color:#E9EFF5!important}
+html[data-theme="dark"] .helpdesk-evidence-picker:hover{background:#162432!important;border-color:#6B9DD0!important}
+html[data-theme="dark"] .helpdesk-evidence-picker-icon{background:#173A64!important;color:#A8CCFF!important}
+html[data-theme="dark"] .helpdesk-evidence-picker b{color:#EEF4F8!important}
+html[data-theme="dark"] .helpdesk-evidence-selection>div{background:#151F29!important;border-color:#344554!important;color:#E8EEF4!important}
+
+/* Ticket metadata and details. */
+html[data-theme="dark"] .ticket-metadata-panel{background:#101922!important;border-color:#344554!important;color:#E7EDF3!important}
+html[data-theme="dark"] .ticket-metadata-panel .field-label{color:#AAB7C4!important}
+html[data-theme="dark"] .module-chip{background:color-mix(in srgb,var(--module-color) 28%,#121B24)!important;border-color:color-mix(in srgb,var(--module-color) 46%,#344554)!important;color:#E8EEF4!important}
+html[data-theme="dark"] .tag-display,
+html[data-theme="dark"] .tag-choice{background:#17232D!important;color:#DDE6EF!important;border-color:#3B4D5C!important}
+html[data-theme="dark"] .detail-aside{background:transparent!important;border-left:1px solid #314151!important}
+html[data-theme="dark"] .detail-row{background:transparent!important;border-color:#314151!important}
+html[data-theme="dark"] .detail-row>span{color:#93A3B3!important}
+html[data-theme="dark"] .detail-description p{color:#C7D2DD!important}
+html[data-theme="dark"] .routing-reason-copy{color:#AFC0CF!important}
+
+/* Counters: make values visible without looking like disabled white pills. */
+html[data-theme="dark"] .detail-tabs button em,
+html[data-theme="dark"] .section-counter,
+html[data-theme="dark"] .evidence-counter{background:#263746!important;color:#E7EEF4!important;border-color:#405568!important}
+html[data-theme="dark"] .detail-tabs button.active em{background:#315C8D!important;color:#DCEBFF!important}
+
+/* Form support copy / labels that still inherited light-mode blues. */
+html[data-theme="dark"] .field-label,
+html[data-theme="dark"] .form label,
+html[data-theme="dark"] .knowledge-details-grid label{color:#C3CFDA!important}
+html[data-theme="dark"] .form-section h4{color:#EFF4F8!important}
+html[data-theme="dark"] .optional{color:#8EA0B2!important}
+
+/* Ensure all frequently-seen light utility surfaces from screenshots are dark. */
+html[data-theme="dark"] :where(
+  .workspace-scope-strip,
+  .helpdesk-routing-config,
+  .ticket-metadata-panel,
+  .knowledge-reader-hero,
+  .knowledge-suggestions,
+  .knowledge-block-head,
+  .helpdesk-evidence-picker,
+  .sprint-review-section .section-heading,
+  .gantt-kpis
+){box-shadow:none!important}
+
+/* v17.9.2 · final full-system dark contrast sweep
+   Explicitly neutralizes remaining legacy light islands and hard-coded text. */
+html[data-theme="dark"] .role-note,
+html[data-theme="dark"] .rollover-summary,
+html[data-theme="dark"] .import-intro,
+html[data-theme="dark"] .knowledge-preview-banner,
+html[data-theme="dark"] .knowledge-pending-media,
+html[data-theme="dark"] .gantt-filter-results,
+html[data-theme="dark"] .vacation-decision-note,
+html[data-theme="dark"] .vacation-ai-pending.optional,
+html[data-theme="dark"] .vacation-analysis-stale.optional{
+  background:#142331!important;
+  border-color:#36516A!important;
+  color:#C9D7E4!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .role-note,
+html[data-theme="dark"] .knowledge-preview-banner>span,
+html[data-theme="dark"] .knowledge-pending-media{color:#A8CCFF!important}
+html[data-theme="dark"] .knowledge-preview-banner small,
+html[data-theme="dark"] .knowledge-pending-media small,
+html[data-theme="dark"] .import-intro p,
+html[data-theme="dark"] .vacation-decision-note small{color:#A7B5C3!important}
+html[data-theme="dark"] .import-intro b{color:#F2F6F9!important}
+html[data-theme="dark"] .import-intro>span{background:#173A64!important;color:#A8CCFF!important}
+
+/* Staff permissions/access: selected states are dark blue, never pale blue/white. */
+html[data-theme="dark"] .scope-choice>button,
+html[data-theme="dark"] .product-access-grid label,
+html[data-theme="dark"] .permission-grid>label,
+html[data-theme="dark"] .product-checkbox-grid button{
+  background:#121C25!important;
+  border-color:#344554!important;
+  color:#DCE6EF!important;
+}
+html[data-theme="dark"] .scope-choice>button.active,
+html[data-theme="dark"] .product-access-grid label.checked,
+html[data-theme="dark"] .permission-grid>label.on,
+html[data-theme="dark"] .product-checkbox-grid button.selected{
+  background:#173A64!important;
+  border-color:#4C82B9!important;
+  color:#DDEBFF!important;
+  box-shadow:inset 0 0 0 1px rgba(140,191,255,.18)!important;
+}
+html[data-theme="dark"] .scope-choice small,
+html[data-theme="dark"] .product-access-grid small,
+html[data-theme="dark"] .product-checkbox-grid small{color:#A7B5C3!important}
+
+/* Catalogs and reporting: legacy hard-coded navy text must be readable. */
+html[data-theme="dark"] .catalog-card,
+html[data-theme="dark"] .product-report-card,
+html[data-theme="dark"] .report-kpi,
+html[data-theme="dark"] .import-preview,
+html[data-theme="dark"] .custom-values-panel,
+html[data-theme="dark"] .relations-panel{
+  background:#151F29!important;
+  border-color:#344554!important;
+  color:#E7EDF3!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .catalog-title b,
+html[data-theme="dark"] .catalog-metrics b,
+html[data-theme="dark"] .report-kpi strong,
+html[data-theme="dark"] .product-report-head strong,
+html[data-theme="dark"] .module-report-list>div>b,
+html[data-theme="dark"] .ai-panel-head h3{color:#F1F5F8!important}
+html[data-theme="dark"] .catalog-title p,
+html[data-theme="dark"] .catalog-metrics span,
+html[data-theme="dark"] .report-kpi span,
+html[data-theme="dark"] .report-kpi small,
+html[data-theme="dark"] .product-report-head span,
+html[data-theme="dark"] .product-report-metrics,
+html[data-theme="dark"] .ai-panel-head p{color:#A8B6C4!important}
+html[data-theme="dark"] .metric-progress{background:#263541!important}
+html[data-theme="dark"] .ai-quick button{
+  background:#17232D!important;
+  border-color:#3A4D5D!important;
+  color:#D5E0E9!important;
+}
+html[data-theme="dark"] .ai-quick button:hover{background:#203343!important;border-color:#54718A!important;color:#FFFFFF!important}
+html[data-theme="dark"] .ai-answer-meta{background:#121C25!important;border-color:#344554!important}
+html[data-theme="dark"] .ai-answer-meta span{color:#8CBFFF!important}
+html[data-theme="dark"] .ai-answer pre{color:#DCE6EF!important}
+html[data-theme="dark"] .ai-data-note{background:#153728!important;color:#A4E8C0!important;border:1px solid #2D6B4B!important}
+
+/* Knowledge toolbar/type palette and preview media. */
+html[data-theme="dark"] .knowledge-heading-add,
+html[data-theme="dark"] .knowledge-block-palette button,
+html[data-theme="dark"] .knowledge-block-toolbar button,
+html[data-theme="dark"] .knowledge-add-block button,
+html[data-theme="dark"] .knowledge-author-tools button{
+  background:#151F29!important;
+  border-color:#3A4C5C!important;
+  color:#D8E3EC!important;
+}
+html[data-theme="dark"] .knowledge-heading-add:hover,
+html[data-theme="dark"] .knowledge-block-palette button:hover,
+html[data-theme="dark"] .knowledge-block-toolbar button:hover,
+html[data-theme="dark"] .knowledge-add-block button:hover,
+html[data-theme="dark"] .knowledge-author-tools button:hover{background:#203343!important;color:#FFFFFF!important}
+html[data-theme="dark"] .knowledge-rich-toolbar select,
+html[data-theme="dark"] .knowledge-safe-writing-area{
+  background:#101922!important;
+  border-color:#344554!important;
+  color:#E4ECF2!important;
+}
+html[data-theme="dark"] .knowledge-toolbar-separator,
+html[data-theme="dark"] .knowledge-divider-preview span{background:#3A4B5A!important}
+html[data-theme="dark"] .block-callout textarea{background:#142636!important;border-color:#315B83!important;color:#E1ECF7!important}
+html[data-theme="dark"] .block-quote textarea{background:#1C1A2C!important;border-color:#8373C9!important;color:#E6E0FF!important}
+html[data-theme="dark"] .knowledge-cover-overview-meta>b{color:#EEF3F7!important}
+html[data-theme="dark"] .knowledge-cover-overview-meta>span{color:#A6B4C2!important}
+html[data-theme="dark"] .knowledge-cover-swatches i{border-color:#536574!important;box-shadow:0 0 0 1px #101922 inset!important}
+
+/* Helpdesk settings and filters. */
+html[data-theme="dark"] .helpdesk-settings-tabs{background:#0F1821!important;border-color:#314151!important}
+html[data-theme="dark"] .helpdesk-settings-tabs button{color:#AEBBC8!important}
+html[data-theme="dark"] .helpdesk-settings-tabs button.active{background:#173A64!important;color:#DCEBFF!important;box-shadow:none!important}
+html[data-theme="dark"] .helpdesk-settings-tabs em{background:#263A4B!important;color:#CFE1F4!important}
+
+/* Gantt remaining rails / grouped rows / search results. */
+html[data-theme="dark"] .gantt-module-group-row{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .gantt-filter-results button{
+  background:#151F29!important;
+  border-color:#3B566F!important;
+  color:#DCE6EF!important;
+}
+html[data-theme="dark"] .gantt-filter-results button:hover{background:#1C3042!important}
+html[data-theme="dark"] .gantt-filter-results button span{color:#8CBFFF!important}
+html[data-theme="dark"] .gantt-kpis button.active{background:#173A64!important;border-color:#4B7FB2!important;color:#DCEBFF!important}
+html[data-theme="dark"] .gantt-kpis button.active b{color:#FFFFFF!important}
+
+/* Vacation tab strip: active and inactive controls remain readable. */
+html[data-theme="dark"] .vacation-request-tabs{background:#101922!important;border-color:#314151!important}
+html[data-theme="dark"] .vacation-request-tabs button{background:#151F29!important;border-color:#344554!important;color:#C5D1DC!important}
+html[data-theme="dark"] .vacation-request-tabs button:hover{background:#1C2B38!important;border-color:#4A667D!important}
+html[data-theme="dark"] .vacation-request-tabs button.active{background:#173A64!important;border-color:#4D7EAF!important;color:#DCEBFF!important}
+html[data-theme="dark"] .vacation-request-tabs button b{background:#263746!important;color:#DCE5ED!important}
+html[data-theme="dark"] .vacation-request-tabs button.active b{background:#2E6EAF!important;color:#FFFFFF!important}
+
+/* Inputs that are read-only should still look like dark fields, not disabled paper. */
+html[data-theme="dark"] input[readonly]{background:#101922!important;color:#BFCBD6!important;border-color:#344554!important}
+
+/* Ticket relations and metadata chips. */
+html[data-theme="dark"] .ticket-relation-selected{background:#101922!important;border-color:#344554!important;color:#DCE5ED!important}
+html[data-theme="dark"] .ticket-relation-search input{color:#E7EEF4!important}
+
+/* Final safety net for classes that historically painted a white/pale sheet.
+   Kept scoped to known app components so semantic badges/avatars are untouched. */
+html[data-theme="dark"] :where(
+  .requester-ticket-list>button,
+  .role-guide>div,
+  .role-admin-card,
+  .notification-coverage-grid>div,
+  .knowledge-author-header,
+  .knowledge-editor-shell,
+  .knowledge-rich-editor,
+  .knowledge-cover-setting-card,
+  .knowledge-cover-overview-card,
+  .catalog-card,
+  .import-preview,
+  .custom-values-panel,
+  .relations-panel,
+  .report-kpi,
+  .product-report-card
+){background:#151F29!important;border-color:#344554!important;color:#E7EDF3!important}
