@@ -1,58 +1,70 @@
-# Jira Interno TROBBU v17.10.0
+# Jira Interno TROBBU v17.11.0
 
-**Release actual:** v17.10.0 — SendPulse QA controlado, plantillas transaccionales, cron diario, counters resilientes y dark-mode contrast completion.
+**Release actual:** v17.11.0 - menciones con acceso acotado, UX optimista en Kanban, correo SendPulse con guardas de producción/free-plan, login sin registro público y hardening final de dark mode/counters.
 
-Consulta `RELEASE-v17.10.md`, `QA-v17.10.md` y `SENDPULSE-QA-SETUP.md` para el detalle del rollout.
+Consulta `RELEASE-v17.11.md`, `QA-v17.11.md`, `SENDPULSE-PRODUCTION-READINESS-v17.11.md` y `Manual-Jira-TROBBU-Knowledge-Helpdesk-v17.11.pdf`.
 
-## Historial heredado de v17.9.2
+## Puntos principales
 
-La versión anterior se enfocó en **modo oscuro profesional/luxury**, contraste global, controles inline de Helpdesk completamente clicables y **counters exactos de comentarios/actividad/evidencias**.
+### Menciones
+- Los comentarios de tickets Jira y Helpdesk permiten mencionar miembros activos del workspace.
+- Una mención concede acceso **solo al ticket/solicitud mencionada** para consultar contexto, actividad, comentarios y evidencias.
+- La persona mencionada puede comentar y adjuntar evidencia, pero no puede modificar estado, responsable, producto ni campos administrativos.
+- La vista `Mencionados` concentra Jira + Helpdesk y participa en Realtime.
+- Las menciones generan notificación in-app, no correo, para evitar ruido.
 
-## Principales cambios
+### Kanban / live UX
+- Mover estado y reasignar responsable se reflejan primero de forma optimista.
+- Si Supabase rechaza la operación, la fila vuelve al estado anterior.
+- En éxito se hace reconciliación dirigida del ticket + Realtime, sin `refresh()` global.
+- `vercel.json` desactiva cache de HTML/JS/CSS/config para impedir que una versión antigua sobreviva después del deploy.
 
-### Modo oscuro integral
+### Counters
+- Ticket, Sprint y Helpdesk usan conteo exacto de servidor y nunca muestran menos que las filas cargadas:
+  `Math.max(serverCount, loadedRows.length)`.
+- Continúan Realtime, `liveRevision`, refetch de seguridad y reconciliación periódica.
+- Si se ve un badge `0` junto a registros visibles después de desplegar v17.11, comprobar que Vercel esté sirviendo `app.js?v=17.11.0`; la release incluye headers no-cache para resolver este caso.
 
-- Se conserva la misma fotografía `auth-bg.webp` en login; solo cambia overlay, card y controles.
-- Logo/isotipo TROBBU se muestra blanco (`#FFFFFF`) en dark mode mediante tratamiento CSS del SVG existente.
-- Nueva paleta oscura coherente: fondo, shell, superficies, bordes, texto, texto secundario y estados semánticos.
-- Se eliminaron “islas blancas” de Backlog/Sprints, notificaciones, validación de permisos, modales, Helpdesk, Staff/Roles, importaciones, Reportes/AI, Gantt, Knowledge, Vacaciones y relaciones de tickets.
-- Inputs, selects, textareas y opciones nativas tienen contraste explícito en dark mode.
-- Estados conservan su significado mediante variantes oscuras: revisión azul, atendido dorado, cerrado verde, rechazado rojo.
+### Dark mode
+- Porcentajes de Gantt usan texto negro de alto contraste.
+- Counters de Staff/Roles y tabs de detalle usan fondos oscuros/azules con texto legible.
+- Paneles de metadata mantienen fondo integrado/transparente.
+- El switch activo usa knob blanco; inactivo usa gris oscuro.
 
-### Helpdesk inline
+### SendPulse
+- La cola histórica se reinicia a cero en `upgrade-v17.11.sql`.
+- Solo entran al outbox: recordatorio diario, asignación Helpdesk, comentario Helpdesk, cierre Helpdesk y cierre Jira.
+- Los límites operativos se fijan en 45/h y 11,000/mes para conservar margen dentro del plan SMTP Free.
+- El recordatorio diario productivo se limita a usuarios con trabajo abierto real.
+- El procesador v21 bloquea producción si `helpdesk@trobbucollection.com` no figura como remitente corporativo activo/no-test.
+- Mientras SendPulse siga en SMTP Test, `email_qa_mode=true` debe permanecer activo.
 
-- Responsable, estado y decisión conservan el color visual del componente.
-- El `<select>` nativo queda transparente sobre todo el control, por lo que **100% del área visible es clicable**.
-- Los menús nativos usan opciones oscuras cuando el tema activo es dark.
+## Registro de usuarios
+La interfaz de login ya no ofrece `Crear cuenta` ni ejecuta `signUp`. El alta normal se realiza desde Staff/Roles con credenciales administradas.
 
-### Counters de detalle
-
-Los badges ya no dependen únicamente del array local cargado en React.
-
-- Helpdesk: comentarios, seguimiento/actividad y evidencias consultan `COUNT(*)` exacto autorizado por RLS.
-- Ticket: comentarios, actividad y evidencias usan conteos exactos.
-- Sprint: comentarios y evidencias usan conteos exactos.
-- Se mantienen Realtime, `liveRevision` y reconciliación resiliente; los counts exactos son la fuente autoritativa del badge.
-- Después de cambiar un estado Helpdesk, el modal vuelve a cargar inmediatamente el detalle y sus counters.
-
-Verificación productiva con un solicitante normal:
-
-- HD-17: 1 comentario y actividad existente visible para el solicitante.
-- HD-18: 1 comentario y actividad existente visible para el solicitante.
+**Nota de servidor:** durante QA se verificó que Supabase Auth reporta actualmente `disable_signup=false`. El MCP disponible no permite editar Auth Config. Para bloquear también el endpoint público de signup, cambiar en Supabase Dashboard el ajuste de Auth que deshabilita nuevos registros públicos. La aplicación v17.11 ya no ofrece ese flujo.
 
 ## Base de datos
+`upgrade-v17.11.sql` agrega:
+- `ticket_mentions` / `helpdesk_mentions` + RLS + Realtime FULL.
+- RPC `mention_entity_users`.
+- acceso acotado a comentarios/evidencias para mencionados.
+- límites y remitente preferido de email.
+- filtrado de eventos que sí pueden generar correo.
+- recordatorio diario role-aware.
 
-**No hay una nueva migración v17.9.2.** Esta release utiliza la base v17.9.0 ya aplicada en producción (`upgrade-v17.9.sql`), que contiene Realtime, RLS y el workflow canónico de Helpdesk.
+## Manual
+`Manual-Jira-TROBBU-Knowledge-Helpdesk-v17.11.pdf` contiene 6 páginas con capturas reales del sistema y los pasos para Knowledge y Helpdesk.
 
 ## QA
+Ejecutar:
 
-**373 PASS / 0 FAIL** con `npm run qa`.
+```bash
+npm run qa
+```
 
-Consulta `QA-v17.9.2.md`, `RELEASE-v17.9.2.md` y `qa-v17.9.2-output.txt`.
+La entrega final se valida además con parse JSX/TypeScript, CRC ZIP y `git fsck`.
 
-El Chromium headless del contenedor no puede completar el smoke visual por una limitación DBus del entorno; esa ejecución no se contabiliza como PASS. La suite funcional/estática, integridad de CSS, RLS productivo, CRC y Git sí se verifican en esta entrega.
-
-## Paquetes
-
-1. **FULL**: documentación, releases, QA y migraciones históricas individualizadas.
-2. **COMPACT**: misma aplicación y misma suite QA; documentación histórica agrupada en `_history-v17.9.1-and-earlier.zip` para mantener el repositorio pequeño.
+## Distribuciones
+- **FULL:** conserva documentación y releases/QA históricos individualmente.
+- **COMPACT:** mismo runtime y misma suite QA, con histórico agrupado para reducir archivos visibles.

@@ -1856,3 +1856,116 @@ html[data-theme="dark"] .section-counter{box-shadow:none!important}
 html[data-theme="dark"] .sprint-report-card .metric-progress,
 html[data-theme="dark"] .report-sprints .metric-progress{background:#263744!important}
 
+
+
+/* ========================================================================== */
+/* v17.11.0 · cache-safe dark parity, mentions and high-contrast counters     */
+/* ========================================================================== */
+
+/* Mentioned view and picker */
+.mention-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 16px}
+.mention-summary>div{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--card)}
+.mention-summary>div>svg,.mention-summary>div>iconify-icon{color:var(--blue)}
+.mention-summary span{display:grid;gap:2px}.mention-summary b{font-size:20px}.mention-summary small{color:var(--muted)}
+.mentioned-list{display:grid;gap:8px}.mentioned-row{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:12px;text-align:left;border:1px solid var(--border);background:var(--card);border-radius:11px;padding:12px 14px;cursor:pointer}
+.mentioned-row:hover{border-color:#85B8FF;background:#F7FAFF}.mentioned-kind{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#E9F2FF;color:#0C66E4}.mentioned-kind.helpdesk{background:#E3FCEF;color:#168A5B}
+.mentioned-main{display:grid;gap:3px;min-width:0}.mentioned-main small{color:var(--muted);font-size:10px}.mentioned-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mentioned-status{font-size:10px;font-weight:800;color:var(--muted)}
+.mention-picker{display:grid;gap:8px}.mention-picker-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.mention-picker-head small{color:var(--muted)}
+.mention-search{position:relative}.mention-search>iconify-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);z-index:1}.mention-search input{padding-left:36px!important}
+.mention-results{display:grid;gap:4px;max-height:180px;overflow:auto;border:1px solid var(--border);border-radius:9px;padding:5px;background:var(--card)}
+.mention-results button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:transparent;border-radius:7px;padding:8px;text-align:left;cursor:pointer}.mention-results button:hover{background:#F1F5F9}
+.mention-results .mini-avatar{flex:none}.mention-results span:not(.mini-avatar){display:grid;gap:1px}.mention-results small{color:var(--muted)}
+.mention-selected{display:flex;flex-wrap:wrap;gap:6px}.mention-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #85B8FF;background:#E9F2FF;color:#0747A6;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:800}.mention-chip button{border:0;background:transparent;color:inherit;padding:0;display:grid;place-items:center;cursor:pointer}
+.auth-access-note{display:flex;gap:7px;align-items:center;justify-content:center;color:var(--muted);font-size:11px;text-align:center}
+
+/* Dark: explicit final overrides after all legacy rules. */
+html[data-theme="dark"] .mentioned-row,
+html[data-theme="dark"] .mention-summary>div,
+html[data-theme="dark"] .mention-results{background:#121C25!important;border-color:#344A5B!important;color:#E8EEF4!important}
+html[data-theme="dark"] .mentioned-row:hover,
+html[data-theme="dark"] .mention-results button:hover{background:#182838!important;border-color:#4F6D84!important}
+html[data-theme="dark"] .mentioned-kind{background:#173A64!important;color:#9CC7FF!important}
+html[data-theme="dark"] .mentioned-kind.helpdesk{background:#123D2D!important;color:#81E6B5!important}
+html[data-theme="dark"] .mention-chip{background:#173A64!important;border-color:#3F75AA!important;color:#B8D8FF!important}
+html[data-theme="dark"] .mention-search input{background:#0F1821!important;color:#EDF3F8!important;border-color:#3A4C5B!important}
+
+/* User-requested strongest contrast for progress percentages. */
+html[data-theme="dark"] .gantt-bar,
+html[data-theme="dark"] .gantt-bar.status-in_progress,
+html[data-theme="dark"] .gantt-bar.status-dev_done,
+html[data-theme="dark"] .gantt-bar.status-qa_review,
+html[data-theme="dark"] .gantt-bar.status-qa_rejected,
+html[data-theme="dark"] .gantt-bar.status-qa_passed,
+html[data-theme="dark"] .gantt-bar.status-closed,
+html[data-theme="dark"] .gantt-bar>b,
+html[data-theme="dark"] .gantt-bar>*{color:#071019!important;text-shadow:none!important}
+html[data-theme="dark"] .gantt-sprint-bar>b{color:#0B1A27!important;text-shadow:none!important}
+
+/* Staff / Roles counters: no white-on-white under any earlier cascade. */
+html[data-theme="dark"] .staff-tabs button em,
+html[data-theme="dark"] .staff-tabs em{
+  background:#173A64!important;
+  color:#9CC7FF!important;
+  border:1px solid #3C6B9A!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .staff-tabs button.active em{
+  background:#2D6DAA!important;
+  color:#FFFFFF!important;
+  border-color:#6AA4DB!important;
+}
+
+/* Ticket/helpdesk counter pills remain legible even in selected tabs. */
+html[data-theme="dark"] .detail-tabs button em,
+html[data-theme="dark"] .section-counter{
+  background:#22384A!important;
+  color:#A9D2FF!important;
+  border:1px solid #3D5B72!important;
+}
+html[data-theme="dark"] .detail-tabs button.active em{
+  background:#356FA9!important;
+  color:#FFFFFF!important;
+  border-color:#72A9DB!important;
+}
+
+/* Keep detail metadata integrated with modal rather than a gray slab. */
+html[data-theme="dark"] .detail-aside,
+html[data-theme="dark"] .helpdesk-detail-aside,
+html[data-theme="dark"] .ticket-detail-aside{
+  background:transparent!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .detail-aside>*,
+html[data-theme="dark"] .helpdesk-detail-aside>*,
+html[data-theme="dark"] .ticket-detail-aside>*{background:transparent!important}
+
+/* Dark report/sprint/metric paper safety net. */
+html[data-theme="dark"] .sprint-report-card,
+html[data-theme="dark"] .report-sprint-card,
+html[data-theme="dark"] .sprint-projection-card,
+html[data-theme="dark"] .report-sprint-summary,
+html[data-theme="dark"] .report-sprint-stats{
+  background:#121D27!important;
+  border-color:#344A5B!important;
+  color:#EAF0F5!important;
+}
+html[data-theme="dark"] .sprint-report-stats span,
+html[data-theme="dark"] .report-sprint-stats>div{
+  background:#0F1821!important;
+  border-color:#344A5B!important;
+  color:#DCE6EF!important;
+}
+
+/* Switch knob: active white, inactive charcoal-gray. */
+html[data-theme="dark"] .switch i{background:#4F6272!important;border-color:#718292!important}
+html[data-theme="dark"] .switch.on i{background:#FFFFFF!important;border-color:#FFFFFF!important}
+
+/* Auth remains private-access only and readable in dark. */
+html[data-theme="dark"] .auth-access-note{color:#AFC0CE!important}
+html[data-theme="dark"] .auth-access-note iconify-icon{color:#D1AA87!important}
+
+@media(max-width:760px){
+  .mention-summary{grid-template-columns:1fr}
+  .mentioned-row{grid-template-columns:auto minmax(0,1fr) auto}
+  .mentioned-status{display:none}
+}
