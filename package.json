@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.9.2",
-  "description": "Jira Interno TROBBU v17.9.2 - dark-mode visual parity, switch contrast, white-surface removal and resilient live detail counters",
+  "version": "17.10.0",
+  "description": "Jira Interno TROBBU v17.10.0 - SendPulse QA email delivery, professional templates, dark-mode contrast completion and resilient live counters",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.9.2.mjs"
+    "qa": "node qa-v17.10.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"

@@ -1,6 +1,12 @@
-# Jira Interno TROBBU v17.9.2
+# Jira Interno TROBBU v17.10.0
 
-Release correctiva sobre v17.9.0 enfocada en **modo oscuro profesional/luxury**, contraste global, controles inline de Helpdesk completamente clicables y **counters exactos de comentarios/actividad/evidencias**.
+**Release actual:** v17.10.0 — SendPulse QA controlado, plantillas transaccionales, cron diario, counters resilientes y dark-mode contrast completion.
+
+Consulta `RELEASE-v17.10.md`, `QA-v17.10.md` y `SENDPULSE-QA-SETUP.md` para el detalle del rollout.
+
+## Historial heredado de v17.9.2
+
+La versión anterior se enfocó en **modo oscuro profesional/luxury**, contraste global, controles inline de Helpdesk completamente clicables y **counters exactos de comentarios/actividad/evidencias**.
 
 ## Principales cambios
 

@@ -1802,3 +1802,57 @@ html[data-theme="dark"] :where(
   .report-kpi,
   .product-report-card
 ){background:#151F29!important;border-color:#344554!important;color:#E7EDF3!important}
+
+
+/* ========================================================================== */
+/* v17.10.0 · Dark-mode contrast completion                                   */
+/* ========================================================================== */
+
+/* Reports / AI · sprint projection must never fall back to light paper. */
+html[data-theme="dark"] .report-sprints,
+html[data-theme="dark"] .sprint-report-grid{background:transparent!important}
+html[data-theme="dark"] .sprint-report-card{
+  background:linear-gradient(180deg,#15212B 0%,#111A23 100%)!important;
+  border-color:#344756!important;
+  color:#EAF0F5!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .sprint-report-card .product-report-head b{color:#F4F7FA!important}
+html[data-theme="dark"] .sprint-report-card .product-report-head span{color:#AAB8C6!important}
+html[data-theme="dark"] .sprint-report-card .product-report-head strong{color:#8FC0FF!important}
+html[data-theme="dark"] .sprint-report-stats span{
+  background:#101922!important;
+  border-color:#344756!important;
+  color:#DCE5ED!important;
+}
+html[data-theme="dark"] .sprint-report-stats b{color:#F3F7FA!important}
+html[data-theme="dark"] .sprint-report-stats small{color:#AAB8C6!important}
+html[data-theme="dark"] .sprint-report-stats .danger-text b{color:#FF9D94!important}
+
+/* Staff / Roles tabs and counters. */
+html[data-theme="dark"] .staff-tabs button{background:#121C25!important;border-color:#3A4D5D!important;color:#D7E0E8!important}
+html[data-theme="dark"] .staff-tabs button:hover{background:#182633!important;border-color:#50677A!important}
+html[data-theme="dark"] .staff-tabs button.active{background:#173A64!important;border-color:#4B7EB4!important;color:#B7D7FF!important}
+html[data-theme="dark"] .staff-tabs em{background:#2A3947!important;color:#E9EFF4!important;border:1px solid #42586A!important}
+html[data-theme="dark"] .staff-tabs button.active em{background:#214B75!important;color:#EEF6FF!important;border-color:#4B7EB4!important}
+
+/* Gantt progress labels: light bars use a darker semantic text instead of white. */
+html[data-theme="dark"] .gantt-bar{color:#123C67!important;text-shadow:none!important}
+html[data-theme="dark"] .gantt-bar.status-in_progress{color:#6F3C08!important}
+html[data-theme="dark"] .gantt-bar.status-dev_done,
+html[data-theme="dark"] .gantt-bar.status-qa_review{color:#3C3277!important}
+html[data-theme="dark"] .gantt-bar.status-qa_rejected{color:#7D271E!important}
+html[data-theme="dark"] .gantt-bar.status-qa_passed,
+html[data-theme="dark"] .gantt-bar.status-closed{color:#075A42!important}
+html[data-theme="dark"] .gantt-bar>b{font-weight:900!important}
+html[data-theme="dark"] .gantt-sprint-bar{color:#DDE7F0!important}
+
+/* Counters are readable pills, never disabled-looking white bubbles. */
+html[data-theme="dark"] .staff-tabs em,
+html[data-theme="dark"] .detail-tabs button em,
+html[data-theme="dark"] .section-counter{box-shadow:none!important}
+
+/* Report progress tracks stay dark while keeping branded fill. */
+html[data-theme="dark"] .sprint-report-card .metric-progress,
+html[data-theme="dark"] .report-sprints .metric-progress{background:#263744!important}
+
