@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.10.0",
-  "description": "Jira Interno TROBBU v17.10.0 - SendPulse QA email delivery, professional templates, dark-mode contrast completion and resilient live counters",
+  "version": "17.11.0",
+  "description": "Jira Interno TROBBU v17.11.0 - scoped mentions, guarded SendPulse production, optimistic live UX, closed signup and dark-mode contrast hardening",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.10.mjs"
+    "qa": "node qa-v17.11.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
