@@ -1969,4 +1969,82 @@ html[data-theme="dark"] .auth-access-note iconify-icon{color:#D1AA87!important}
   .mentioned-row{grid-template-columns:auto minmax(0,1fr) auto}
   .mentioned-status{display:none}
 }
-\n\n/* v17.12.0 - deterministic counters, attachment preview, workflow pulse and contrast */\n.evidence-preview-trigger{display:block;width:100%;border:0;background:transparent;padding:0;cursor:zoom-in;text-align:inherit;color:inherit}\n.evidence-preview-trigger>img{display:block;width:100%;height:100%;object-fit:cover}\n.evidence-preview-trigger .document-preview{width:100%;min-height:110px}\n.attachment-preview-shell{display:grid;gap:12px;min-height:280px}\n.attachment-preview-shell>img{display:block;max-width:100%;max-height:72vh;margin:auto;border-radius:10px;object-fit:contain;background:#0B1118}\n.attachment-preview-shell>iframe{width:100%;height:min(72vh,760px);border:1px solid var(--border);border-radius:10px;background:#fff}\n.attachment-preview-actions{display:flex;justify-content:flex-end}\n\n/* Current Helpdesk workflow step pulses; completed steps stay steady. */\n@keyframes trobbu-status-pulse{0%{box-shadow:0 0 0 0 rgba(54,179,126,.52)}55%{box-shadow:0 0 0 10px rgba(54,179,126,0)}100%{box-shadow:0 0 0 0 rgba(54,179,126,0)}}\n.request-stepper .current i{animation:trobbu-status-pulse 1.65s ease-out infinite}\n@media(prefers-reduced-motion:reduce){.request-stepper .current i{animation:none}}\n\n/* The sprint label must remain readable on the dark sprint bar; task percentages stay dark. */\nhtml[data-theme="dark"] .gantt-sprint-bar,html[data-theme="dark"] .gantt-sprint-bar>b{color:#FFFFFF!important;text-shadow:0 1px 1px rgba(0,0,0,.25)!important}\nhtml[data-theme="dark"] .gantt-bar,html[data-theme="dark"] .gantt-bar>b,html[data-theme="dark"] .gantt-bar>*{color:#071019!important;text-shadow:none!important}\n\n/* Kanban column counters use semantic light chips with dark text instead of white-on-white. */\nhtml[data-theme="dark"] .kanban-head b{color:#0A2033!important;border:1px solid rgba(255,255,255,.18)!important;font-weight:900!important}\nhtml[data-theme="dark"] .kanban-column.status-backlog .kanban-head b{background:#C9D5DF!important}\nhtml[data-theme="dark"] .kanban-column.status-todo .kanban-head b{background:#BFD8FA!important;color:#0A3563!important}\nhtml[data-theme="dark"] .kanban-column.status-in_progress .kanban-head b{background:#FFE0A8!important;color:#5B3500!important}\nhtml[data-theme="dark"] .kanban-column.status-dev_done .kanban-head b,html[data-theme="dark"] .kanban-column.status-qa_review .kanban-head b{background:#DCD4FF!important;color:#382A79!important}\nhtml[data-theme="dark"] .kanban-column.status-qa_rejected .kanban-head b{background:#FFD0CC!important;color:#702018!important}\nhtml[data-theme="dark"] .kanban-column.status-qa_passed .kanban-head b,html[data-theme="dark"] .kanban-column.status-closed .kanban-head b{background:#BDEFD8!important;color:#07553F!important}\n\n/* Counters inside details are dark-mode readable and tied to the rendered rows. */\nhtml[data-theme="dark"] .detail-tabs button em,html[data-theme="dark"] .section-counter{background:#1E4E7F!important;color:#CFE4FF!important;border:1px solid #3975AD!important}\n\n/* Mentioned view keeps Jira page gutters and responds without stretching or clipping. */\n.mentioned-view{display:grid;gap:16px;min-width:0;max-width:100%}\n.mentioned-view .page-header{margin-bottom:0}\n.mentioned-view .mention-summary{min-width:0}\n.mentioned-view .mentioned-list{min-width:0}\n@media(max-width:1050px){.mention-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.mention-summary>div:first-child{grid-column:1/-1}}\n@media(max-width:720px){.mention-summary{grid-template-columns:1fr}.mention-summary>div:first-child{grid-column:auto}.mentioned-row{grid-template-columns:auto minmax(0,1fr) auto;padding:11px}.mentioned-status{display:none}}\n@media(max-width:480px){.mentioned-view{gap:12px}.mention-summary>div{padding:11px}.mentioned-row{gap:8px}.mentioned-kind{width:30px;height:30px}.mentioned-main small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}\n
+
+
+/* v17.12.0 - deterministic counters, attachment preview, workflow pulse and contrast */
+.evidence-preview-trigger{display:block;width:100%;border:0;background:transparent;padding:0;cursor:zoom-in;text-align:inherit;color:inherit}
+.evidence-preview-trigger>img{display:block;width:100%;height:100%;object-fit:cover}
+.evidence-preview-trigger .document-preview{width:100%;min-height:110px}
+.attachment-preview-shell{display:grid;gap:12px;min-height:280px}
+.attachment-preview-shell>img{display:block;max-width:100%;max-height:72vh;margin:auto;border-radius:10px;object-fit:contain;background:#0B1118}
+.attachment-preview-shell>iframe{width:100%;height:min(72vh,760px);border:1px solid var(--border);border-radius:10px;background:#fff}
+.attachment-preview-actions{display:flex;justify-content:flex-end}
+
+/* Current Helpdesk workflow step pulses; completed steps stay steady. */
+@keyframes trobbu-status-pulse{0%{box-shadow:0 0 0 0 rgba(54,179,126,.52)}55%{box-shadow:0 0 0 10px rgba(54,179,126,0)}100%{box-shadow:0 0 0 0 rgba(54,179,126,0)}}
+.request-stepper .current i{animation:trobbu-status-pulse 1.65s ease-out infinite}
+@media(prefers-reduced-motion:reduce){.request-stepper .current i{animation:none}}
+
+/* The sprint label must remain readable on the dark sprint bar; task percentages stay dark. */
+html[data-theme="dark"] .gantt-sprint-bar,html[data-theme="dark"] .gantt-sprint-bar>b{color:#FFFFFF!important;text-shadow:0 1px 1px rgba(0,0,0,.25)!important}
+html[data-theme="dark"] .gantt-bar,html[data-theme="dark"] .gantt-bar>b,html[data-theme="dark"] .gantt-bar>*{color:#071019!important;text-shadow:none!important}
+
+/* Kanban column counters use semantic light chips with dark text instead of white-on-white. */
+html[data-theme="dark"] .kanban-head b{color:#0A2033!important;border:1px solid rgba(255,255,255,.18)!important;font-weight:900!important}
+html[data-theme="dark"] .kanban-column.status-backlog .kanban-head b{background:#C9D5DF!important}
+html[data-theme="dark"] .kanban-column.status-todo .kanban-head b{background:#BFD8FA!important;color:#0A3563!important}
+html[data-theme="dark"] .kanban-column.status-in_progress .kanban-head b{background:#FFE0A8!important;color:#5B3500!important}
+html[data-theme="dark"] .kanban-column.status-dev_done .kanban-head b,html[data-theme="dark"] .kanban-column.status-qa_review .kanban-head b{background:#DCD4FF!important;color:#382A79!important}
+html[data-theme="dark"] .kanban-column.status-qa_rejected .kanban-head b{background:#FFD0CC!important;color:#702018!important}
+html[data-theme="dark"] .kanban-column.status-qa_passed .kanban-head b,html[data-theme="dark"] .kanban-column.status-closed .kanban-head b{background:#BDEFD8!important;color:#07553F!important}
+
+/* Counters inside details are dark-mode readable and tied to the rendered rows. */
+html[data-theme="dark"] .detail-tabs button em,html[data-theme="dark"] .section-counter{background:#1E4E7F!important;color:#CFE4FF!important;border:1px solid #3975AD!important}
+
+/* Mentioned view keeps Jira page gutters and responds without stretching or clipping. */
+.mentioned-view{display:grid;gap:16px;min-width:0;max-width:100%}
+.mentioned-view .page-header{margin-bottom:0}
+.mentioned-view .mention-summary{min-width:0}
+.mentioned-view .mentioned-list{min-width:0}
+@media(max-width:1050px){.mention-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.mention-summary>div:first-child{grid-column:1/-1}}
+@media(max-width:720px){.mention-summary{grid-template-columns:1fr}.mention-summary>div:first-child{grid-column:auto}.mentioned-row{grid-template-columns:auto minmax(0,1fr) auto;padding:11px}.mentioned-status{display:none}}
+@media(max-width:480px){.mentioned-view{gap:12px}.mention-summary>div{padding:11px}.mentioned-row{gap:8px}.mentioned-kind{width:30px;height:30px}.mentioned-main small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+
+/* v17.13.0 · verified fixes after production screenshot audit */
+.sidebar-build{display:block;margin:8px 14px 2px;color:#7E8C99;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+html[data-theme="dark"] .sidebar-build{color:#6F8190}
+
+/* Kanban: every lane gets an explicit readable counter, independent of parent selector order. */
+.kanban-count{min-width:28px;text-align:center;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;line-height:1.2}
+html[data-theme="dark"] .kanban-count.status-backlog{background:#B9C6D0!important;color:#132433!important;border-color:#CBD5DD!important}
+html[data-theme="dark"] .kanban-count.status-todo{background:#A9CDF7!important;color:#082E57!important;border-color:#C7DFFF!important}
+html[data-theme="dark"] .kanban-count.status-in_progress{background:#FFD28A!important;color:#573100!important;border-color:#FFE0AA!important}
+html[data-theme="dark"] .kanban-count.status-dev_done{background:#CFC4F4!important;color:#33236C!important;border-color:#DED7FA!important}
+html[data-theme="dark"] .kanban-count.status-qa_review{background:#9CC7FF!important;color:#0B315D!important;border-color:#C6DFFF!important}
+html[data-theme="dark"] .kanban-count.status-qa_rejected{background:#F7B8B1!important;color:#681C17!important;border-color:#FFD0CB!important}
+html[data-theme="dark"] .kanban-count.status-qa_passed{background:#A8E6C8!important;color:#064B36!important;border-color:#C8F3DD!important}
+html[data-theme="dark"] .kanban-count.status-closed{background:#9FDCBE!important;color:#064631!important;border-color:#C5EFDA!important}
+
+/* Mentioned is a normal page: same gutters/max-width as the rest of the product. */
+.mentioned-page{width:100%;box-sizing:border-box}
+.mentioned-page .mentioned-view{display:grid;gap:18px;width:100%;min-width:0}
+.mentioned-page .mention-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
+.mentioned-page .mention-summary>div{min-width:0;padding:16px 18px}
+.mentioned-page .mentioned-list{display:grid;gap:10px;min-width:0}
+.mentioned-page .compact-empty{min-height:300px;padding:54px 24px;margin:0;border:1px dashed var(--border);border-radius:12px}
+.mentioned-page .mentioned-row{min-width:0;width:100%;box-sizing:border-box}
+@media(max-width:1100px){.mentioned-page .mention-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.mentioned-page .mention-summary>div:first-child{grid-column:1/-1}}
+@media(max-width:820px){.mentioned-page{padding:18px 12px 30px}.mentioned-page .mention-summary{grid-template-columns:1fr}.mentioned-page .mention-summary>div:first-child{grid-column:auto}.mentioned-page .mentioned-row{grid-template-columns:auto minmax(0,1fr) auto;padding:11px 12px}.mentioned-page .mentioned-status{display:none}.mentioned-page .compact-empty{min-height:240px;padding:40px 18px}}
+@media(max-width:520px){.mentioned-page{padding:14px 10px 26px}.mentioned-page .mentioned-view{gap:12px}.mentioned-page .mention-summary{gap:8px}.mentioned-page .mention-summary>div{padding:12px 13px}.mentioned-page .mentioned-row{gap:8px}.mentioned-page .mentioned-main small,.mentioned-page .mentioned-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+/* Detail counters: visible, stable and readable in both themes. */
+.detail-tabs button em,.section-counter{min-width:21px;text-align:center;font-variant-numeric:tabular-nums}
+html[data-theme="dark"] .detail-tabs button em,html[data-theme="dark"] .section-counter{background:#174A78!important;color:#D8EBFF!important;border:1px solid #3B78AE!important}
+
+/* Timeline: sprint title only stays white; activity percentages stay dark for contrast. */
+html[data-theme="dark"] .gantt-sprint-bar>b{color:#FFFFFF!important;text-shadow:0 1px 1px rgba(0,0,0,.42)!important}
+html[data-theme="dark"] .gantt-bar>b{color:#071019!important;text-shadow:none!important}
+
+/* Current Helpdesk state pulse is visible without changing completed steps. */
+.request-stepper .current i{animation:trobbu-status-pulse 1.65s ease-out infinite!important}

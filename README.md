@@ -1,7 +1,5 @@
-# Jira Interno TROBBU v17.12.0
+# Jira Interno TROBBU v17.13.0
 
-**Release actual:** v17.12.0 — counters de detalle determinísticos, preview interno de evidencia, pulso de workflow, contraste Gantt/Kanban y Mencionados responsive.
+Versión estabilizada después de auditoría de producción. Incluye dark mode corregido, Kanban con counters legibles en todos los estados, Mencionados con layout responsive estándar, counters autoritativos de comentarios/actividad, preview interno de adjuntos, workflow Helpdesk animado, Realtime resiliente y SendPulse QA/product readiness heredado de v17.11-v17.12.
 
-La base de datos sigue usando el esquema v17.11. No existe migración adicional para v17.12 porque los cambios de esta entrega son de frontend/UX.
-
-Consulta `RELEASE-v17.12.md`, `QA-v17.12.md` y `SENDPULSE-PRODUCTION-READINESS-v17.11.md` para el detalle operativo.
+Ejecuta `npm run qa` para validar la distribución.
