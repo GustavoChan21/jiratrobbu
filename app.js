@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v17.17.0 · Knowledge editor selection bookmarks, non-duplicating links and block regression hardening */
+/* Jira Interno TROBBU v17.18.0 · Isolated Knowledge editor + Superadmin session/action audit */
 const { useEffect, useMemo, useState, useRef } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -587,7 +587,7 @@ Object.assign(UI_TRANSLATIONS_EN,{
   'El texto se eliminará. Los archivos adjuntos quedarán conservados en el historial de la solicitud.':'The text will be deleted. Attachments will remain in the request history.'
 })
 
-const BUILD_VERSION='17.17.0'
+const BUILD_VERSION='17.18.0'
 try{document.documentElement.dataset.appVersion=BUILD_VERSION}catch{}
 const I18N_TEXT_ORIGINAL = new WeakMap()
 const I18N_ATTR_ORIGINAL = new WeakMap()
@@ -1255,7 +1255,9 @@ function WorkspaceApp({session,locale,setLocale,theme='light',setTheme}){
   const liveLastSyncRef=useRef(0)
   const liveRefreshTimerRef=useRef(null)
   const liveDerivedTimerRef=useRef(null)
+  const currentViewRef=useRef(view)
   useEffect(()=>{workspaceRef.current=workspace},[workspace?.id])
+  useEffect(()=>{currentViewRef.current=view},[view])
 
   const showToast=(type,message)=>{setToast({type,message,id:Date.now()}); setTimeout(()=>setToast(null),3500)}
   const bumpLiveRevision=domain=>setLiveRevision(prev=>({...prev,[domain]:(prev[domain]||0)+1}))
@@ -1618,7 +1620,32 @@ function WorkspaceApp({session,locale,setLocale,theme='light',setTheme}){
     if(!canViewDashboard && view==='reports') setView(helpdeskEnabled?'helpdesk':'mytasks')
     if(!canViewKnowledge && view==='knowledge') setView(canViewDashboard?'overview':helpdeskEnabled?'helpdesk':canViewVacations?'vacations':'mytasks')
     if(!canViewVacations && view==='vacations') setView(canViewDashboard?'overview':helpdeskEnabled?'helpdesk':canViewKnowledge?'knowledge':'mytasks')
-  },[workspace?.id,myRole,myRoleTemplate?.id,helpdeskOnly,helpdeskEnabled,canViewKnowledge,canViewVacations,canViewDashboard,canWork,canManageStaff,canManageSettings,canManageProducts,canManageTicketFields])
+    if(!isSuperadmin && view==='audit') setView(canViewDashboard?'overview':helpdeskEnabled?'helpdesk':canViewKnowledge?'knowledge':'mytasks')
+  },[workspace?.id,myRole,myRoleTemplate?.id,helpdeskOnly,helpdeskEnabled,canViewKnowledge,canViewVacations,canViewDashboard,canWork,canManageStaff,canManageSettings,canManageProducts,canManageTicketFields,isSuperadmin])
+  useEffect(()=>{
+    if(!workspace?.id||!accessReady)return
+    let disposed=false,busyTouch=false
+    const touch=async()=>{
+      if(disposed||busyTouch||document.visibilityState==='hidden')return
+      busyTouch=true
+      try{
+        const {data,error}=await db.rpc('touch_app_session',{p_workspace_id:workspace.id,p_view:currentViewRef.current||view,p_user_agent:navigator.userAgent||null,p_locale:locale||'es',p_theme:theme||'light'})
+        if(error){if(!String(error.message||'').includes('Could not find the function'))console.warn('Session telemetry:',error.message);return}
+        if(data?.expired){sessionStorage.setItem('jira_session_notice','Tu sesión de Jira Interno alcanzó el límite configurado. Inicia sesión nuevamente.');try{await db.auth.signOut()}catch{}}
+      }finally{busyTouch=false}
+    }
+    touch()
+    const timer=setInterval(touch,60000)
+    const resume=()=>{if(document.visibilityState==='visible')touch()}
+    window.addEventListener('focus',resume);document.addEventListener('visibilitychange',resume)
+    return()=>{disposed=true;clearInterval(timer);window.removeEventListener('focus',resume);document.removeEventListener('visibilitychange',resume)}
+  },[workspace?.id,accessReady,locale,theme])
+  useEffect(()=>{
+    if(!workspace?.id||!accessReady)return
+    db.rpc('log_app_event',{p_workspace_id:workspace.id,p_event_type:'navigation',p_module:view,p_action:'view',p_entity_type:'view',p_entity_id:view,p_entity_label:view,p_metadata:{mode:['board','mytasks'].includes(view)?boardMode:null}}).then(()=>{}).catch(()=>{})
+  },[workspace?.id,accessReady,view,boardMode])
+  const signOutTracked=async(reason='logout')=>{try{if(workspace?.id)await db.rpc('end_app_session',{p_workspace_id:workspace.id,p_reason:reason})}catch{}finally{await db.auth.signOut()}}
+
   useEffect(()=>{
     const onKey=e=>{
       if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'&&canViewTickets){
@@ -2004,8 +2031,8 @@ function WorkspaceApp({session,locale,setLocale,theme='light',setTheme}){
 
   return <div className="app-shell">
     <Topbar session={session} locale={locale} setLocale={setLocale} theme={theme} setTheme={setTheme} liveStatus={liveStatus} unread={unread} search={search} setSearch={setSearch} canSearch={canViewTickets} portalOnly={helpdeskOnly} canCreate={canCreateTicket} onCreate={()=>setModal({type:'ticket-create'})} onNotifications={()=>setDrawer('notifications')} outToday={outTodayPeople}/>
-    <Sidebar workspace={workspace} workspaces={workspaces} products={products} navCounts={navCounts} mentionCount={mentionCount} productId={productId} setProductId={setProductId} view={view} setView={navigateView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations} outTodayCount={outTodayPeople.length} onWorkspace={()=>runWithKnowledgeGuard(()=>setModal({type:'workspace-switch'}))}/>
-    <MobileNav mentionCount={mentionCount} view={view} setView={navigateView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations}/>
+    <Sidebar workspace={workspace} workspaces={workspaces} products={products} navCounts={navCounts} mentionCount={mentionCount} productId={productId} setProductId={setProductId} view={view} setView={navigateView} tickets={tickets} helpdesk={helpdesk} knowledgeArticles={knowledgeArticles} modules={modules} members={members} currentUserId={session.user.id} helpdeskEnabled={helpdeskEnabled} role={myRole} roleName={myRoleName} helpdeskOnly={helpdeskOnly} canCreateWorkspace={canCreateWorkspace} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations} isSuperadmin={isSuperadmin} outTodayCount={outTodayPeople.length} onSignOut={()=>signOutTracked('logout')} onWorkspace={()=>runWithKnowledgeGuard(()=>setModal({type:'workspace-switch'}))}/>
+    <MobileNav mentionCount={mentionCount} view={view} setView={navigateView} setProductId={setProductId} helpdeskEnabled={helpdeskEnabled} role={myRole} helpdeskOnly={helpdeskOnly} canManageStaff={canManageStaff} canManageSettings={canManageSettings||canManageProducts} canManageTicketFields={canManageTicketFields} canViewDashboard={canViewDashboard} canViewKnowledge={canViewKnowledge} canViewVacations={canViewVacations} isSuperadmin={isSuperadmin}/>
     <main className="main-area">
       {busy ? <LoadingPanel/> : (knowledgeScreen&&canViewKnowledge) ? (
         <KnowledgeModuleErrorBoundary key={`knowledge-screen:${knowledgeScreen.mode}:${knowledgeScreen.article?.id||'new'}:${knowledgeScreen.version?.id||'new'}`} onReset={()=>setKnowledgeScreen(null)}>
@@ -2030,6 +2057,7 @@ function WorkspaceApp({session,locale,setLocale,theme='light',setTheme}){
         {view==='vacations' && canViewVacations && <VacationsView liveRevision={liveRevision.vacations} workspace={workspace} requests={vacationRequests} members={members} tickets={tickets} sprints={sprints} session={session} settings={settings} canRequest={canRequestVacations} canViewProjection={canViewVacationProjection} canManage={canManageVacations} onRefresh={refresh} toast={showToast}/>}
         {view==='catalogs' && canManageTicketFields && <TicketCatalogsView workspace={workspace} modules={modules} moduleStats={moduleStats} tags={tags} customFields={customFields} tickets={tickets} ticketTagLinks={ticketTagLinks} canManage={canManageTicketFields} onModuleCreate={()=>setModal({type:'module-create'})} onModuleEdit={module=>setModal({type:'module-edit',module})} onModuleDelete={module=>setModal({type:'module-delete',module})} onTagCreate={()=>setModal({type:'tag-create'})} onTagEdit={tag=>setModal({type:'tag-edit',tag})} onTagDelete={tag=>setModal({type:'tag-delete',tag})} onFieldCreate={()=>setModal({type:'field-create'})} onFieldEdit={field=>setModal({type:'field-edit',field})} onFieldDelete={field=>setModal({type:'field-delete',field})}/>}
         {view==='team' && canManageStaff && <StaffRolesView workspace={workspace} members={members} products={products} memberProductAccess={memberProductAccess} roleTemplates={roleTemplates} canManage={canManageStaff} isSuperadmin={isSuperadmin} session={session} onInvite={()=>setModal({type:'invite'})} onMember={member=>setModal({type:'member-edit',member})} onRoleCreate={()=>setModal({type:'role-create'})} onRoleEdit={role=>setModal({type:'role-edit',role})} onRoleDelete={role=>setModal({type:'role-delete',role})}/>}
+        {view==='audit' && isSuperadmin && <AuditControlView workspace={workspace} members={members} settings={settings} session={session} onSettingsSaved={refresh} toast={showToast}/>}
         {view==='settings' && (canManageSettings||canManageProducts) && <SettingsView workspace={workspace} settings={settings} products={products} sprints={sprints} departments={departments} requestTypes={requestTypes} emailQueue={emailQueue} emailProviderStatus={emailProviderStatus} canManageSettings={canManageSettings} canManageProducts={canManageProducts} canPlan={canPlan} canDeleteWorkspace={isSuperadmin} onWorkspaceEdit={()=>setModal({type:'workspace-edit'})} onWorkspaceConfig={()=>setModal({type:'workspace-config'})} onWorkspaceDelete={()=>setModal({type:'workspace-delete'})} onSettingsSaved={refresh} onProductCreate={()=>setModal({type:'product-create'})} onProductEdit={product=>setModal({type:'product-edit',product})} onProductDelete={product=>setModal({type:'product-delete',product})} onSprintCreate={()=>setModal({type:'sprint-create'})} onSprintEdit={sprint=>setModal({type:'sprint-edit',sprint})} onSprintDelete={sprint=>setModal({type:'sprint-delete',sprint})} onDepartmentCreate={()=>setModal({type:'department-create'})} onDepartmentEdit={department=>setModal({type:'department-edit',department})} onDepartmentDelete={department=>setModal({type:'department-delete',department})} onRequestTypeCreate={()=>setModal({type:'request-type-create'})} onRequestTypeEdit={requestType=>setModal({type:'request-type-edit',requestType})} onRequestTypeDelete={requestType=>setModal({type:'request-type-delete',requestType})} onProcessEmails={processEmails} toast={showToast}/>}
       </>}
     </main>
@@ -2053,23 +2081,23 @@ function AccessValidationShell({session,locale='es',setLocale,theme='light',setT
   </div>
 }
 
-function Sidebar({workspace,products,navCounts,mentionCount=0,productId,setProductId,view,setView,tickets,helpdesk,knowledgeArticles=[],modules=[],members=[],currentUserId,helpdeskEnabled,role,roleName,helpdeskOnly=false,canCreateWorkspace=false,canManageStaff,canManageSettings,canManageTicketFields,canViewDashboard,canViewKnowledge=true,canViewVacations=false,outTodayCount=0,onWorkspace}){
+function Sidebar({workspace,products,navCounts,mentionCount=0,productId,setProductId,view,setView,tickets,helpdesk,knowledgeArticles=[],modules=[],members=[],currentUserId,helpdeskEnabled,role,roleName,helpdeskOnly=false,canCreateWorkspace=false,canManageStaff,canManageSettings,canManageTicketFields,canViewDashboard,canViewKnowledge=true,canViewVacations=false,isSuperadmin=false,outTodayCount=0,onSignOut,onWorkspace}){
   const knowledgeItem=canViewKnowledge?[['knowledge','lucide:book-open-text','Knowledge']]:[]
   const vacationItem=canViewVacations?[['vacations','lucide:calendar-days','Vacaciones']]:[]
   const items=helpdeskOnly
     ? [['helpdesk','lucide:life-buoy','Mis solicitudes'],...knowledgeItem]
     : canViewDashboard
-      ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['timeline','lucide:gantt-chart','Cronograma'],['reports','lucide:chart-no-axes-combined','Reportes / AI'],...knowledgeItem,...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy',role==='consulta'?'Mis solicitudes':'Helpdesk']]:[]),...vacationItem,...(canManageTicketFields?[['catalogs','lucide:tags','Campos y módulos']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff y Roles']]:[])]
+      ? [['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog / Sprints'],['timeline','lucide:gantt-chart','Cronograma'],['reports','lucide:chart-no-axes-combined','Reportes / AI'],...knowledgeItem,...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy',role==='consulta'?'Mis solicitudes':'Helpdesk']]:[]),...vacationItem,...(canManageTicketFields?[['catalogs','lucide:tags','Campos y módulos']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff y Roles']]:[]),...(isSuperadmin?[['audit','lucide:shield-check','Bitácora y sesiones']]:[])]
       : [...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Mis solicitudes']]:[]),...knowledgeItem,...vacationItem]
   const server=navCounts||{}
   const counts={mentioned:Number(mentionCount||0),board:Number(server.tickets??tickets.length),backlog:Number(server.backlog??tickets.filter(t=>!t.sprint_id&&t.status!=='closed').length),knowledge:Number(server.knowledge??knowledgeArticles.length),mytasks:Number(server.mytasks??tickets.filter(t=>t.dev_owner_id===currentUserId||t.qa_owner_id===currentUserId||t.reporter_id===currentUserId).length),helpdesk:Number(server.helpdesk??helpdesk.length),vacations:Number(outTodayCount||0)}
   const countKeys=new Set(['mentioned','board','backlog','knowledge','mytasks','helpdesk','vacations']),productCounts=server.products||{}
-  return <aside className="sidebar"><div className="sidebar-section-title"><span>ESPACIO DE TRABAJO</span>{canCreateWorkspace&&<button className="ghost-icon" onClick={onWorkspace} title="Cambiar o crear workspace"><Icon name="lucide:plus" size={16}/></button>}</div><button className="workspace-card" onClick={onWorkspace}><span className="workspace-icon"><Icon name="lucide:layers-3"/></span><div><b>{workspace?.name}</b><small>{roleName||ROLE_LABELS[role]||role}</small></div><Icon name="lucide:chevrons-up-down" size={16}/></button><nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{countKeys.has(key)&&(key!=='vacations'||counts[key]>0)&&<em>{counts[key]}</em>}</button>)}</nav>{canViewDashboard&&!helpdeskOnly&&products.length>0&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div><button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{Number(server.tickets??tickets.length)}</em></button>{products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{Number(productCounts[p.id]??tickets.filter(t=>t.product_id===p.id).length)}</em></button>)}</>}<div className="sidebar-spacer"></div><div className="sidebar-divider"></div>{canManageSettings&&!helpdeskOnly&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}<button className="footer-nav" onClick={()=>db.auth.signOut()}><Icon name="lucide:log-out"/>Cerrar sesión</button><small className="sidebar-build">v{BUILD_VERSION}</small></aside>
+  return <aside className="sidebar"><div className="sidebar-section-title"><span>ESPACIO DE TRABAJO</span>{canCreateWorkspace&&<button className="ghost-icon" onClick={onWorkspace} title="Cambiar o crear workspace"><Icon name="lucide:plus" size={16}/></button>}</div><button className="workspace-card" onClick={onWorkspace}><span className="workspace-icon"><Icon name="lucide:layers-3"/></span><div><b>{workspace?.name}</b><small>{roleName||ROLE_LABELS[role]||role}</small></div><Icon name="lucide:chevrons-up-down" size={16}/></button><nav className="side-nav">{items.map(([key,icon,label])=><button key={key} className={view===key?'active':''} onClick={()=>{if(!['board','timeline'].includes(key))setProductId('all');setView(key)}}><Icon name={icon}/><span>{label}</span>{countKeys.has(key)&&(key!=='vacations'||counts[key]>0)&&<em>{counts[key]}</em>}</button>)}</nav>{canViewDashboard&&!helpdeskOnly&&products.length>0&&<><div className="sidebar-divider"></div><div className="sidebar-section-title"><span>PRODUCTOS AUTORIZADOS</span></div><button className={`product-nav ${productId==='all'?'active':''}`} onClick={()=>{setProductId('all');setView('board')}}><span className="product-dot all"><Icon name="lucide:boxes" size={15}/></span><span>Todos los autorizados</span><em>{Number(server.tickets??tickets.length)}</em></button>{products.map((p,i)=><button key={p.id} className={`product-nav ${productId===p.id?'active':''}`} onClick={()=>{setProductId(p.id);setView('board')}}><span className={`product-dot p${i%4}`}><Icon name={i===2?'lucide:smartphone':'lucide:monitor'} size={15}/></span><span>{p.name}</span><em>{Number(productCounts[p.id]??tickets.filter(t=>t.product_id===p.id).length)}</em></button>)}</>}<div className="sidebar-spacer"></div><div className="sidebar-divider"></div>{canManageSettings&&!helpdeskOnly&&<button className={`footer-nav ${view==='settings'?'active':''}`} onClick={()=>{setProductId('all');setView('settings')}}><Icon name="lucide:settings"/>Configuración</button>}<button className="footer-nav" onClick={()=>onSignOut?.()}><Icon name="lucide:log-out"/>Cerrar sesión</button><small className="sidebar-build">v{BUILD_VERSION}</small></aside>
 }
 
-function MobileNav({mentionCount=0,view,setView,setProductId,helpdeskEnabled,role,helpdeskOnly=false,canManageStaff,canManageSettings,canManageTicketFields,canViewDashboard,canViewKnowledge=true,canViewVacations=false}){
+function MobileNav({mentionCount=0,view,setView,setProductId,helpdeskEnabled,role,helpdeskOnly=false,canManageStaff,canManageSettings,canManageTicketFields,canViewDashboard,canViewKnowledge=true,canViewVacations=false,isSuperadmin=false}){
   const knowledgeItem=canViewKnowledge?[['knowledge','lucide:book-open-text','Knowledge']]:[],vacationItem=canViewVacations?[['vacations','lucide:calendar-days','Vacaciones']]:[]
-  const items=helpdeskOnly?[['helpdesk','lucide:life-buoy','Solicitudes'],['mentioned','lucide:at-sign','Mencionados'],...knowledgeItem]:canViewDashboard?[['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],['timeline','lucide:gantt-chart','Gantt'],['reports','lucide:chart-no-axes-combined','Reportes'],...knowledgeItem,...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...vacationItem,...(canManageTicketFields?[['catalogs','lucide:tags','Campos']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff']]:[]),...(canManageSettings?[['settings','lucide:settings','Ajustes']]:[])]:[...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[]),...knowledgeItem,...vacationItem]
+  const items=helpdeskOnly?[['helpdesk','lucide:life-buoy','Solicitudes'],['mentioned','lucide:at-sign','Mencionados'],...knowledgeItem]:canViewDashboard?[['overview','lucide:layout-dashboard','Resumen'],['board','lucide:columns-3','Tablero'],['backlog','lucide:list-todo','Backlog'],['timeline','lucide:gantt-chart','Gantt'],['reports','lucide:chart-no-axes-combined','Reportes'],...knowledgeItem,...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Helpdesk']]:[]),...vacationItem,...(canManageTicketFields?[['catalogs','lucide:tags','Campos']]:[]),...(canManageStaff?[['team','lucide:users-round','Staff']]:[]),...(canManageSettings?[['settings','lucide:settings','Ajustes']]:[]),...(isSuperadmin?[['audit','lucide:shield-check','Bitácora']]:[])]:[...(role!=='consulta'?[['mytasks','lucide:circle-check-big','Mis tareas']]:[]),['mentioned','lucide:at-sign','Mencionados'],...(helpdeskEnabled?[['helpdesk','lucide:life-buoy','Solicitudes']]:[]),...knowledgeItem,...vacationItem]
   return <nav className="mobile-nav" aria-label="Navegación móvil">{items.map(([key,icon,label])=><button type="button" key={key} className={view===key?'active':''} onClick={()=>{setProductId('all');setView(key)}}><Icon name={icon} size={19}/><span>{label}</span></button>)}</nav>
 }
 function PageHeader({eyebrow='Proyectos',title,subtitle,icon='lucide:clipboard-check',action}){return <div className="page-header"><div><div className="breadcrumbs"><span>{eyebrow}</span><Icon name="lucide:chevron-right" size={14}/><span>TROBBU</span></div><div className="page-title-row"><span className="page-icon"><Icon name={icon}/></span><div><h1>{title}</h1><p>{subtitle}</p></div></div></div>{action}</div>}
@@ -2443,24 +2471,34 @@ function KnowledgeView({workspace,articles,versions=[],locale='es',products,modu
 }
 
 function knowledgeRangeElement(node){return node?.nodeType===1?node:node?.parentElement||null}
-function knowledgeAnchorForRange(root,range){if(!root||!range)return null;const anchor=knowledgeRangeElement(range.startContainer)?.closest?.('a');return anchor&&root.contains(anchor)?anchor:null}
+function knowledgeAnchorForRange(root,range){
+  if(!root||!range)return null
+  const startAnchor=knowledgeRangeElement(range.startContainer)?.closest?.('a'),endAnchor=knowledgeRangeElement(range.endContainer)?.closest?.('a')
+  if(startAnchor&&root.contains(startAnchor)&&(range.collapsed||startAnchor===endAnchor))return startAnchor
+  if(endAnchor&&root.contains(endAnchor)&&range.collapsed)return endAnchor
+  const selected=String(range.toString()||'')
+  if(!selected)return null
+  const hits=[...root.querySelectorAll('a')].filter(a=>{try{return range.intersectsNode(a)}catch{return false}})
+  if(hits.length===1&&String(hits[0].textContent||'')===selected)return hits[0]
+  return null
+}
 function knowledgeUnwrapAnchors(node){if(!node?.querySelectorAll)return;[...node.querySelectorAll('a')].forEach(a=>a.replaceWith(...a.childNodes))}
 function knowledgeApplyLinkRange(root,range,url){
   if(!root||!range||!url)return range||null
-  const existing=knowledgeAnchorForRange(root,range)
-  if(existing){existing.setAttribute('href',url);existing.setAttribute('target','_blank');existing.setAttribute('rel','noopener noreferrer');const next=document.createRange();next.selectNodeContents(existing);return next}
-  const anchor=document.createElement('a');anchor.href=url;anchor.target='_blank';anchor.rel='noopener noreferrer'
-  if(range.collapsed){anchor.textContent=url;range.insertNode(anchor);const next=document.createRange();next.setStartAfter(anchor);next.collapse(true);return next}
-  const fragment=range.extractContents();knowledgeUnwrapAnchors(fragment);anchor.appendChild(fragment);range.insertNode(anchor);const next=document.createRange();next.selectNodeContents(anchor);return next
+  const doc=root.ownerDocument||document,existing=knowledgeAnchorForRange(root,range)
+  if(existing){existing.setAttribute('href',url);existing.setAttribute('target','_blank');existing.setAttribute('rel','noopener noreferrer');const next=doc.createRange();next.setStartAfter(existing);next.collapse(true);return next}
+  const anchor=doc.createElement('a');anchor.href=url;anchor.target='_blank';anchor.rel='noopener noreferrer'
+  if(range.collapsed){anchor.textContent=url;range.insertNode(anchor);const next=doc.createRange();next.setStartAfter(anchor);next.collapse(true);return next}
+  const fragment=range.extractContents();knowledgeUnwrapAnchors(fragment);anchor.appendChild(fragment);range.insertNode(anchor);const next=doc.createRange();next.setStartAfter(anchor);next.collapse(true);return next
 }
 function knowledgeRemoveLinkRange(root,range){
   if(!root||!range)return {range,changed:false}
   const existing=knowledgeAnchorForRange(root,range);if(!existing)return {range,changed:false}
-  const parent=existing.parentNode,last=existing.lastChild;existing.replaceWith(...existing.childNodes);const next=document.createRange();if(last&&parent?.contains(last)){next.setStartAfter(last);next.collapse(true)}else{next.selectNodeContents(root);next.collapse(false)}return {range:next,changed:true}
+  const doc=root.ownerDocument||document,parent=existing.parentNode,last=existing.lastChild;existing.replaceWith(...existing.childNodes);const next=doc.createRange();if(last&&parent?.contains(last)){next.setStartAfter(last);next.collapse(true)}else{next.selectNodeContents(root);next.collapse(false)}return {range:next,changed:true}
 }
 function knowledgeInsertHtmlRange(root,range,htmlValue){
   if(!root||!range||!htmlValue)return range||null
-  range.deleteContents();const fragment=range.createContextualFragment(htmlValue),last=fragment.lastChild;range.insertNode(fragment);const next=document.createRange();if(last){next.setStartAfter(last);next.collapse(true)}else{next.selectNodeContents(root);next.collapse(false)}return next
+  const doc=root.ownerDocument||document;range.deleteContents();const fragment=range.createContextualFragment(htmlValue),last=fragment.lastChild;range.insertNode(fragment);const next=doc.createRange();if(last){next.setStartAfter(last);next.collapse(true)}else{next.selectNodeContents(root);next.collapse(false)}return next
 }
 function knowledgeRangeInside(root,range){return !!(root&&range&&(root===range.commonAncestorContainer||root.contains(range.commonAncestorContainer)))}
 function knowledgeNodePath(root,node){
@@ -2469,69 +2507,73 @@ function knowledgeNodePath(root,node){
   while(current&&current!==root){const parent=current.parentNode;if(!parent)return null;const index=[...parent.childNodes].indexOf(current);if(index<0)return null;path.unshift(index);current=parent}
   return current===root?path:null
 }
-function knowledgeNodeFromPath(root,path){
-  let node=root
-  for(const index of path||[]){if(!node?.childNodes||index<0||index>=node.childNodes.length)return null;node=node.childNodes[index]}
-  return node
-}
+function knowledgeNodeFromPath(root,path){let node=root;for(const index of path||[]){if(!node?.childNodes||index<0||index>=node.childNodes.length)return null;node=node.childNodes[index]}return node}
 function knowledgeClampOffset(node,offset){const max=node?.nodeType===3?String(node.nodeValue||'').length:(node?.childNodes?.length||0);return Math.max(0,Math.min(Number(offset)||0,max))}
 function knowledgeBookmarkFromRange(root,range){
   if(!knowledgeRangeInside(root,range))return null
-  const startPath=knowledgeNodePath(root,range.startContainer),endPath=knowledgeNodePath(root,range.endContainer)
-  if(!startPath||!endPath)return null
+  const startPath=knowledgeNodePath(root,range.startContainer),endPath=knowledgeNodePath(root,range.endContainer);if(!startPath||!endPath)return null
   return {startPath,startOffset:range.startOffset,endPath,endOffset:range.endOffset,collapsed:range.collapsed,text:range.toString()}
 }
 function knowledgeRangeFromBookmark(root,bookmark){
   if(!root||!bookmark)return null
-  const start=knowledgeNodeFromPath(root,bookmark.startPath),end=knowledgeNodeFromPath(root,bookmark.endPath)
-  if(!start||!end)return null
-  try{const range=document.createRange();range.setStart(start,knowledgeClampOffset(start,bookmark.startOffset));range.setEnd(end,knowledgeClampOffset(end,bookmark.endOffset));return range}catch{return null}
+  const start=knowledgeNodeFromPath(root,bookmark.startPath),end=knowledgeNodeFromPath(root,bookmark.endPath);if(!start||!end)return null
+  try{const range=(root.ownerDocument||document).createRange();range.setStart(start,knowledgeClampOffset(start,bookmark.startOffset));range.setEnd(end,knowledgeClampOffset(end,bookmark.endOffset));return range}catch{return null}
 }
 function knowledgeVisibleTextSnapshot(root){return String(root?.textContent||'')}
 
 function KnowledgeRichTextEditor({html,onChange,onLiveInput,lineHeight='1.5',onLineHeightChange}){
-  const hostRef=useRef(null),surfaceRef=useRef(null),rangeRef=useRef(null),bookmarkRef=useRef(null),draftHtmlRef=useRef(String(html||'')),statsRef=useRef(null),onChangeRef=useRef(onChange),onLiveInputRef=useRef(onLiveInput)
+  const frameRef=useRef(null),surfaceRef=useRef(null),rangeRef=useRef(null),bookmarkRef=useRef(null),draftHtmlRef=useRef(String(html||'')),statsRef=useRef(null),onChangeRef=useRef(onChange),onLiveInputRef=useRef(onLiveInput),initializedRef=useRef(false)
   const [showLink,setShowLink]=useState(false),[linkUrl,setLinkUrl]=useState('https://'),[linkError,setLinkError]=useState('')
   onChangeRef.current=onChange;onLiveInputRef.current=onLiveInput
-  const updateStats=value=>{const text=stripKnowledgeHtml(value),words=text?text.split(/\s+/).filter(Boolean).length:0;if(statsRef.current)statsRef.current.textContent=`${words} palabras · ${text.length} caracteres`}
-  const surface=()=>surfaceRef.current
-  const editorRoot=()=>hostRef.current?.closest?.('.knowledge-rich-editor')||null
-  const editorHasFocus=()=>{const root=editorRoot();return !!(root&&document.activeElement&&root.contains(document.activeElement))}
+  const surface=()=>surfaceRef.current,frameDoc=()=>frameRef.current?.contentDocument||null,frameWin=()=>frameRef.current?.contentWindow||null
   const isEmpty=value=>!stripKnowledgeHtml(String(value||''))
-  const setEmptyState=el=>{if(el)el.dataset.empty=isEmpty(el.innerHTML)?'true':'false'}
-  const placeCaretAtStart=el=>{if(!el)return;let target=el.querySelector('p,div,h1,h2,h3,h4,h5,li')||el;if(target===el&&!el.firstChild){const p=document.createElement('p');p.appendChild(document.createElement('br'));el.appendChild(p);target=p}const sel=window.getSelection?.();if(!sel)return;try{const range=document.createRange();range.selectNodeContents(target);range.collapse(true);sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange()}catch{}}
-  const ensureScaffold=(placeCaret=false)=>{const el=surface();if(!el)return;if(isEmpty(el.innerHTML)){if(!(el.children.length===1&&el.firstElementChild?.tagName==='P'))el.innerHTML='<p><br></p>';else if(!el.firstElementChild.innerHTML.trim())el.firstElementChild.innerHTML='<br>';el.dataset.empty='true';if(placeCaret)placeCaretAtStart(el)}else el.dataset.empty='false'}
-  const saveSelection=()=>{const sel=window.getSelection?.(),el=surface();if(!sel||!sel.rangeCount||!el)return;const range=sel.getRangeAt(0);if(knowledgeRangeInside(el,range)){rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range)}}
-  const restoreSelection=()=>{const el=surface();if(!el)return null;el.focus({preventScroll:true});let range=knowledgeRangeFromBookmark(el,bookmarkRef.current);if(!range&&rangeRef.current&&knowledgeRangeInside(el,rangeRef.current))range=rangeRef.current.cloneRange();if(!range){ensureScaffold(true);range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||rangeRef.current}const sel=window.getSelection?.();if(!sel||!range)return range||null;try{sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range);return range}catch{rangeRef.current=null;bookmarkRef.current=null;ensureScaffold(true);return rangeRef.current}}
-  const readSurface=()=>surface()?.innerHTML??draftHtmlRef.current??''
   const normalizeEditorHtml=value=>{const clean=sanitizeKnowledgeHtml(value);return isEmpty(clean)?'':clean}
+  const updateStats=value=>{const text=stripKnowledgeHtml(value),words=text?text.split(/\s+/).filter(Boolean).length:0;if(statsRef.current)statsRef.current.textContent=`${words} palabras · ${text.length} caracteres`}
   const syncLive=value=>{draftHtmlRef.current=value;onLiveInputRef.current?.(value);updateStats(value)}
-  const commit=(forceDom=false)=>{const el=surface(),clean=normalizeEditorHtml(readSurface());draftHtmlRef.current=clean;if(forceDom&&el){const next=clean||'<p><br></p>';if(el.innerHTML!==next)el.innerHTML=next;setEmptyState(el)}onLiveInputRef.current?.(clean);onChangeRef.current?.(clean);updateStats(clean);saveSelection();return clean}
+  const setEmptyState=el=>{if(el)el.dataset.empty=isEmpty(el.innerHTML)?'true':'false'}
+  const saveSelection=()=>{const win=frameWin(),el=surface(),sel=win?.getSelection?.();if(!sel||!sel.rangeCount||!el)return;const range=sel.getRangeAt(0);if(knowledgeRangeInside(el,range)){rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range)}}
+  const placeCaretAtEnd=()=>{const el=surface(),win=frameWin(),doc=frameDoc();if(!el||!win||!doc)return null;const range=doc.createRange();range.selectNodeContents(el);range.collapse(false);const sel=win.getSelection();sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range);return range}
+  const restoreSelection=()=>{const el=surface(),win=frameWin();if(!el||!win)return null;el.focus({preventScroll:true});let range=knowledgeRangeFromBookmark(el,bookmarkRef.current);if(!range&&rangeRef.current&&knowledgeRangeInside(el,rangeRef.current))range=rangeRef.current.cloneRange();if(!range)return placeCaretAtEnd();try{const sel=win.getSelection();sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range);return range}catch{return placeCaretAtEnd()}}
+  const setCurrentRange=range=>{const el=surface(),win=frameWin();if(!el||!win||!range)return;try{const sel=win.getSelection();sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range);el.focus({preventScroll:true})}catch{}}
+  const readSurface=()=>surface()?.innerHTML??draftHtmlRef.current??''
+  const commit=()=>{const clean=normalizeEditorHtml(readSurface());draftHtmlRef.current=clean;onLiveInputRef.current?.(clean);onChangeRef.current?.(clean);updateStats(clean);saveSelection();return clean}
   const normalizeLink=value=>{const url=String(value||'').trim();return /^(https?:\/\/|mailto:|tel:)/i.test(url)?url:''}
-  const setCurrentRange=range=>{const sel=window.getSelection?.(),el=surface();if(!sel||!range||!el)return;try{sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range)}catch{}}
-  const insertHtmlAtSelection=htmlValue=>{const el=surface();if(!el)return;const range=restoreSelection();if(!range)return;const clean=sanitizeKnowledgeHtml(htmlValue);if(!clean)return;const next=knowledgeInsertHtmlRange(el,range,clean);setCurrentRange(next);syncLive(normalizeEditorHtml(el.innerHTML));setEmptyState(el)}
+  const insertHtmlAtSelection=htmlValue=>{const el=surface(),range=restoreSelection();if(!el||!range)return;const clean=sanitizeKnowledgeHtml(htmlValue);if(!clean)return;const next=knowledgeInsertHtmlRange(el,range,clean);setCurrentRange(next);syncLive(normalizeEditorHtml(el.innerHTML));setEmptyState(el)}
   useEffect(()=>{
-    const host=hostRef.current;if(!host)return
-    const el=document.createElement('div');el.className='knowledge-rich-surface';el.contentEditable='true';el.spellcheck=true;el.tabIndex=0;el.setAttribute('role','textbox');el.setAttribute('aria-multiline','true');el.setAttribute('aria-label','Contenido del bloque de texto');el.dataset.placeholder='Escribe y da formato al contenido del documento…';el.style.lineHeight=String(lineHeight||'1.5')
-    const initial=normalizeEditorHtml(draftHtmlRef.current);el.innerHTML=initial||'<p><br></p>';setEmptyState(el);host.replaceChildren(el);surfaceRef.current=el;updateStats(initial)
-    const handleFocus=()=>{if(isEmpty(el.innerHTML))ensureScaffold(true);else saveSelection()}
-    const handleBeforeInput=e=>{if(e.isComposing)return;if(isEmpty(el.innerHTML)&&String(e.inputType||'').startsWith('insert'))ensureScaffold(!rangeRef.current)}
+    const frame=frameRef.current;if(!frame)return
+    const doc=frame.contentDocument,win=frame.contentWindow;if(!doc||!win)return
+    const parentTheme=document.documentElement.dataset.theme||document.body?.dataset?.theme||'light'
+    doc.open();doc.write(`<!doctype html><html data-theme="${parentTheme}"><head><meta charset="utf-8"><style>
+      *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:transparent}body{font-family:Inter,Arial,sans-serif;color:#172B4D;background:#fff}
+      #editor{min-height:300px;padding:18px 22px;outline:0;font-size:14px;line-height:1.5;overflow-wrap:anywhere;white-space:normal;cursor:text}
+      #editor[data-empty="true"]:before{content:attr(data-placeholder);color:#7A869A;font-style:italic;pointer-events:none}
+      #editor::selection{background:#B3D4FF;color:#071019}#editor p{margin:7px 0}#editor h1{font-size:30px;line-height:1.18;margin:20px 0 10px}#editor h2{font-size:25px;line-height:1.22;margin:18px 0 9px}#editor h3{font-size:21px;line-height:1.25;margin:16px 0 8px}#editor h4{font-size:18px;line-height:1.3;margin:14px 0 7px}#editor h5{font-size:16px;line-height:1.35;margin:12px 0 6px}#editor ol,#editor ul{padding-left:24px;margin:8px 0}#editor a{color:#0C66E4;text-decoration:underline;text-underline-offset:2px}#editor code{font-family:"Courier New",monospace;background:#F1F2F4;border-radius:4px;padding:1px 4px}
+      #editor font[size="1"]{font-size:11px}#editor font[size="2"]{font-size:12px}#editor font[size="3"]{font-size:14px}#editor font[size="4"]{font-size:16px}#editor font[size="5"]{font-size:18px}#editor font[size="6"]{font-size:24px}#editor font[size="7"]{font-size:32px}
+      html[data-theme="dark"] body{background:#101C26;color:#F4F7FB}html[data-theme="dark"] #editor{color:#F4F7FB}html[data-theme="dark"] #editor a{color:#75B7FF}html[data-theme="dark"] #editor code{background:#1C2A36}
+      @media(max-width:700px){#editor{min-height:240px;padding:14px 13px;font-size:14px}}
+    </style></head><body><div id="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido del bloque de texto" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" data-placeholder="Escribe y da formato al contenido del documento…"></div></body></html>`);doc.close()
+    const el=doc.getElementById('editor');if(!el)return
+    surfaceRef.current=el;initializedRef.current=true
+    const initial=normalizeEditorHtml(draftHtmlRef.current);el.innerHTML=initial||'<p><br></p>';el.style.lineHeight=String(lineHeight||'1.5');setEmptyState(el);updateStats(initial)
     const handleInput=()=>{const clean=normalizeEditorHtml(el.innerHTML);draftHtmlRef.current=clean;setEmptyState(el);updateStats(clean);saveSelection();onLiveInputRef.current?.(clean)}
-    const handlePaste=e=>{e.preventDefault();saveSelection();const htmlData=e.clipboardData?.getData('text/html')||'',textData=e.clipboardData?.getData('text/plain')||'';const source=htmlData||escapeKnowledgeText(textData);insertHtmlAtSelection(source)}
+    const handleFocus=()=>{saveSelection()}
+    const handleBlur=()=>{commit()}
+    const handlePaste=e=>{e.preventDefault();saveSelection();const htmlData=e.clipboardData?.getData('text/html'),plain=e.clipboardData?.getData('text/plain')||'';if(htmlData)insertHtmlAtSelection(htmlData);else insertHtmlAtSelection(escapeHtml(plain).replace(/\r?\n/g,'<br>'))}
     const handleDrop=e=>{if(e.dataTransfer?.files?.length)e.preventDefault()}
-    const handleBlur=e=>{const root=editorRoot();if(root&&e.relatedTarget&&root.contains(e.relatedTarget)){const clean=normalizeEditorHtml(el.innerHTML);syncLive(clean);saveSelection();return}commit(true)}
-    el.addEventListener('focus',handleFocus);el.addEventListener('beforeinput',handleBeforeInput);el.addEventListener('input',handleInput);el.addEventListener('mouseup',saveSelection);el.addEventListener('keyup',saveSelection);el.addEventListener('paste',handlePaste);el.addEventListener('drop',handleDrop);el.addEventListener('blur',handleBlur)
-    return()=>{el.removeEventListener('focus',handleFocus);el.removeEventListener('beforeinput',handleBeforeInput);el.removeEventListener('input',handleInput);el.removeEventListener('mouseup',saveSelection);el.removeEventListener('keyup',saveSelection);el.removeEventListener('paste',handlePaste);el.removeEventListener('drop',handleDrop);el.removeEventListener('blur',handleBlur);if(surfaceRef.current===el)surfaceRef.current=null}
+    const handleSelection=()=>{if(doc.activeElement===el)saveSelection()}
+    el.addEventListener('input',handleInput);el.addEventListener('focus',handleFocus);el.addEventListener('blur',handleBlur);el.addEventListener('paste',handlePaste);el.addEventListener('drop',handleDrop);el.addEventListener('mouseup',saveSelection);el.addEventListener('keyup',saveSelection);doc.addEventListener('selectionchange',handleSelection)
+    const observer=new MutationObserver(()=>{doc.documentElement.dataset.theme=document.documentElement.dataset.theme||document.body?.dataset?.theme||'light'});observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','class']})
+    return()=>{observer.disconnect();doc.removeEventListener('selectionchange',handleSelection);el.removeEventListener('input',handleInput);el.removeEventListener('focus',handleFocus);el.removeEventListener('blur',handleBlur);el.removeEventListener('paste',handlePaste);el.removeEventListener('drop',handleDrop);el.removeEventListener('mouseup',saveSelection);el.removeEventListener('keyup',saveSelection);if(surfaceRef.current===el)surfaceRef.current=null;initializedRef.current=false}
   },[])
-  useEffect(()=>{const el=surface(),next=normalizeEditorHtml(String(html||''));if(el&&editorHasFocus())return;draftHtmlRef.current=next;if(el){const dom=next||'<p><br></p>';if(el.innerHTML!==dom)el.innerHTML=dom;setEmptyState(el);updateStats(next)}},[html])
+  useEffect(()=>{const el=surface(),next=normalizeEditorHtml(String(html||''));if(!el||!initializedRef.current)return;if(next===draftHtmlRef.current)return;const doc=frameDoc();if(doc?.activeElement===el)return;draftHtmlRef.current=next;el.innerHTML=next||'<p><br></p>';setEmptyState(el);updateStats(next)},[html])
   useEffect(()=>{const el=surface();if(el)el.style.lineHeight=String(lineHeight||'1.5')},[lineHeight])
-  const command=(cmd,value=null)=>{const el=surface();if(!el)return;restoreSelection();let ok=false;try{ok=document.execCommand(cmd,false,value)}catch{}if(!ok&&cmd==='formatBlock'){try{document.execCommand(cmd,false,`<${String(value).replace(/[<>]/g,'')}>`)}catch{}}saveSelection();commit(false)}
+  const command=(cmd,value=null)=>{const el=surface(),doc=frameDoc();if(!el||!doc)return;restoreSelection();let ok=false;try{ok=doc.execCommand(cmd,false,value)}catch{}if(!ok&&cmd==='formatBlock'){try{doc.execCommand(cmd,false,`<${String(value).replace(/[<>]/g,'')}>`)}catch{}}saveSelection();commit()}
   const openLinkEditor=()=>{saveSelection();const el=surface(),range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||rangeRef.current,existing=knowledgeAnchorForRange(el,range);setLinkError('');setLinkUrl(existing?.getAttribute('href')||'https://');setShowLink(true)}
-  const applyLink=()=>{const url=normalizeLink(linkUrl),el=surface();if(!el)return;if(!url){setLinkError('Usa una URL https://, mailto: o tel: válida.');return}const range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||restoreSelection();if(!range){setLinkError('Vuelve a seleccionar el texto que deseas enlazar.');return}const beforeHtml=el.innerHTML,beforeText=knowledgeVisibleTextSnapshot(el),selectedText=range.toString();const next=knowledgeApplyLinkRange(el,range,url),afterText=knowledgeVisibleTextSnapshot(el);if(!range.collapsed&&beforeText!==afterText){el.innerHTML=beforeHtml;setEmptyState(el);rangeRef.current=null;bookmarkRef.current=null;setLinkError('No se aplicó el enlace porque la selección cambió. Vuelve a seleccionar el texto.');return}setCurrentRange(next);const clean=normalizeEditorHtml(el.innerHTML);syncLive(clean);onChangeRef.current?.(clean);updateStats(clean);setLinkError('');setShowLink(false)}
-  const removeLink=()=>{const el=surface();if(!el)return;const range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||restoreSelection();if(!range)return;const removed=knowledgeRemoveLinkRange(el,range);if(removed.changed){setCurrentRange(removed.range);commit(false);return}command('unlink')}
+  const applyLink=()=>{const url=normalizeLink(linkUrl),el=surface();if(!el)return;if(!url){setLinkError('Usa una URL https://, mailto: o tel: válida.');return}const range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||restoreSelection();if(!range){setLinkError('Vuelve a seleccionar el texto que deseas enlazar.');return}const beforeHtml=el.innerHTML,beforeText=knowledgeVisibleTextSnapshot(el),wasCollapsed=range.collapsed;const next=knowledgeApplyLinkRange(el,range,url),afterText=knowledgeVisibleTextSnapshot(el);if(!wasCollapsed&&beforeText!==afterText){el.innerHTML=beforeHtml;setEmptyState(el);rangeRef.current=null;bookmarkRef.current=null;setLinkError('No se aplicó el enlace porque la selección cambió. Vuelve a seleccionar el texto.');return}setCurrentRange(next);const clean=normalizeEditorHtml(el.innerHTML);syncLive(clean);onChangeRef.current?.(clean);setLinkError('');setShowLink(false)}
+  const removeLink=()=>{const el=surface();if(!el)return;const range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||restoreSelection();if(!range)return;const removed=knowledgeRemoveLinkRange(el,range);if(removed.changed){setCurrentRange(removed.range);commit();return}command('unlink')}
   const preserveSelection=e=>{e?.preventDefault?.();saveSelection()}
-  return <div className="knowledge-rich-editor knowledge-rich-editor-live">
-    <div className="knowledge-rich-livebar"><span><Icon name="lucide:sparkles"/><b>Edición enriquecida en vivo</b><small>Escribe y aplica estilos, fuentes y enlaces sin cambiar de modo ni perder formato.</small></span></div>
+  return <div className="knowledge-rich-editor knowledge-rich-editor-live knowledge-rich-editor-isolated">
+    <div className="knowledge-rich-livebar"><span><Icon name="lucide:sparkles"/><b>Edición enriquecida estable</b><small>El contenido se edita en un lienzo aislado para conservar cursor, selección, enlaces y formato mientras escribes.</small></span></div>
     <div className="knowledge-rich-toolbar" role="toolbar" aria-label="Herramientas del bloque de texto">
       <select aria-label="Estilo" defaultValue="p" onMouseDown={saveSelection} onChange={e=>{command('formatBlock',e.target.value);e.target.value='p'}}><option value="p">Normal · 14 px</option>{KNOWLEDGE_HEADING_PRESETS.map(x=><option key={x.tag} value={x.tag}>Título {x.label} · {x.size} px</option>)}</select>
       <select aria-label="Fuente" defaultValue="Inter" onMouseDown={saveSelection} onChange={e=>command('fontName',e.target.value)}>{KNOWLEDGE_COVER_FONTS.map(x=><option key={x}>{x}</option>)}</select>
@@ -2545,8 +2587,8 @@ function KnowledgeRichTextEditor({html,onChange,onLiveInput,lineHeight='1.5',onL
       <button type="button" className={showLink?'active':''} onMouseDown={preserveSelection} onClick={openLinkEditor} title="Insertar o editar enlace"><Icon name="lucide:link"/></button><button type="button" onMouseDown={preserveSelection} onClick={removeLink} title="Quitar enlace"><Icon name="lucide:unlink"/></button><button type="button" onMouseDown={preserveSelection} onClick={()=>command('removeFormat')} title="Limpiar formato"><Icon name="lucide:remove-formatting"/></button>
     </div>
     {showLink&&<div className="knowledge-link-editor"><Icon name="lucide:link"/><input autoFocus type="url" value={linkUrl} onChange={e=>{setLinkUrl(e.target.value);setLinkError('')}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();applyLink()}if(e.key==='Escape'){e.preventDefault();setShowLink(false);setLinkError('')}}} placeholder="https://..."/><button type="button" className="primary compact" onMouseDown={preserveSelection} onClick={applyLink}>Aplicar enlace</button><button type="button" className="icon-button" onClick={()=>{setShowLink(false);setLinkError('')}}><Icon name="lucide:x"/></button>{linkError&&<small className="knowledge-link-error">{linkError}</small>}</div>}
-    <div ref={hostRef} className="knowledge-rich-surface-host"></div>
-    <div className="knowledge-rich-footer"><label>Interlineado:<select value={String(lineHeight||'1.5')} onMouseDown={saveSelection} onChange={e=>{commit(false);onLineHeightChange?.(e.target.value)}}><option value="1">Sencillo</option><option value="1.15">1.15</option><option value="1.3">1.3</option><option value="1.5">Normal · 1.5</option><option value="1.75">1.75</option><option value="2">Doble</option></select></label><span ref={statsRef}>0 palabras · 0 caracteres</span></div>
+    <div className="knowledge-rich-surface-host knowledge-rich-frame-host"><iframe ref={frameRef} className="knowledge-rich-frame" title="Editor enriquecido del bloque de texto" sandbox="allow-same-origin"/></div>
+    <div className="knowledge-rich-footer"><label>Interlineado:<select value={String(lineHeight||'1.5')} onMouseDown={saveSelection} onChange={e=>{commit();onLineHeightChange?.(e.target.value)}}><option value="1">Sencillo</option><option value="1.15">1.15</option><option value="1.3">1.3</option><option value="1.5">Normal · 1.5</option><option value="1.75">1.75</option><option value="2">Doble</option></select></label><span ref={statsRef}>0 palabras · 0 caracteres</span></div>
   </div>
 }
 function KnowledgeBlockEditor({blocks,setBlocks,media=[],articleTitle='',coverSettings=null,onRichInput=null}){
@@ -2935,6 +2977,47 @@ function useUrlTab(viewKey,defaultTab,allowedTabs){
   useEffect(()=>{const onPop=()=>setTabState(read());window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop)},[])
   useEffect(()=>{if(!allowed.includes(tab))setTabState(defaultTab)},[allowed.join('|')])
   return [tab,setTab]
+}
+
+
+function auditDuration(seconds){const total=Math.max(0,Number(seconds||0)),h=Math.floor(total/3600),m=Math.floor((total%3600)/60);return h?`${h} h ${m} min`:`${m} min`}
+function auditActionLabel(row){const map={login:'Inicio de sesión',logout:'Cierre de sesión',session_expired:'Sesión expirada',view:'Vista consultada',created:'Creado',updated:'Actualizado',deleted:'Eliminado',status_change:'Cambio de estado',assignment_change:'Cambio de responsable',comment_added:'Comentario agregado',comment_deleted:'Comentario eliminado',attachment_added:'Archivo agregado',attachment_deleted:'Archivo eliminado'};return map[row?.action]||map[row?.event_type]||String(row?.action||row?.event_type||'Actividad').replaceAll('_',' ')}
+function AuditControlView({workspace,members,settings,session,onSettingsSaved,toast}){
+  const [tab,setTab]=useUrlTab('audit','summary',['summary','sessions','activity'])
+  const [sessions,setSessions]=useState([]),[events,setEvents]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[saving,setSaving]=useState(false)
+  const [filters,setFilters]=useState({user:'all',module:'all',action:'all',range:'30'})
+  const [maxHours,setMaxHours]=useState(Number(settings?.app_session_max_hours||12))
+  useEffect(()=>setMaxHours(Number(settings?.app_session_max_hours||12)),[settings?.app_session_max_hours])
+  const profileFor=id=>members.find(m=>m.user_id===id)?.profile||null
+  const nameFor=id=>profileFor(id)?.full_name||profileFor(id)?.email||id||'Sistema'
+  const load=async(silent=false)=>{
+    if(!workspace?.id)return
+    if(!silent)setLoading(true);setError('')
+    const [ss,ev]=await Promise.all([
+      db.from('app_user_sessions').select('*').eq('workspace_id',workspace.id).order('started_at',{ascending:false}).limit(1200),
+      db.from('app_audit_events').select('*').eq('workspace_id',workspace.id).order('created_at',{ascending:false}).limit(2000)
+    ])
+    if(ss.error||ev.error){setError(ss.error?.message||ev.error?.message||'No se pudo cargar la bitácora.');if(!silent)setLoading(false);return}
+    setSessions(ss.data||[]);setEvents(ev.data||[]);if(!silent)setLoading(false)
+  }
+  useEffect(()=>{load();if(!workspace?.id)return;let timer=null;const schedule=()=>{clearTimeout(timer);timer=setTimeout(()=>load(true),250)};const channel=db.channel(`audit-live:${workspace.id}`).on('postgres_changes',{event:'*',schema:'public',table:'app_user_sessions',filter:`workspace_id=eq.${workspace.id}`},schedule).on('postgres_changes',{event:'INSERT',schema:'public',table:'app_audit_events',filter:`workspace_id=eq.${workspace.id}`},schedule).subscribe();const poll=setInterval(()=>{if(document.visibilityState==='visible')load(true)},60000);return()=>{clearTimeout(timer);clearInterval(poll);db.removeChannel(channel)}},[workspace?.id])
+  const now=Date.now(),isOnline=s=>!s.ended_at&&now-new Date(s.last_seen_at).getTime()<180000
+  const userRows=useMemo(()=>members.map(m=>{const rows=sessions.filter(x=>x.user_id===m.user_id),last=rows.slice().sort((a,b)=>new Date(b.started_at)-new Date(a.started_at))[0]||null;return {id:m.user_id,name:m.profile?.full_name||m.profile?.email||'Usuario',email:m.profile?.email||'',role:m.role,logins:rows.length,seconds:rows.reduce((a,x)=>a+Number(x.active_seconds||0),0),lastLogin:last?.started_at||null,lastSeen:rows.map(x=>x.last_seen_at).filter(Boolean).sort().at(-1)||null,online:rows.some(isOnline)}}).sort((a,b)=>Number(b.online)-Number(a.online)||new Date(b.lastLogin||0)-new Date(a.lastLogin||0)),[members,sessions])
+  const todayKey=new Date().toLocaleDateString('en-CA'),sessionsToday=sessions.filter(x=>new Date(x.started_at).toLocaleDateString('en-CA')===todayKey).length,actionsToday=events.filter(x=>new Date(x.created_at).toLocaleDateString('en-CA')===todayKey).length
+  const moduleOptions=[...new Set(events.map(x=>x.module).filter(Boolean))].sort(),actionOptions=[...new Set(events.map(x=>x.action).filter(Boolean))].sort()
+  const cutoff=filters.range==='all'?0:Date.now()-Number(filters.range||30)*86400000
+  const filteredEvents=events.filter(e=>(filters.user==='all'||e.actor_id===filters.user)&&(filters.module==='all'||e.module===filters.module)&&(filters.action==='all'||e.action===filters.action)&&(!cutoff||new Date(e.created_at).getTime()>=cutoff))
+  const savePolicy=async()=>{const hours=Math.max(1,Math.min(24,Number(maxHours)||12));setSaving(true);try{const {error}=await db.from('workspace_settings').update({app_session_max_hours:hours,updated_at:new Date().toISOString()}).eq('workspace_id',workspace.id);if(error)throw error;toast?.('success',`La sesión máxima quedó en ${hours} horas.`);await onSettingsSaved?.()}catch(err){toast?.('error',err.message||String(err))}finally{setSaving(false)}}
+  if(loading)return <div className="page"><PageHeader eyebrow="Superadmin" title="Bitácora y sesiones" subtitle="Control de accesos, tiempo conectado y acciones del sistema." icon="lucide:shield-check"/><LoadingPanel/></div>
+  return <div className="page audit-page"><PageHeader eyebrow="Superadmin" title="Bitácora y sesiones" subtitle="Control de accesos, tiempo conectado y trazabilidad de acciones por workspace." icon="lucide:shield-check" action={<span className="readonly-chip"><Icon name="lucide:lock-keyhole"/> Solo Superadmin</span>}/>
+    {error&&<div className="notice error"><Icon name="lucide:triangle-alert"/>{error}</div>}
+    <div className="tabs audit-tabs"><button className={tab==='summary'?'active':''} onClick={()=>setTab('summary')}><Icon name="lucide:gauge"/>Resumen</button><button className={tab==='sessions'?'active':''} onClick={()=>setTab('sessions')}><Icon name="lucide:clock-3"/>Sesiones</button><button className={tab==='activity'?'active':''} onClick={()=>setTab('activity')}><Icon name="lucide:list-checks"/>Actividad</button></div>
+    {tab==='summary'&&<><div className="metric-grid four"><Metric label="Usuarios conectados" value={userRows.filter(x=>x.online).length} icon="lucide:radio-tower" tone="green"/><Metric label="Accesos hoy" value={sessionsToday} icon="lucide:log-in" tone="blue"/><Metric label="Horas registradas" value={(sessions.reduce((a,x)=>a+Number(x.active_seconds||0),0)/3600).toFixed(1)} icon="lucide:timer" tone="navy"/><Metric label="Acciones hoy" value={actionsToday} icon="lucide:activity" tone="purple"/></div>
+      <section className="content-card audit-policy-card"><div><span className="page-icon sm"><Icon name="lucide:shield-clock"/></span><div><h2>Duración máxima de sesión</h2><p>Jira cierra la sesión de aplicación al cumplir esta ventana. Los tokens de Supabase siguen usando renovación segura de corta duración.</p></div></div><div className="audit-policy-control"><select value={maxHours} onChange={e=>setMaxHours(Number(e.target.value))}><option value="8">8 horas</option><option value="10">10 horas</option><option value="12">12 horas</option><option value="16">16 horas</option><option value="24">24 horas</option></select><button className="primary compact" disabled={saving||Number(settings?.app_session_max_hours||12)===Number(maxHours)} onClick={savePolicy}>{saving?'Guardando…':'Guardar política'}</button></div></section>
+      <section className="content-card audit-user-card"><div className="section-heading"><div><h2>Control por usuario</h2><p>Los accesos históricos son autoritativos desde v17.18. Las sesiones activas previas se importaron como línea base.</p></div></div><div className="audit-user-table"><div className="audit-row audit-head"><span>Usuario</span><span>Accesos</span><span>Tiempo conectado</span><span>Último login</span><span>Última actividad</span><span>Estado</span></div>{userRows.map(u=><div className="audit-row" key={u.id}><span data-label="Usuario"><b>{u.name}</b><small>{u.email}</small></span><span data-label="Accesos"><b>{u.logins}</b></span><span data-label="Tiempo conectado">{auditDuration(u.seconds)}</span><span data-label="Último login">{formatDateTime(u.lastLogin)}</span><span data-label="Última actividad">{formatDateTime(u.lastSeen)}</span><span data-label="Estado"><em className={`audit-online ${u.online?'on':'off'}`}><i></i>{u.online?'En línea':'Desconectado'}</em></span></div>)}</div></section></>}
+    {tab==='sessions'&&<section className="content-card audit-session-card"><div className="section-heading"><div><h2>Sesiones registradas</h2><p>Una fila por inicio de sesión de Supabase. El tiempo conectado solo acumula heartbeats activos, no periodos largos en segundo plano.</p></div><b>{sessions.length} sesiones</b></div><div className="audit-session-list">{sessions.map(s=><article key={s.id}><div><span className="mini-avatar">{initials(nameFor(s.user_id))}</span><span><b>{nameFor(s.user_id)}</b><small>{profileFor(s.user_id)?.email||''}</small></span></div><dl><div><dt>Inicio</dt><dd>{formatDateTime(s.started_at)}</dd></div><div><dt>Última señal</dt><dd>{formatDateTime(s.last_seen_at)}</dd></div><div><dt>Conectado</dt><dd>{auditDuration(s.active_seconds)}</dd></div><div><dt>Vista final</dt><dd>{s.last_view||s.start_view||'—'}</dd></div></dl><span className={`audit-online ${isOnline(s)?'on':'off'}`}><i></i>{isOnline(s)?'En línea':s.ended_at?'Cerrada':'Inactiva'}</span></article>)}</div></section>}
+    {tab==='activity'&&<section className="content-card audit-activity-card"><div className="section-heading"><div><h2>Acciones del sistema</h2><p>Combina eventos autoritativos de base de datos con navegación y sesiones del cliente.</p></div><b>{filteredEvents.length} eventos</b></div><div className="audit-filterbar"><select value={filters.user} onChange={e=>setFilters(f=>({...f,user:e.target.value}))}><option value="all">Todos los usuarios</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.profile?.full_name||m.profile?.email||m.user_id}</option>)}</select><select value={filters.module} onChange={e=>setFilters(f=>({...f,module:e.target.value}))}><option value="all">Todos los módulos</option>{moduleOptions.map(x=><option key={x} value={x}>{x}</option>)}</select><select value={filters.action} onChange={e=>setFilters(f=>({...f,action:e.target.value}))}><option value="all">Todas las acciones</option>{actionOptions.map(x=><option key={x} value={x}>{auditActionLabel({action:x})}</option>)}</select><select value={filters.range} onChange={e=>setFilters(f=>({...f,range:e.target.value}))}><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="all">Todo</option></select></div><div className="audit-event-list">{filteredEvents.length===0&&<TableEmpty text="No hay eventos con estos filtros."/>}{filteredEvents.map(e=>{const fields=Array.isArray(e.metadata?.changed_fields)?e.metadata.changed_fields:[];return <article key={e.id}><span className={`audit-source source-${e.source}`}><Icon name={e.source==='session'?'lucide:key-round':e.source==='client'?'lucide:mouse-pointer-click':'lucide:database'}/></span><div><div className="audit-event-title"><b>{nameFor(e.actor_id)}</b><strong>{auditActionLabel(e)}</strong>{e.module&&<em>{e.module}</em>}</div><p>{e.entity_label||e.entity_type||'Jira Interno'}{fields.length>0&&<small> · Campos: {fields.join(', ')}</small>}</p><small>{formatDateTime(e.created_at)} · {e.source==='database'?'BD':e.source==='session'?'Sesión':e.source==='client'?'Interfaz':'Sistema'}</small></div></article>})}</div></section>}
+  </div>
 }
 
 function StaffRolesView({workspace,members,products,memberProductAccess,roleTemplates,canManage,isSuperadmin,session,onInvite,onMember,onRoleCreate,onRoleEdit,onRoleDelete}){

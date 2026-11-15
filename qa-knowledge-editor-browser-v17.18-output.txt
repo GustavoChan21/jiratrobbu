@@ -1,0 +1,20 @@
+KNOWLEDGE_EDITOR_BROWSER_V1718
+PASS type_middle_exact
+PASS caret_after_middle_insert
+PASS parent_rerender_does_not_steal_caret
+PASS parent_rerender_preserves_link
+PASS caret_moves_to_requested_position
+PASS link_selection_exact
+PASS toolbar_focus_may_leave_frame
+PASS link_edit_preserves_visible_text
+PASS single_anchor_after_link_edit
+PASS link_href_updated
+PASS caret_collapsed_after_link
+PASS typing_after_link_is_outside_anchor
+PASS typing_after_link_visible
+PASS typing_after_link_no_duplicate_anchor
+PASS empty_editor_accepts_typing
+PASS empty_editor_caret_remains_collapsed
+PASS continued_typing_after_parent_mutation
+FINAL_HTML <p>Inicio meXYZQdio <a href="https://example.com/updated" target="_blank" rel="noopener noreferrer">Panel Administrativo</a>&nbsp;DESPUES&nbsp; fin-AQUI-al de texto</p>
+RESULT 17 PASS / 0 FAIL
