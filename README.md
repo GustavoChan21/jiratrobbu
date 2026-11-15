@@ -1,13 +1,13 @@
-# Jira Interno TROBBU v17.16.0
+# Jira Interno TROBBU — v17.17.0
 
-## v17.16.0
+Release enfocada en la corrección definitiva del editor Knowledge.
 
-Knowledge refactoriza el bloque Texto a edición enriquecida en vivo: se elimina Escritura segura, los enlaces usan DOM Range sin duplicar contenido, se preserva la selección al operar la toolbar y se mantiene compatibilidad completa con los `content_blocks` existentes. La suite v17.16 cubre los 12 tipos de bloque y valida round-trip del contenido productivo.
+- Runtime activo: `app-v17.17.0.js`
+- CSS activo: `styles-v17.17.0.css`
+- Bloque Texto: editor enriquecido en vivo, sin Escritura Segura.
+- Links: selección persistida por bookmark DOM y protección anti-duplicado.
+- Compatibilidad: conserva `content_blocks` y HTML existente.
+- QA: `npm run qa`
+- QA browser Knowledge: `python3 qa-knowledge-editor-browser-v17.17.py`
 
-## v17.15.0
-
-Counters de detalle determinísticos basados en las filas renderizadas y preview de adjuntos centrado al 90% del viewport.
-
-Versión estabilizada después de auditoría de producción. Incluye dark mode corregido, Kanban con counters legibles en todos los estados, Mencionados con layout responsive estándar, counters autoritativos de comentarios/actividad, preview interno de adjuntos, workflow Helpdesk animado, Realtime resiliente y SendPulse QA/product readiness heredado de v17.11-v17.12.
-
-Ejecuta `npm run qa` para validar la distribución.
+Consulta `RELEASE-v17.17.md` y `QA-v17.17.md` para los criterios de aceptación.
