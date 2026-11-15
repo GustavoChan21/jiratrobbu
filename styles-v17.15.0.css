@@ -2287,3 +2287,9 @@ html[data-theme="dark"] .attachment-preview-unsupported{background:#121D27;borde
   justify-content:center!important;
   padding:5dvh 5vw!important;
 }
+
+
+/* v17.16.0 Knowledge live rich-text editor */
+.knowledge-rich-livebar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border:1px solid #DFE1E6;border-bottom:0;background:#FAFBFC;border-radius:9px 9px 0 0}.knowledge-rich-livebar>span{display:grid;grid-template-columns:auto auto;align-items:center;column-gap:7px;min-width:0;color:#44546F}.knowledge-rich-livebar>span iconify-icon{grid-row:1/3;color:#0C66E4;font-size:18px}.knowledge-rich-livebar>span b{font-size:10px;color:#172B4D}.knowledge-rich-livebar>span small{font-size:9px;color:#626F86;white-space:normal}.knowledge-rich-livebar+.knowledge-rich-toolbar{border-radius:0}.knowledge-rich-editor-live .knowledge-rich-surface-host{border-radius:0 0 8px 8px}.knowledge-rich-editor-live .knowledge-rich-surface{min-height:310px}.knowledge-link-editor input{min-width:0}.knowledge-rich-surface a{cursor:text}
+@media(max-width:760px){.knowledge-rich-livebar{align-items:flex-start}.knowledge-rich-livebar>span{grid-template-columns:auto minmax(0,1fr)}.knowledge-rich-editor-live .knowledge-rich-surface{min-height:240px}}
+html[data-theme="dark"] .knowledge-rich-livebar{background:#151F29!important;border-color:#344554!important;color:#EDF3F8!important}html[data-theme="dark"] .knowledge-rich-livebar>span{color:#C8D4DE!important}html[data-theme="dark"] .knowledge-rich-livebar>span b{color:#F4F7FA!important}html[data-theme="dark"] .knowledge-rich-livebar>span small{color:#9EACB8!important}

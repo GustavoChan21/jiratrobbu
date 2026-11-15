@@ -1,4 +1,8 @@
-# Jira Interno TROBBU v17.15.0
+# Jira Interno TROBBU v17.16.0
+
+## v17.16.0
+
+Knowledge refactoriza el bloque Texto a edición enriquecida en vivo: se elimina Escritura segura, los enlaces usan DOM Range sin duplicar contenido, se preserva la selección al operar la toolbar y se mantiene compatibilidad completa con los `content_blocks` existentes. La suite v17.16 cubre los 12 tipos de bloque y valida round-trip del contenido productivo.
 
 ## v17.15.0
 
