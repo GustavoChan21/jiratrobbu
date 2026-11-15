@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.12.0",
-  "description": "Jira Interno TROBBU v17.12.0 - deterministic visible counters, attachment previews, pulse workflow, Gantt/Kanban contrast and responsive mentions",
+  "version": "17.13.0",
+  "description": "Jira Interno TROBBU v17.13.0 - verified Kanban contrast, responsive Mentions, authoritative counters, inline previews and pulse workflow",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.12.mjs"
+    "qa": "node qa-v17.13.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
