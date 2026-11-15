@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.14.0",
-  "description": "Jira Interno TROBBU v17.14.0 - verified Kanban contrast, responsive Mentions, authoritative counters, inline previews and pulse workflow",
+  "version": "17.15.0",
+  "description": "Jira Interno TROBBU v17.15.0 - single-source counters, dynamic vacation labels, centered attachment carousel and cache-isolated assets",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.14.mjs"
+    "qa": "node qa-v17.15.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
