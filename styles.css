@@ -2048,3 +2048,60 @@ html[data-theme="dark"] .gantt-bar>b{color:#071019!important;text-shadow:none!im
 
 /* Current Helpdesk state pulse is visible without changing completed steps. */
 .request-stepper .current i{animation:trobbu-status-pulse 1.65s ease-out infinite!important}
+
+
+/* v17.14.0 · deterministic visible-row counters + responsive 90% attachment preview */
+.modal-preview{
+  width:90vw!important;
+  height:90dvh!important;
+  max-width:90vw!important;
+  max-height:90dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.modal-preview .modal-head{flex:0 0 auto}
+.modal-preview .attachment-preview-shell{
+  flex:1 1 auto;
+  min-height:0;
+  height:calc(90dvh - 86px);
+  padding:14px;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) auto;
+  gap:12px;
+  overflow:hidden;
+}
+.modal-preview .attachment-preview-shell>img{
+  width:100%;
+  height:100%;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain;
+  margin:auto;
+  border-radius:10px;
+}
+.modal-preview .attachment-preview-shell>iframe{
+  width:100%!important;
+  height:100%!important;
+  min-height:0;
+  max-height:none!important;
+  border-radius:10px;
+}
+.modal-preview .attachment-preview-actions{
+  flex:0 0 auto;
+  min-height:40px;
+  align-items:center;
+}
+@media(max-width:820px){
+  .modal-preview{width:90vw!important;height:90dvh!important;max-width:90vw!important;max-height:90dvh!important;border-radius:11px}
+  .modal-preview .attachment-preview-shell{height:calc(90dvh - 82px);padding:10px}
+}
+@media(max-width:520px){
+  .modal-backdrop:has(.modal-preview){padding:0!important}
+  .modal-preview{width:90vw!important;height:90dvh!important;max-width:90vw!important;max-height:90dvh!important;border-radius:10px}
+  .modal-preview .modal-head{padding:14px 14px 12px}
+  .modal-preview .modal-head h2{font-size:16px;line-height:1.25;overflow-wrap:anywhere}
+  .modal-preview .modal-head p{font-size:10px}
+  .modal-preview .attachment-preview-shell{height:calc(90dvh - 76px);padding:8px;gap:8px}
+  .modal-preview .attachment-preview-actions{justify-content:stretch}
+  .modal-preview .attachment-preview-actions .secondary-button{width:100%;justify-content:center}
+}
