@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.18.0",
-  "description": "Jira Interno TROBBU v17.18.0 - isolated Knowledge rich editor + Superadmin session/action audit",
+  "version": "17.18.1",
+  "description": "Jira Interno TROBBU v17.18.1 - detailed Superadmin audit UI and Knowledge action trace",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.18.mjs && python3 qa-knowledge-editor-browser-v17.18.py"
+    "qa": "node qa-v17.18.1.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
