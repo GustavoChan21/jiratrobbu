@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v17.13.0 · verified Kanban contrast, responsive Mentions, authoritative detail counters and cache-safe UI */
+/* Jira Interno TROBBU v17.14.0 · deterministic visible-row counters and 90% responsive attachment preview */
 const { useEffect, useMemo, useState, useRef } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -587,7 +587,7 @@ Object.assign(UI_TRANSLATIONS_EN,{
   'El texto se eliminará. Los archivos adjuntos quedarán conservados en el historial de la solicitud.':'The text will be deleted. Attachments will remain in the request history.'
 })
 
-const BUILD_VERSION='17.13.0'
+const BUILD_VERSION='17.14.0'
 try{document.documentElement.dataset.appVersion=BUILD_VERSION}catch{}
 const I18N_TEXT_ORIGINAL = new WeakMap()
 const I18N_ATTR_ORIGINAL = new WeakMap()
@@ -3184,7 +3184,7 @@ function EvidenceGallery({rows,session,canManage,onDelete}){
   const [preview,setPreview]=useState(null)
   if(!rows?.length)return null
   const browserPreviewable=row=>{const mime=String(row?.mime_type||'').toLowerCase(),name=String(row?.file_name||'').toLowerCase();return isImageAttachment({name:row?.file_name,type:row?.mime_type})||mime==='application/pdf'||name.endsWith('.pdf')||mime.startsWith('text/')||name.endsWith('.txt')||name.endsWith('.csv')}
-  return <><div className="evidence-gallery">{rows.map(row=>{const image=isImageAttachment({name:row.file_name,type:row.mime_type}),previewable=browserPreviewable(row);return <figure className={`evidence-card ${image?'image':'document'}`} key={row.id}>{row.signed_url?(previewable?<button type="button" className="evidence-preview-trigger" onClick={()=>setPreview(row)} aria-label={`Vista previa de ${row.file_name}`}>{image?<img src={row.signed_url} alt={row.file_name}/>:<span className="document-preview"><Icon name={attachmentIcon(row)} size={30}/><span>Vista previa</span></span>}</button>:<a className="document-preview" href={row.signed_url} target="_blank" rel="noreferrer"><Icon name={attachmentIcon(row)} size={30}/><span>Abrir archivo</span></a>):<div className="evidence-missing"><Icon name={image?'lucide:image-off':attachmentIcon(row)} size={28}/></div>}<figcaption><span><b>{row.file_name}</b><small>{evidenceLabel(row.evidence_type)} · {row.size_bytes?fileSizeLabel(row.size_bytes)+' · ':''}{formatDateTime(row.created_at)}</small></span>{(row.uploaded_by===session.user.id||canManage)&&<button type="button" className="icon-button danger-text" title="Eliminar evidencia" onClick={()=>onDelete(row)}><Icon name="lucide:trash-2" size={14}/></button>}</figcaption></figure>})}</div>{preview&&<Modal title={preview.file_name} subtitle="Vista previa del archivo dentro de Jira Interno" onClose={()=>setPreview(null)} size="xl"><div className="attachment-preview-shell">{isImageAttachment({name:preview.file_name,type:preview.mime_type})?<img src={preview.signed_url} alt={preview.file_name}/>:<iframe src={preview.signed_url} title={preview.file_name}/>}<div className="attachment-preview-actions"><a className="secondary-button" href={preview.signed_url} download><Icon name="lucide:download"/> Descargar</a></div></div></Modal>}</>
+  return <><div className="evidence-gallery">{rows.map(row=>{const image=isImageAttachment({name:row.file_name,type:row.mime_type}),previewable=browserPreviewable(row);return <figure className={`evidence-card ${image?'image':'document'}`} key={row.id}>{row.signed_url?(previewable?<button type="button" className="evidence-preview-trigger" onClick={()=>setPreview(row)} aria-label={`Vista previa de ${row.file_name}`}>{image?<img src={row.signed_url} alt={row.file_name}/>:<span className="document-preview"><Icon name={attachmentIcon(row)} size={30}/><span>Vista previa</span></span>}</button>:<a className="document-preview" href={row.signed_url} target="_blank" rel="noreferrer"><Icon name={attachmentIcon(row)} size={30}/><span>Abrir archivo</span></a>):<div className="evidence-missing"><Icon name={image?'lucide:image-off':attachmentIcon(row)} size={28}/></div>}<figcaption><span><b>{row.file_name}</b><small>{evidenceLabel(row.evidence_type)} · {row.size_bytes?fileSizeLabel(row.size_bytes)+' · ':''}{formatDateTime(row.created_at)}</small></span>{(row.uploaded_by===session.user.id||canManage)&&<button type="button" className="icon-button danger-text" title="Eliminar evidencia" onClick={()=>onDelete(row)}><Icon name="lucide:trash-2" size={14}/></button>}</figcaption></figure>})}</div>{preview&&<Modal title={preview.file_name} subtitle="Vista previa del archivo dentro de Jira Interno" onClose={()=>setPreview(null)} size="preview"><div className="attachment-preview-shell">{isImageAttachment({name:preview.file_name,type:preview.mime_type})?<img src={preview.signed_url} alt={preview.file_name}/>:<iframe src={preview.signed_url} title={preview.file_name}/>}<div className="attachment-preview-actions"><a className="secondary-button" href={preview.signed_url} download><Icon name="lucide:download"/> Descargar</a></div></div></Modal>}</>
 }
 
 
@@ -3218,7 +3218,6 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
   const [comments,setComments]=useState([])
   const [activity,setActivity]=useState([])
   const [attachments,setAttachments]=useState([])
-  const [detailCounts,setDetailCounts]=useState({comments:0,activity:0,attachments:0})
   const [tab,setTab]=useState('comments')
   const [commentModal,setCommentModal]=useState(null)
   const load=async()=>{
@@ -3230,7 +3229,6 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
     if(c.error) toast('error',c.error.message); else setComments(c.data||[])
     if(a.error) toast('error',a.error.message); else setActivity(a.data||[])
     if(e.error) toast('error',e.error.message); else setAttachments(await signedEvidenceRows(e.data||[]))
-    setDetailCounts({comments:Math.max(Number(c.count||0),(c.data||[]).length),activity:Math.max(Number(a.count||0),(a.data||[]).length),attachments:Math.max(Number(e.count||0),(e.data||[]).length)})
   }
   useEffect(()=>{load()},[ticket.id,liveRevision])
   useResilientLiveRefresh(load,`ticket:${ticket.id}`,30000)
@@ -3257,8 +3255,8 @@ function TicketDetailModal({workspace,ticket,tickets,products,members,modules=[]
   const blockerRelations=relations.filter(r=>r.link_type==='blocks'&&!r.outgoing&&!['qa_passed','closed'].includes(r.other?.status))
   const deleteRelation=async row=>{const {error}=await db.from('ticket_links').delete().eq('id',row.id);if(error)return toast('error',error.message);await onRefresh();toast('success','Relación eliminada.')}
   const unlinked=attachments.filter(a=>!a.comment_id)
-  const reviewCount=authoritativeCount(comments,detailCounts.comments)+authoritativeCount(attachments,detailCounts.attachments)
-  const activityCount=authoritativeCount(activity,detailCounts.activity)
+  const reviewCount=comments.length
+  const activityCount=activity.length
   return <><Modal title={`${ticket.ticket_key} · ${ticket.title}`} subtitle={product?.name} onClose={onClose} size="xl"><div className="detail-grid"><div className="detail-main">
     <div className="detail-description"><h4>Descripción</h4><p>{ticket.description||'Sin descripción.'}</p></div>
     {blockerRelations.length>0&&<div className="blocked-banner"><Icon name="lucide:lock-keyhole"/><div><b>Ticket bloqueado</b><p>Debe liberarse {blockerRelations.map(r=>r.other?.ticket_key).filter(Boolean).join(', ')} antes de continuar.</p></div></div>}
@@ -3373,7 +3371,6 @@ function SprintRolloverModal({sprint,sprints,tickets,onClose,onSave}){
 function SprintDetailModal({workspace,sprint,tickets,products,members,session,canWork,canPlan,liveRevision=0,onClose,onTicket,onEdit,onRollover,onBacklog,onRefresh,toast}){
   const [comments,setComments]=useState([])
   const [attachments,setAttachments]=useState([])
-  const [detailCounts,setDetailCounts]=useState({comments:0,attachments:0})
   const [commentModal,setCommentModal]=useState(null)
   const [productFilter,setProductFilter]=useState('all')
   const allRows=tickets.filter(t=>t.sprint_id===sprint.id)
@@ -3389,7 +3386,6 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
     ])
     if(c.error)toast('error',c.error.message);else setComments(c.data||[])
     if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))
-    setDetailCounts({comments:Math.max(Number(c.count||0),(c.data||[]).length),attachments:Math.max(Number(e.count||0),(e.data||[]).length)})
   }
   useEffect(()=>{setProductFilter('all');load()},[sprint.id,liveRevision])
   useResilientLiveRefresh(load,`sprint:${sprint.id}`,30000)
@@ -3398,7 +3394,7 @@ function SprintDetailModal({workspace,sprint,tickets,products,members,session,ca
   const removeComment=async comment=>{const {error}=await db.from('sprint_comments').delete().eq('id',comment.id);if(error)throw error;await load();toast('success','Comentario eliminado.')}
   const removeEvidence=async row=>{const {error:se}=await db.storage.from('jira-evidence').remove([row.storage_path]);if(se)throw se;const {error}=await db.from('sprint_attachments').delete().eq('id',row.id);if(error)throw error;await load();toast('success','Evidencia eliminada.')}
   const unlinked=attachments.filter(a=>!a.comment_id)
-  const sprintReviewCount=authoritativeCount(comments,detailCounts.comments)+authoritativeCount(attachments,detailCounts.attachments)
+  const sprintReviewCount=comments.length+unlinked.length
   return <><Modal title={sprint.name} subtitle={`${formatDate(sprint.start_date)} → ${formatDate(sprint.end_date)}`} onClose={onClose} size="xl"><div className="sprint-detail-layout"><div className="sprint-detail-main"><div className="sprint-detail-hero"><div><span className={`sprint-status ${sprint.status}`}>{sprint.status==='active'?'Activo':sprint.status==='completed'?'Completado':'Planeado'}</span><h3>{sprint.goal||'Sin objetivo definido'}</h3><p>{sprint.details||'Sin detalles adicionales.'}</p></div><div className="sprint-ring"><b>{pct}%</b><small>{done}/{rows.length} resueltos</small></div></div><div className="sprint-ticket-section"><div className="section-heading sprint-activity-heading"><div><h4>Actividades del sprint</h4><p>{unresolved} pendientes · {done} resueltas · {rows.length} de {allRows.length} actividades</p></div><label className="sprint-product-filter"><span>Producto</span><select value={productFilter} onChange={e=>setProductFilter(e.target.value)}><option value="all">Todos los productos ({allRows.length})</option>{sprintProductIds.map(id=>{const p=products.find(x=>x.id===id),count=allRows.filter(t=>t.product_id===id).length;return <option key={id} value={id}>{p?.name||'Producto'} ({count})</option>})}</select></label></div><div className="sprint-ticket-table sprint-ticket-scroll">{rows.length===0&&<div className="compact-empty"><Icon name="lucide:inbox"/><span>{productFilter==='all'?'Este sprint todavía no tiene tickets.':'No hay actividades de este producto en el sprint.'}</span></div>}{rows.map(t=>{const p=products.find(x=>x.id===t.product_id);return <div className="sprint-ticket-row" key={t.id}><button type="button" className="sprint-ticket-open" onClick={()=>onTicket(t)}><span><small>{t.ticket_key} · {p?.name||'Producto'}</small><b>{t.title}</b></span><StatusBadge status={t.status}/><time>{formatDate(t.due_date)}</time><Icon name="lucide:chevron-right"/></button>{canPlan&&sprint.status!=='completed'&&<button type="button" className="sprint-backlog-button" onClick={async()=>{try{await onBacklog(t)}catch(err){toast('error',err.message||String(err))}}} title="Mover a Backlog"><Icon name="lucide:undo-2"/><span>Backlog</span></button>}</div>})}</div></div><div className="sprint-review-section"><div className="section-heading"><div><h4>Comentarios y evidencias <em className="section-counter">{sprintReviewCount}</em></h4><p>Documenta revisión, rechazo, fixes y cierre del sprint.</p></div>{canWork&&<button type="button" className="primary compact" onClick={()=>setCommentModal({type:'create'})}><Icon name="lucide:paperclip"/> Agregar comentario / archivo</button>}</div><div className="comment-list sprint-comments-scroll">{comments.length===0&&unlinked.length===0&&<p className="muted">Sin comentarios ni evidencias del sprint.</p>}{comments.map(c=>{const author=members.find(m=>m.user_id===c.author_id)?.profile?.full_name||'Usuario',own=c.author_id===session.user.id,files=attachments.filter(a=>a.comment_id===c.id);return <div className="comment evidence-comment" key={c.id}><span className="mini-avatar">{initials(author)}</span><div className="comment-body"><div className="comment-head"><div><div className="comment-kind-row"><b>{author}</b><EvidenceKind kind={c.kind}/></div><small>{formatDateTime(c.created_at)}</small></div>{(own||canPlan)&&<button type="button" className="icon-button" onClick={()=>setCommentModal({type:'actions',comment:c,own})}><Icon name="lucide:ellipsis"/></button>}</div><p>{c.body}</p><EvidenceGallery rows={files} session={session} canManage={canPlan} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/></div></div>})}{unlinked.length>0&&<EvidenceGallery rows={unlinked} session={session} canManage={canPlan} onDelete={row=>setCommentModal({type:'delete-evidence',row})}/>}</div></div></div><aside className="sprint-detail-aside"><div className="sprint-side-stat"><span>Tickets visibles</span><b>{rows.length}<small> / {allRows.length}</small></b></div><div className="sprint-side-stat"><span>No resueltos</span><b>{unresolved}</b></div><div className="sprint-side-stat"><span>Story points</span><b>{rows.reduce((a,t)=>a+Number(t.story_points||0),0)}</b></div>{canPlan&&<><button type="button" className="secondary-button full" onClick={onEdit}><Icon name="lucide:pencil"/> Editar sprint</button>{sprint.status!=='completed'&&<button type="button" className="primary full" onClick={onRollover}><Icon name="lucide:arrow-right-circle"/> Cerrar / trasladar</button>}</>}</aside></div></Modal>
     {commentModal?.type==='create'&&<EvidenceCommentModal title="Comentario / evidencia del sprint" initial={{body:'',kind:'review'}} allowFiles onClose={()=>setCommentModal(null)} onSave={async data=>{await add(data);setCommentModal(null)}}/>}
     {commentModal?.type==='actions'&&<ActionSheet title="Comentario del sprint" onClose={()=>setCommentModal(null)} actions={[...(commentModal.own?[['lucide:pencil','Editar',()=>setCommentModal({type:'edit',comment:commentModal.comment})]]:[]),['lucide:trash-2','Eliminar',()=>setCommentModal({type:'delete',comment:commentModal.comment}),'danger']]}/>}
@@ -3429,11 +3425,11 @@ function HelpdeskModal({title,workspace,knowledgeArticles=[],locale='es',item,de
   </AsyncForm></Modal>
 }
 function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],products=[],members,session,canWork,canManage,canManageHelpdesk,liveRevision=0,onClose,onEdit,onDecision,onAssign,onStatusChange,onRefresh,toast}){
-  const [comments,setComments]=useState([]),[activity,setActivity]=useState([]),[attachments,setAttachments]=useState([]),[detailCounts,setDetailCounts]=useState({comments:0,activity:0,attachments:0}),[tab,setTab]=useState('comments'),[commentModal,setCommentModal]=useState(null),[workflowBusy,setWorkflowBusy]=useState(false)
+  const [comments,setComments]=useState([]),[activity,setActivity]=useState([]),[attachments,setAttachments]=useState([]),[tab,setTab]=useState('comments'),[commentModal,setCommentModal]=useState(null),[workflowBusy,setWorkflowBusy]=useState(false)
   const requirement=isProposalCategory(item.category)
   const requestType=requestTypes.find(x=>x.id===item.request_type_id)
   const product=products.find(x=>x.id===item.product_id)
-  const load=async()=>{const [c,a,e]=await Promise.all([db.from('helpdesk_comments').select('*',{count:'exact'}).eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*',{count:'exact'}).eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false}),db.from('helpdesk_attachments').select('*',{count:'exact'}).eq('helpdesk_ticket_id',item.id).order('created_at')]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[]);if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]));setDetailCounts({comments:Math.max(Number(c.count||0),(c.data||[]).length),activity:Math.max(Number(a.count||0),(a.data||[]).length),attachments:Math.max(Number(e.count||0),(e.data||[]).length)})}
+  const load=async()=>{const [c,a,e]=await Promise.all([db.from('helpdesk_comments').select('*',{count:'exact'}).eq('helpdesk_ticket_id',item.id).order('created_at'),db.from('helpdesk_activity').select('*',{count:'exact'}).eq('helpdesk_ticket_id',item.id).order('created_at',{ascending:false}),db.from('helpdesk_attachments').select('*',{count:'exact'}).eq('helpdesk_ticket_id',item.id).order('created_at')]);if(c.error)toast('error',c.error.message);else setComments(c.data||[]);if(a.error)toast('error',a.error.message);else setActivity(a.data||[]);if(e.error)toast('error',e.error.message);else setAttachments(await signedEvidenceRows(e.data||[]))}
   useEffect(()=>{load()},[item.id,liveRevision])
   useResilientLiveRefresh(load,`helpdesk:${item.id}`,30000)
   const runStatus=async status=>{setWorkflowBusy(true);try{await onStatusChange?.(status);await load()}catch(err){toast('error',err.message||String(err))}finally{setWorkflowBusy(false)}}
@@ -3455,8 +3451,8 @@ function HelpdeskDetailModal({workspace,item,departments,requestTypes=[],product
   const managerCanClose=canManageHelpdesk&&!requirement&&status==='attended'
   const activityTitle=a=>a.action==='created'?'Solicitud creada':a.action==='status_changed'?'Cambio de estado':a.action==='assigned'?'Asignación':a.action==='requirement_decision'?'Decisión del requerimiento':'Actividad'
   const activityPerson=id=>members.find(m=>m.user_id===id)?.profile?.full_name||members.find(m=>m.user_id===id)?.profile?.email||(id?'Usuario':'Sin asignar')
-  const commentCount=authoritativeCount(comments,detailCounts.comments)
-  const followupCount=authoritativeCount(activity,detailCounts.activity)
+  const commentCount=comments.length
+  const followupCount=activity.length
   const activityValue=a=>a.action==='status_changed'?`${helpStatusLabel(a.from_value)} → ${helpStatusLabel(a.to_value)}`:a.action==='assigned'?(a.from_value?`${activityPerson(a.from_value)} → ${activityPerson(a.to_value)}`:`Asignado a → ${activityPerson(a.to_value)}`):a.action==='requirement_decision'?(a.to_value?.startsWith('accepted_backlog')?'Aceptado a Backlog':'Sugerencia rechazada'):a.action==='created'?'Solicitud creada':(a.to_value||'—')
   return <><Modal title={`${item.ticket_key} · ${item.subject}`} subtitle={`${dep?.name||'Helpdesk'} · ${requestType?.name||helpCategoryLabel(item.category)}`} onClose={onClose} size="xl"><div className="detail-grid helpdesk-detail-grid"><div className="detail-main helpdesk-detail-main">
     {requirement?<div className="requirement-detail-hero"><div><span className="eyebrow">NUEVO REQUERIMIENTO</span><h3>{requirementStatusLabel(item.proposal_status)}</h3><p>{item.proposal_status==='pending'?'Pendiente de evaluación por PM/Admin/Superadmin.':item.proposal_status==='accepted_backlog'?`Aceptado para desarrollo futuro${item.converted_ticket_key?` como ${item.converted_ticket_key}`:''}.`:'La sugerencia fue descartada y devuelta al solicitante.'}</p></div><RequirementBadge status={item.proposal_status}/>{item.decision_note&&<div className="decision-note"><b>Nota de decisión</b><p>{item.decision_note}</p></div>}</div>:<div className="helpdesk-detail-progress"><div className="request-stepper">{order.map((st,i)=><div key={st} className={`${i<current?'done':''} ${i===current?'current':''}`}><i>{i<current?<Icon name="lucide:check" size={12}/>:i+1}</i><span>{helpStatusLabel(st)}</span></div>)}</div></div>}
