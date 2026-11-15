@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.16.0",
-  "description": "Jira Interno TROBBU v17.16.0 - live Knowledge rich-text editing, lossless links/formatting and full block regression QA",
+  "version": "17.17.0",
+  "description": "Jira Interno TROBBU v17.17.0 - Knowledge editor selection bookmarks, non-duplicating links and full block QA",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.16.mjs"
+    "qa": "node qa-v17.17.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"

@@ -1,0 +1,4 @@
+LINK_FLOW {"textPreserved": true, "anchorCount": 1, "anchorText": "Panel Administrativo", "href": "https://principal.trobbu.com/admin", "continuedText": true, "linkPreservedAfterTyping": true, "noDuplicate": true, "html": "<p>Para acceder al Panel Administrativo Trobbu tenemos que acceder al siguiente enlace <a href=\"https://principal.trobbu.com/admin\" target=\"_blank\" rel=\"noopener noreferrer\">Panel Administrativo</a> y después seguir escribiendo, que nos llevará al login y luego podremos continuar editando.</p>"}
+LINK_FLOW_PASS True
+BLOCK_ROUNDTRIP {"count": 12, "types": ["cover", "richtext", "heading1", "heading5", "list", "quote", "callout", "code", "image", "video", "divider", "pagebreak"], "linkPreserved": true, "strongPreserved": true, "stylePreserved": true, "imageAlign": "wide", "calloutTone": "warning"}
+BLOCK_ROUNDTRIP_PASS True

@@ -1,4 +1,4 @@
-/* Jira Interno TROBBU v17.16.0 · live Knowledge rich-text editor, lossless formatting and block QA hardening */
+/* Jira Interno TROBBU v17.17.0 · Knowledge editor selection bookmarks, non-duplicating links and block regression hardening */
 const { useEffect, useMemo, useState, useRef } = React
 
 const cfg = window.JIRA_CONFIG || {}
@@ -587,7 +587,7 @@ Object.assign(UI_TRANSLATIONS_EN,{
   'El texto se eliminará. Los archivos adjuntos quedarán conservados en el historial de la solicitud.':'The text will be deleted. Attachments will remain in the request history.'
 })
 
-const BUILD_VERSION='17.16.0'
+const BUILD_VERSION='17.17.0'
 try{document.documentElement.dataset.appVersion=BUILD_VERSION}catch{}
 const I18N_TEXT_ORIGINAL = new WeakMap()
 const I18N_ATTR_ORIGINAL = new WeakMap()
@@ -2462,10 +2462,36 @@ function knowledgeInsertHtmlRange(root,range,htmlValue){
   if(!root||!range||!htmlValue)return range||null
   range.deleteContents();const fragment=range.createContextualFragment(htmlValue),last=fragment.lastChild;range.insertNode(fragment);const next=document.createRange();if(last){next.setStartAfter(last);next.collapse(true)}else{next.selectNodeContents(root);next.collapse(false)}return next
 }
+function knowledgeRangeInside(root,range){return !!(root&&range&&(root===range.commonAncestorContainer||root.contains(range.commonAncestorContainer)))}
+function knowledgeNodePath(root,node){
+  if(!root||!node||!(root===node||root.contains(node)))return null
+  const path=[];let current=node
+  while(current&&current!==root){const parent=current.parentNode;if(!parent)return null;const index=[...parent.childNodes].indexOf(current);if(index<0)return null;path.unshift(index);current=parent}
+  return current===root?path:null
+}
+function knowledgeNodeFromPath(root,path){
+  let node=root
+  for(const index of path||[]){if(!node?.childNodes||index<0||index>=node.childNodes.length)return null;node=node.childNodes[index]}
+  return node
+}
+function knowledgeClampOffset(node,offset){const max=node?.nodeType===3?String(node.nodeValue||'').length:(node?.childNodes?.length||0);return Math.max(0,Math.min(Number(offset)||0,max))}
+function knowledgeBookmarkFromRange(root,range){
+  if(!knowledgeRangeInside(root,range))return null
+  const startPath=knowledgeNodePath(root,range.startContainer),endPath=knowledgeNodePath(root,range.endContainer)
+  if(!startPath||!endPath)return null
+  return {startPath,startOffset:range.startOffset,endPath,endOffset:range.endOffset,collapsed:range.collapsed,text:range.toString()}
+}
+function knowledgeRangeFromBookmark(root,bookmark){
+  if(!root||!bookmark)return null
+  const start=knowledgeNodeFromPath(root,bookmark.startPath),end=knowledgeNodeFromPath(root,bookmark.endPath)
+  if(!start||!end)return null
+  try{const range=document.createRange();range.setStart(start,knowledgeClampOffset(start,bookmark.startOffset));range.setEnd(end,knowledgeClampOffset(end,bookmark.endOffset));return range}catch{return null}
+}
+function knowledgeVisibleTextSnapshot(root){return String(root?.textContent||'')}
 
 function KnowledgeRichTextEditor({html,onChange,onLiveInput,lineHeight='1.5',onLineHeightChange}){
-  const hostRef=useRef(null),surfaceRef=useRef(null),rangeRef=useRef(null),draftHtmlRef=useRef(String(html||'')),statsRef=useRef(null),onChangeRef=useRef(onChange),onLiveInputRef=useRef(onLiveInput)
-  const [showLink,setShowLink]=useState(false),[linkUrl,setLinkUrl]=useState('https://')
+  const hostRef=useRef(null),surfaceRef=useRef(null),rangeRef=useRef(null),bookmarkRef=useRef(null),draftHtmlRef=useRef(String(html||'')),statsRef=useRef(null),onChangeRef=useRef(onChange),onLiveInputRef=useRef(onLiveInput)
+  const [showLink,setShowLink]=useState(false),[linkUrl,setLinkUrl]=useState('https://'),[linkError,setLinkError]=useState('')
   onChangeRef.current=onChange;onLiveInputRef.current=onLiveInput
   const updateStats=value=>{const text=stripKnowledgeHtml(value),words=text?text.split(/\s+/).filter(Boolean).length:0;if(statsRef.current)statsRef.current.textContent=`${words} palabras · ${text.length} caracteres`}
   const surface=()=>surfaceRef.current
@@ -2475,14 +2501,14 @@ function KnowledgeRichTextEditor({html,onChange,onLiveInput,lineHeight='1.5',onL
   const setEmptyState=el=>{if(el)el.dataset.empty=isEmpty(el.innerHTML)?'true':'false'}
   const placeCaretAtStart=el=>{if(!el)return;let target=el.querySelector('p,div,h1,h2,h3,h4,h5,li')||el;if(target===el&&!el.firstChild){const p=document.createElement('p');p.appendChild(document.createElement('br'));el.appendChild(p);target=p}const sel=window.getSelection?.();if(!sel)return;try{const range=document.createRange();range.selectNodeContents(target);range.collapse(true);sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange()}catch{}}
   const ensureScaffold=(placeCaret=false)=>{const el=surface();if(!el)return;if(isEmpty(el.innerHTML)){if(!(el.children.length===1&&el.firstElementChild?.tagName==='P'))el.innerHTML='<p><br></p>';else if(!el.firstElementChild.innerHTML.trim())el.firstElementChild.innerHTML='<br>';el.dataset.empty='true';if(placeCaret)placeCaretAtStart(el)}else el.dataset.empty='false'}
-  const saveSelection=()=>{const sel=window.getSelection?.(),el=surface();if(!sel||!sel.rangeCount||!el)return;const range=sel.getRangeAt(0);if(el.contains(range.commonAncestorContainer))rangeRef.current=range.cloneRange()}
-  const restoreSelection=()=>{const el=surface();if(!el)return null;el.focus({preventScroll:true});if(!rangeRef.current){ensureScaffold(true);return rangeRef.current}const sel=window.getSelection?.();if(!sel)return null;try{sel.removeAllRanges();sel.addRange(rangeRef.current);return rangeRef.current}catch{rangeRef.current=null;ensureScaffold(true);return rangeRef.current}}
+  const saveSelection=()=>{const sel=window.getSelection?.(),el=surface();if(!sel||!sel.rangeCount||!el)return;const range=sel.getRangeAt(0);if(knowledgeRangeInside(el,range)){rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range)}}
+  const restoreSelection=()=>{const el=surface();if(!el)return null;el.focus({preventScroll:true});let range=knowledgeRangeFromBookmark(el,bookmarkRef.current);if(!range&&rangeRef.current&&knowledgeRangeInside(el,rangeRef.current))range=rangeRef.current.cloneRange();if(!range){ensureScaffold(true);range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||rangeRef.current}const sel=window.getSelection?.();if(!sel||!range)return range||null;try{sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range);return range}catch{rangeRef.current=null;bookmarkRef.current=null;ensureScaffold(true);return rangeRef.current}}
   const readSurface=()=>surface()?.innerHTML??draftHtmlRef.current??''
   const normalizeEditorHtml=value=>{const clean=sanitizeKnowledgeHtml(value);return isEmpty(clean)?'':clean}
   const syncLive=value=>{draftHtmlRef.current=value;onLiveInputRef.current?.(value);updateStats(value)}
   const commit=(forceDom=false)=>{const el=surface(),clean=normalizeEditorHtml(readSurface());draftHtmlRef.current=clean;if(forceDom&&el){const next=clean||'<p><br></p>';if(el.innerHTML!==next)el.innerHTML=next;setEmptyState(el)}onLiveInputRef.current?.(clean);onChangeRef.current?.(clean);updateStats(clean);saveSelection();return clean}
   const normalizeLink=value=>{const url=String(value||'').trim();return /^(https?:\/\/|mailto:|tel:)/i.test(url)?url:''}
-  const setCurrentRange=range=>{const sel=window.getSelection?.();if(!sel||!range)return;try{sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange()}catch{}}
+  const setCurrentRange=range=>{const sel=window.getSelection?.(),el=surface();if(!sel||!range||!el)return;try{sel.removeAllRanges();sel.addRange(range);rangeRef.current=range.cloneRange();bookmarkRef.current=knowledgeBookmarkFromRange(el,range)}catch{}}
   const insertHtmlAtSelection=htmlValue=>{const el=surface();if(!el)return;const range=restoreSelection();if(!range)return;const clean=sanitizeKnowledgeHtml(htmlValue);if(!clean)return;const next=knowledgeInsertHtmlRange(el,range,clean);setCurrentRange(next);syncLive(normalizeEditorHtml(el.innerHTML));setEmptyState(el)}
   useEffect(()=>{
     const host=hostRef.current;if(!host)return
@@ -2500,9 +2526,9 @@ function KnowledgeRichTextEditor({html,onChange,onLiveInput,lineHeight='1.5',onL
   useEffect(()=>{const el=surface(),next=normalizeEditorHtml(String(html||''));if(el&&editorHasFocus())return;draftHtmlRef.current=next;if(el){const dom=next||'<p><br></p>';if(el.innerHTML!==dom)el.innerHTML=dom;setEmptyState(el);updateStats(next)}},[html])
   useEffect(()=>{const el=surface();if(el)el.style.lineHeight=String(lineHeight||'1.5')},[lineHeight])
   const command=(cmd,value=null)=>{const el=surface();if(!el)return;restoreSelection();let ok=false;try{ok=document.execCommand(cmd,false,value)}catch{}if(!ok&&cmd==='formatBlock'){try{document.execCommand(cmd,false,`<${String(value).replace(/[<>]/g,'')}>`)}catch{}}saveSelection();commit(false)}
-  const openLinkEditor=()=>{saveSelection();const range=rangeRef.current,existing=knowledgeAnchorForRange(surface(),range);setLinkUrl(existing?.getAttribute('href')||'https://');setShowLink(true)}
-  const applyLink=()=>{const url=normalizeLink(linkUrl),el=surface();if(!url||!el)return;const range=restoreSelection();if(!range)return;const next=knowledgeApplyLinkRange(el,range,url);setCurrentRange(next);commit(false);setShowLink(false)}
-  const removeLink=()=>{const el=surface();if(!el)return;const range=restoreSelection();if(!range)return;const removed=knowledgeRemoveLinkRange(el,range);if(removed.changed){setCurrentRange(removed.range);commit(false);return}command('unlink')}
+  const openLinkEditor=()=>{saveSelection();const el=surface(),range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||rangeRef.current,existing=knowledgeAnchorForRange(el,range);setLinkError('');setLinkUrl(existing?.getAttribute('href')||'https://');setShowLink(true)}
+  const applyLink=()=>{const url=normalizeLink(linkUrl),el=surface();if(!el)return;if(!url){setLinkError('Usa una URL https://, mailto: o tel: válida.');return}const range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||restoreSelection();if(!range){setLinkError('Vuelve a seleccionar el texto que deseas enlazar.');return}const beforeHtml=el.innerHTML,beforeText=knowledgeVisibleTextSnapshot(el),selectedText=range.toString();const next=knowledgeApplyLinkRange(el,range,url),afterText=knowledgeVisibleTextSnapshot(el);if(!range.collapsed&&beforeText!==afterText){el.innerHTML=beforeHtml;setEmptyState(el);rangeRef.current=null;bookmarkRef.current=null;setLinkError('No se aplicó el enlace porque la selección cambió. Vuelve a seleccionar el texto.');return}setCurrentRange(next);const clean=normalizeEditorHtml(el.innerHTML);syncLive(clean);onChangeRef.current?.(clean);updateStats(clean);setLinkError('');setShowLink(false)}
+  const removeLink=()=>{const el=surface();if(!el)return;const range=knowledgeRangeFromBookmark(el,bookmarkRef.current)||restoreSelection();if(!range)return;const removed=knowledgeRemoveLinkRange(el,range);if(removed.changed){setCurrentRange(removed.range);commit(false);return}command('unlink')}
   const preserveSelection=e=>{e?.preventDefault?.();saveSelection()}
   return <div className="knowledge-rich-editor knowledge-rich-editor-live">
     <div className="knowledge-rich-livebar"><span><Icon name="lucide:sparkles"/><b>Edición enriquecida en vivo</b><small>Escribe y aplica estilos, fuentes y enlaces sin cambiar de modo ni perder formato.</small></span></div>
@@ -2518,7 +2544,7 @@ function KnowledgeRichTextEditor({html,onChange,onLiveInput,lineHeight='1.5',onL
       <button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyLeft')} title="Alinear izquierda"><Icon name="lucide:align-left"/></button><button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyCenter')} title="Centrar"><Icon name="lucide:align-center"/></button><button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyRight')} title="Alinear derecha"><Icon name="lucide:align-right"/></button><button type="button" onMouseDown={preserveSelection} onClick={()=>command('justifyFull')} title="Justificar"><Icon name="lucide:align-justify"/></button><span className="knowledge-toolbar-separator"></span>
       <button type="button" className={showLink?'active':''} onMouseDown={preserveSelection} onClick={openLinkEditor} title="Insertar o editar enlace"><Icon name="lucide:link"/></button><button type="button" onMouseDown={preserveSelection} onClick={removeLink} title="Quitar enlace"><Icon name="lucide:unlink"/></button><button type="button" onMouseDown={preserveSelection} onClick={()=>command('removeFormat')} title="Limpiar formato"><Icon name="lucide:remove-formatting"/></button>
     </div>
-    {showLink&&<div className="knowledge-link-editor"><Icon name="lucide:link"/><input type="url" value={linkUrl} onChange={e=>setLinkUrl(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();applyLink()}if(e.key==='Escape'){e.preventDefault();setShowLink(false)}}} placeholder="https://..."/><button type="button" className="primary compact" onMouseDown={preserveSelection} onClick={applyLink}>Aplicar enlace</button><button type="button" className="icon-button" onClick={()=>setShowLink(false)}><Icon name="lucide:x"/></button></div>}
+    {showLink&&<div className="knowledge-link-editor"><Icon name="lucide:link"/><input autoFocus type="url" value={linkUrl} onChange={e=>{setLinkUrl(e.target.value);setLinkError('')}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();applyLink()}if(e.key==='Escape'){e.preventDefault();setShowLink(false);setLinkError('')}}} placeholder="https://..."/><button type="button" className="primary compact" onMouseDown={preserveSelection} onClick={applyLink}>Aplicar enlace</button><button type="button" className="icon-button" onClick={()=>{setShowLink(false);setLinkError('')}}><Icon name="lucide:x"/></button>{linkError&&<small className="knowledge-link-error">{linkError}</small>}</div>}
     <div ref={hostRef} className="knowledge-rich-surface-host"></div>
     <div className="knowledge-rich-footer"><label>Interlineado:<select value={String(lineHeight||'1.5')} onMouseDown={saveSelection} onChange={e=>{commit(false);onLineHeightChange?.(e.target.value)}}><option value="1">Sencillo</option><option value="1.15">1.15</option><option value="1.3">1.3</option><option value="1.5">Normal · 1.5</option><option value="1.75">1.75</option><option value="2">Doble</option></select></label><span ref={statsRef}>0 palabras · 0 caracteres</span></div>
   </div>
