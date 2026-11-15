@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.11.0",
-  "description": "Jira Interno TROBBU v17.11.0 - scoped mentions, guarded SendPulse production, optimistic live UX, closed signup and dark-mode contrast hardening",
+  "version": "17.12.0",
+  "description": "Jira Interno TROBBU v17.12.0 - deterministic visible counters, attachment previews, pulse workflow, Gantt/Kanban contrast and responsive mentions",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.11.mjs"
+    "qa": "node qa-v17.12.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
