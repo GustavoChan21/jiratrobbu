@@ -1,6 +1,6 @@
-# Jira Interno TROBBU v17.14.0
+# Jira Interno TROBBU v17.15.0
 
-## v17.14.0
+## v17.15.0
 
 Counters de detalle determinísticos basados en las filas renderizadas y preview de adjuntos centrado al 90% del viewport.
 
