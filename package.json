@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.15.0",
-  "description": "Jira Interno TROBBU v17.15.0 - single-source counters, dynamic vacation labels, centered attachment carousel and cache-isolated assets",
+  "version": "17.16.0",
+  "description": "Jira Interno TROBBU v17.16.0 - live Knowledge rich-text editing, lossless links/formatting and full block regression QA",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.15.mjs"
+    "qa": "node qa-v17.16.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
