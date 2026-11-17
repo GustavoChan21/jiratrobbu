@@ -41,9 +41,11 @@ Deno.serve(async(req:Request)=>{
       const jobTitle=String(body.job_title||"").trim();
       if(!email||!email.includes("@"))throw new Error("Ingresa un correo válido.");
       if(fullName.length>160||jobTitle.length>160)throw new Error("Nombre o puesto demasiado largo.");
-      const {data:authUser,error:authError}=await admin.auth.admin.updateUserById(targetUserId,{email,email_confirm:true,user_metadata:{full_name:fullName||null}});
+      const {data:currentAuth}=await admin.auth.admin.getUserById(targetUserId);
+      const currentMeta=currentAuth?.user?.user_metadata||{};
+      const {data:authUser,error:authError}=await admin.auth.admin.updateUserById(targetUserId,{email,email_confirm:true,user_metadata:{...currentMeta,full_name:fullName||null}});
       if(authError)throw authError;
-      const {error:profileError}=await admin.from("profiles").update({full_name:fullName||null,job_title:jobTitle||null,updated_at:new Date().toISOString()}).eq("id",targetUserId);
+      const {error:profileError}=await admin.from("profiles").update({email,full_name:fullName||null,job_title:jobTitle||null,updated_at:new Date().toISOString()}).eq("id",targetUserId);
       if(profileError)throw profileError;
       return new Response(JSON.stringify({ok:true,user_id:targetUserId,email:authUser.user?.email||email,full_name:fullName,job_title:jobTitle}),{headers:{...cors,"Content-Type":"application/json"}});
     }
@@ -63,7 +65,7 @@ Deno.serve(async(req:Request)=>{
     }
     throw new Error("Unsupported action");
   }catch(error){
-    const message=error instanceof Error?error.message:"Unknown error";
+    const message=error instanceof Error?error.message:String((error as any)?.message||(error as any)?.error||error||"Unknown error");
     console.error("manage-member:",message);
     return new Response(JSON.stringify({error:message}),{status:400,headers:{...cors,"Content-Type":"application/json"}});
   }

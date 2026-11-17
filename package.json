@@ -1,11 +1,11 @@
 {
   "name": "jira-interno-trobbu-github-pages",
   "private": true,
-  "version": "17.18.1",
-  "description": "Jira Interno TROBBU v17.18.1 - detailed Superadmin audit UI and Knowledge action trace",
+  "version": "17.19.0",
+  "description": "Jira Interno TROBBU v17.19.0 - realtime integrity, audit filters, vacations, Helpdesk and mentions stabilization",
   "scripts": {
     "serve": "python3 -m http.server 8080",
-    "qa": "node qa-v17.18.1.mjs"
+    "qa": "node qa-v17.19.0.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.1.0"
