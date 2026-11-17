@@ -1,0 +1,42 @@
+PASS  Package version 17.21.0
+PASS  Index loads isolated 17.21 app/css
+PASS  Generic app/css copies match versioned build
+PASS  App TypeScript/JSX parses
+PASS  manage-member TypeScript parses
+PASS  process-notifications TypeScript parses
+PASS  No merge markers
+PASS  CSS braces balanced
+PASS  No historical UI function was lost in refactor
+PASS  Restored StaffRolesView
+PASS  Restored SettingsView
+PASS  Restored WorkspaceSettings
+PASS  Restored HelpdeskSettings
+PASS  Restored NotificationSettings
+PASS  Restored Toggle
+PASS  Restored EntitySettings
+PASS  Staff route renders restored view
+PASS  Staff edit uses atomic Edge action
+PASS  Staff remove uses atomic Edge action
+PASS  Staff payload includes profile fields
+PASS  Staff Edge snapshots all mutable membership fields
+PASS  Staff Edge validates workspace products
+PASS  Staff remove relies on FK cascade atomically
+PASS  Audit tabs reuse standard tabs UI
+PASS  Audit date context has dedicated layout
+PASS  Audit tabs light/dark styles exist
+PASS  Out Today no longer uses modal-secondary footer
+PASS  Out Today body has padding
+PASS  Out Today dark/mobile adaptations exist
+PASS  Email alias exact latest wording
+PASS  Email PROD migration disables QA
+PASS  Email PROD uses devtest sender during SMTP Test
+PASS  SMTP Test production delivery allowed
+PASS  SMTP Test hourly cap is 10
+PASS  SMTP Test total cap tracked
+PASS  Canonical folio threading remains
+PASS  QA banner remains conditional
+PASS  Notification UI reports PROD/SMTP Test honestly
+PASS  database.sql ends with v17.21 migration
+PASS  Upgrade SQL transaction balanced
+
+40 passed · 0 failed

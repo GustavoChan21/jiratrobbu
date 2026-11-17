@@ -1,0 +1,41 @@
+PASS  Package version 17.20.0
+PASS  Index cache-busts 17.20 app/css
+PASS  App release marker 17.20.0
+PASS  Generic app/css copies match versioned build
+PASS  No merge markers
+PASS  CSS braces balanced
+PASS  Upgrade SQL transaction balanced
+PASS  database.sql ends with v17.20 migration
+PASS  Exact sender alias is configured in processor
+PASS  Exact sender alias is new DB default
+PASS  QA setup docs use exact sender alias
+PASS  Migration never disables QA mode
+PASS  Email event policy remains low-noise
+PASS  No mention email event added
+PASS  Helpdesk subject is canonical per folio
+PASS  Jira subject is canonical per folio
+PASS  Action labels moved into body
+PASS  Title changes do not drive Helpdesk/Jira thread subject
+PASS  QA banner is conditional
+PASS  Old fixed QA recipient display name removed
+PASS  Recipient profile name is loaded
+PASS  Support email can populate Reply-To
+PASS  Processor does not fake RFC threading headers
+PASS  Processor declares canonical subject mode
+PASS  Production sender hard gate retained
+PASS  SMTP Test sender is detected
+PASS  QA physical recipient gate retained
+PASS  QA hourly limit retained
+PASS  General 45/hour safety default retained
+PASS  Monthly 11k safety default retained
+PASS  Daily reminder yields to transactional quota
+PASS  process-notifications TypeScript parses
+PASS  Production readiness explicitly remains QA
+PASS  Realtime wildcard remains present
+PASS  Audit exact metric RPC remains present
+PASS  Vacation workday calculation remains present
+PASS  Helpdesk multi filters remain present
+PASS  Helpdesk-only mentions remain visible
+PASS  DB final notification policy still limits email events
+
+39 passed · 0 failed
