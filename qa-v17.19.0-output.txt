@@ -1,0 +1,57 @@
+PASS  Package version 17.19.0
+PASS  Index loads isolated 17.19 app/css
+PASS  App release marker 17.19.0
+PASS  No merge markers
+PASS  CSS braces balanced
+PASS  Upgrade SQL dollar quotes balanced
+PASS  database.sql ends with v17.19 migration
+PASS  Audit starts date range at today
+PASS  Audit allows prior date ranges and reset today
+PASS  Audit counter uses exact DB RPC not array length
+PASS  Audit paging avoids first 1000 truncation
+PASS  Audit realtime listens to sessions and actions
+PASS  Audit Spanish action translations expanded
+PASS  Audit values translate statuses/booleans
+PASS  Audit activity opens detailed modal
+PASS  Audit detail responsive/dark UI exists
+PASS  Audit metric RPC restricted to Superadmin
+PASS  Global realtime uses event wildcard
+PASS  Detail tables trigger immediate reconciliation
+PASS  Primary realtime reconciliation retained as safety net
+PASS  Realtime resume on focus/online/visibility
+PASS  Critical new flow tables use replica identity full
+PASS  Staff Auth email update preserved metadata
+PASS  Staff profile email is synchronized
+PASS  Staff modal persists current routing fields
+PASS  Staff edge errors no longer collapse to Unknown error
+PASS  Vacation business-day helper exists
+PASS  Vacation request units exclude weekends in UI
+PASS  Vacation DB units exclude weekends
+PASS  Vacation guard rejects weekend-only block
+PASS  Vacation pending request can be edited by requester
+PASS  Vacation edit resets AI through DB guard
+PASS  Vacation return date defaults to next workday
+PASS  Fuera hoy excludes weekend-only presence
+PASS  Fuera hoy header opens modal
+PASS  Historical vacation totals backfilled safely
+PASS  Vacation AI uses workday duration
+PASS  Vacation AI validates dependent query errors
+PASS  Vacation AI robust error formatter removes opaque unknown errors
+PASS  Vacation AI retains deterministic fallback
+PASS  Vacation AI legacy recommendation is mapped safely
+PASS  Helpdesk filter state uses arrays
+PASS  Helpdesk matching supports multiple status/priority/assignee
+PASS  Helpdesk multi option modal uses checkbox fields
+PASS  Helpdesk filters OR within a column
+PASS  Helpdesk multi filter responsive/dark styles exist
+PASS  Mention module visible for helpdesk-only desktop
+PASS  Mention view separates mentions and requested tickets
+PASS  Mentions RLS allows own mentions regardless of role
+PASS  Mention tables remain realtime
+PASS  Every frontend table reference exists in database.sql
+PASS  Every frontend table reference has RLS enabled
+PASS  Current Staff Helpdesk columns exist in DB
+PASS  Vacation current fields exist in DB
+PASS  Generic app/css copies match versioned build
+
+55 passed · 0 failed

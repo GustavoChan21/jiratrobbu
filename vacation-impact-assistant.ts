@@ -6,6 +6,8 @@ const jsonHeaders={...cors,"Content-Type":"application/json"};
 type Block={start_date:string;end_date:string;return_date?:string};
 const dayMs=86400000;
 const days=(a:string,b:string)=>Math.max(1,Math.round((new Date(`${b}T12:00:00Z`).getTime()-new Date(`${a}T12:00:00Z`).getTime())/dayMs)+1);
+const businessDays=(a:string,b:string)=>{let count=0,cursor=new Date(`${a}T12:00:00Z`),last=new Date(`${b}T12:00:00Z`);while(cursor<=last){const d=cursor.getUTCDay();if(d!==0&&d!==6)count++;cursor=new Date(cursor.getTime()+dayMs)}return count};
+const errMessage=(error:any)=>error instanceof Error?error.message:String(error?.message||error?.error||error?.details||error||'Unknown error');
 const overlaps=(a:{start_date:string,end_date:string},b:{start_date:string,end_date:string})=>a.start_date<=b.end_date&&a.end_date>=b.start_date;
 const blocksFor=(v:any):Block[]=>{
   const raw=Array.isArray(v?.date_blocks)?v.date_blocks:[];
@@ -44,13 +46,15 @@ Deno.serve(async(req:Request)=>{
     const blocks=blocksFor(vac);if(!blocks.length)throw new Error('Vacation request has no valid date blocks');
     const start=[...blocks].sort((a,b)=>a.start_date.localeCompare(b.start_date))[0].start_date;
     const end=[...blocks].sort((a,b)=>b.end_date.localeCompare(a.end_date))[0].end_date;
-    const [{data:profile},{data:type},{data:sprintRows},{data:ticketRows},{data:absenceRows}]=await Promise.all([
+    const [profileRes,typeRes,sprintRes,ticketRes,absenceRes]=await Promise.all([
       admin.from('profiles').select('full_name,email,job_title').eq('id',vac.user_id).maybeSingle(),
       vac.vacation_type_id?admin.from('vacation_types').select('name,code,deducts_from_balance,day_fraction').eq('id',vac.vacation_type_id).maybeSingle():Promise.resolve({data:null}),
       admin.from('sprints').select('id,name,status,start_date,end_date,goal').eq('workspace_id',vac.workspace_id).lte('start_date',end).gte('end_date',start).in('status',['active','planned']),
       admin.from('tickets').select('id,ticket_key,title,status,story_points,priority,start_date,due_date,sprint_id,dev_owner_id,qa_owner_id').eq('workspace_id',vac.workspace_id).or(`dev_owner_id.eq.${vac.user_id},qa_owner_id.eq.${vac.user_id}`).neq('status','closed'),
       admin.from('vacation_requests').select('id,user_id,start_date,end_date,date_blocks,status').eq('workspace_id',vac.workspace_id).eq('status','approved').neq('id',vac.id).lte('start_date',end).gte('end_date',start)
     ]);
+    for(const [label,res] of [['perfil',profileRes],['tipo de ausencia',typeRes],['sprints',sprintRes],['tickets',ticketRes],['ausencias simultáneas',absenceRes]] as const){if((res as any)?.error)throw new Error(`No se pudo consultar ${label}: ${errMessage((res as any).error)}`)}
+    const profile=(profileRes as any)?.data||null,type=(typeRes as any)?.data||null,sprintRows=(sprintRes as any)?.data||[],ticketRows=(ticketRes as any)?.data||[],absenceRows=(absenceRes as any)?.data||[];
     const sprints=(sprintRows||[]).filter((s:any)=>blocks.some(b=>overlaps({start_date:s.start_date,end_date:s.end_date},b)));
     const sprintIds=new Set(sprints.map((s:any)=>s.id));
     const affected=(ticketRows||[]).filter((t:any)=>t.sprint_id&&sprintIds.has(t.sprint_id)||blocks.some(b=>overlaps({start_date:t.start_date||t.due_date||b.start_date,end_date:t.due_date||t.start_date||b.end_date},b)));
@@ -58,7 +62,7 @@ Deno.serve(async(req:Request)=>{
     const storyPoints=affected.reduce((n:number,t:any)=>n+Number(t.story_points||0),0);
     const inProgress=affected.filter((t:any)=>['in_progress','dev_done','qa_review','qa_rejected'].includes(t.status)).length;
     const blockers=affected.filter((t:any)=>['blocker','highest'].includes(String(t.priority||'').toLowerCase())).length;
-    const duration=Number(vac.absence_days||0)||blocks.reduce((n,b)=>n+days(b.start_date,b.end_date),0);
+    const duration=blocks.reduce((n,b)=>n+businessDays(b.start_date,b.end_date),0)||Number(vac.absence_days||0)||blocks.reduce((n,b)=>n+days(b.start_date,b.end_date),0);
     let score=Math.min(4,affected.length)*12+Math.min(12,storyPoints)*2+inProgress*8+blockers*15+Math.min(3,simultaneous.length)*8+(duration>=5?12:duration>=3?6:0);
     const localRisk=score>=70?'critical':score>=48?'high':score>=24?'medium':'low';
     let result:any={risk:localRisk,recommendation:localRisk==='critical'?'decline':localRisk==='high'?'review':localRisk==='medium'?'approve_with_conditions':'approve',summary:affected.length?`${type?.name||'Ausencia'} de ${duration} día(s): ${affected.length} entregable(s), ${storyPoints} story points y ${inProgress} actividad(es) en curso coinciden con la ausencia.`:`No se detectaron entregables abiertos del integrante dentro de los bloques solicitados.`,reasons:[],mitigations:[]};
@@ -83,5 +87,5 @@ Deno.serve(async(req:Request)=>{
     const {error:saveError}=await admin.from('vacation_requests').update({ai_risk:result.risk,ai_recommendation:result.recommendation,ai_summary:String(result.summary||'').slice(0,2000),ai_analysis:analysis,ai_analyzed_at:analyzedAt}).eq('id',vac.id);
     if(saveError)throw saveError;
     return new Response(JSON.stringify({ok:true,analysis,analyzed_at:analyzedAt}),{headers:jsonHeaders});
-  }catch(error){const message=error instanceof Error?error.message:'Unknown error';console.error('vacation-impact-assistant:',message);return new Response(JSON.stringify({error:message}),{status:400,headers:jsonHeaders})}
+  }catch(error){const message=errMessage(error);console.error('vacation-impact-assistant:',message);return new Response(JSON.stringify({error:message}),{status:400,headers:jsonHeaders})}
 });

@@ -1,23 +1,29 @@
 # Jira Interno TROBBU
 
-Versión actual: **v17.18.0**
+Versión actual: **v17.19.0**
 
 ## Cambios principales
 
-- Knowledge: editor enriquecido de bloque Texto aislado del DOM de React para estabilizar caret, selección, escritura y links.
-- Superadmin: nueva Bitácora y sesiones con accesos, tiempo conectado, último login y actividad del sistema.
-- Sesión de aplicación configurable entre 8 y 24 horas; valor por defecto 12h.
-- Auditoría autoritativa por triggers de BD + eventos de navegación/sesión.
-- RLS: solo Superadmin puede consultar la bitácora.
+- Realtime reforzado en toda la plataforma con reconciliación inmediata y recuperación por focus/online.
+- Bitácora: métricas exactas por rango de fechas, sin límite falso de 1,000 acciones, traducciones y modal responsive/dark.
+- Staff: actualización completa y sincronización de correo entre Auth y perfiles.
+- Vacaciones: edición de solicitudes pendientes y cálculo exclusivo de días hábiles.
+- Asistente de Vacaciones: errores descriptivos, fallback estable y compatibilidad con campos legados.
+- Helpdesk: filtros multiopción combinables.
+- Header: modal Fuera hoy.
+- Menciones: acceso para Helpdesk y separación entre menciones y tickets solicitados.
+- Revisión estructural BD/RLS/CRUD contra el proyecto Supabase real.
 
 ## QA
-
-Ejecuta:
 
 ```bash
 npm run qa
 ```
 
-La suite incluye regresión integral y un test real de Chromium para el editor Knowledge.
+Resultado focal: **55 PASS · 0 FAIL**.
 
-Consulta `RELEASE-v17.18.md` y `QA-v17.18.md` para el detalle completo.
+Consulta `RELEASE-v17.19.0.md` y `QA-v17.19.0.md` para el detalle completo.
+
+## Actualización desde v17.18.1
+
+Ejecuta `upgrade-v17.19.0.sql` y vuelve a desplegar `manage-member` y `vacation-impact-assistant`.
