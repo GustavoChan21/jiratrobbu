@@ -35,7 +35,7 @@ Para DKIM, abre SendPulse > SMTP > Settings > Domain settings > `trobbucollectio
 Se solicitó:
 
 - From: `gustavo.chan@trobbucollection.com`
-- Nombre: `Jira Interno TROBBU`
+- Nombre: `Notificaciones Helpdesk x Jira`
 
 También se solicitó el código de activación al mismo correo. Revisa inbox/spam de `gustavo.chan@trobbucollection.com`.
 
@@ -47,7 +47,7 @@ Cuando el dominio quede autenticado, SendPulse puede activar el sender automáti
 2. Confirma que el sender corporativo aparece en la lista SMTP.
 3. Opcional/recomendado en Supabase Secrets:
    - `SENDPULSE_FROM_EMAIL=gustavo.chan@trobbucollection.com`
-   - `SENDPULSE_FROM_NAME=Jira Interno TROBBU`
+   - `SENDPULSE_FROM_NAME=Notificaciones Helpdesk x Jira`
 4. Mantén `email_qa_mode=true` hasta validar diseño, entregabilidad y spam.
 5. Solo después de aprobar QA se cambia `email_qa_mode=false` para permitir los destinatarios reales.
 

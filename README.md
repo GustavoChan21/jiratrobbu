@@ -1,29 +1,38 @@
 # Jira Interno TROBBU
 
-Versión actual: **v17.19.0**
+Versión actual: **v17.21.0**
 
-## Cambios principales
+## Estabilización UI
 
-- Realtime reforzado en toda la plataforma con reconciliación inmediata y recuperación por focus/online.
-- Bitácora: métricas exactas por rango de fechas, sin límite falso de 1,000 acciones, traducciones y modal responsive/dark.
-- Staff: actualización completa y sincronización de correo entre Auth y perfiles.
-- Vacaciones: edición de solicitudes pendientes y cálculo exclusivo de días hábiles.
-- Asistente de Vacaciones: errores descriptivos, fallback estable y compatibilidad con campos legados.
-- Helpdesk: filtros multiopción combinables.
-- Header: modal Fuera hoy.
-- Menciones: acceso para Helpdesk y separación entre menciones y tickets solicitados.
-- Revisión estructural BD/RLS/CRUD contra el proyecto Supabase real.
+- Recuperados los componentes `StaffRolesView`, `SettingsView`, `WorkspaceSettings`, `HelpdeskSettings`, `NotificationSettings`, `Toggle` y `EntitySettings` eliminados accidentalmente durante el refactor anterior.
+- Staff & Roles vuelve a renderizar su listado, tabs, roles, edición y acciones.
+- Bitácora vuelve a usar el componente visual estándar de tabs; se ajustaron periodo de análisis, márgenes y responsive.
+- Modal **Fuera hoy** usa footer estándar, padding interno y adaptación light/dark/mobile.
+- Se mantuvieron todos los componentes funcionales presentes en v17.18.1; el comparador reporta 0 funciones históricas faltantes.
 
-## QA
+## Staff CRUD
 
-```bash
-npm run qa
-```
+- Create: `invite-member`.
+- Read: membresías/perfiles del workspace.
+- Update: `manage-member` acción `update_member`, centralizando perfil, email, rol, productos, permisos y configuración Helpdesk.
+- Delete: `manage-member` acción `remove_member`; PostgreSQL elimina `workspace_member_products` mediante FK `ON DELETE CASCADE`.
+- La actualización conserva snapshot y ejecuta rollback best-effort si una fase administrativa falla.
 
-Resultado focal: **55 PASS · 0 FAIL**.
+## Correo
 
-Consulta `RELEASE-v17.19.0.md` y `QA-v17.19.0.md` para el detalle completo.
+- Modo de Jira: **PROD** (`email_qa_mode=false`).
+- Alias lógico configurado: **Notificaciones Jira x Helpdesk**.
+- Sender temporal: `devtest@sendpulseemail.com` mientras SendPulse permanezca en SMTP Test.
+- Límite temporal: **10 correos/hora** y control de remanente del máximo de 50 envíos del entorno Test.
+- El asunto canónico por folio se conserva para Helpdesk/Jira.
 
-## Actualización desde v17.18.1
+> SendPulse puede sustituir visualmente el nombre/remitente por su identidad de prueba mientras la cuenta continúe en SMTP Test; Jira ya envía el alias solicitado en el payload y entrega a los destinatarios reales.
 
-Ejecuta `upgrade-v17.19.0.sql` y vuelve a desplegar `manage-member` y `vacation-impact-assistant`.
+## Actualización desde v17.20.0
+
+1. Publica los archivos de esta carpeta desde la raíz del hosting.
+2. Ejecuta `upgrade-v17.21.0.sql` si la base aún no tiene la migración.
+3. Despliega `manage-member.ts` como `manage-member` y `process-notifications.ts` como `process-notifications`.
+4. Ejecuta `npm run qa` para la validación estática/focal.
+
+El ZIP de distribución está aplanado: no contiene carpeta contenedora ni `vendor/`.
